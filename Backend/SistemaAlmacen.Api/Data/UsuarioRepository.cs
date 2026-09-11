@@ -232,4 +232,41 @@ public async Task<UsuarioLoginDto?> ObtenerParaLoginAsync(
             command.LastInsertedId
         );
     }
+    
+
+    // Actualiza el hash de la contraseña de un usuario.
+    public async Task<bool> ActualizarPasswordAsync(
+        int idUsuario,
+        string passwordHash)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            UPDATE usuarios
+            SET password_hash = @passwordHash
+            WHERE id_usuario = @idUsuario;
+            """;
+
+        // Envía los valores mediante parámetros seguros.
+        command.Parameters.AddWithValue(
+            "@passwordHash",
+            passwordHash
+        );
+
+        command.Parameters.AddWithValue(
+            "@idUsuario",
+            idUsuario
+        );
+
+        var filasActualizadas =
+            await command.ExecuteNonQueryAsync();
+
+        return filasActualizadas > 0;
+    }
 }

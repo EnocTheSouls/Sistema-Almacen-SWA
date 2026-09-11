@@ -82,7 +82,6 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -186,6 +185,7 @@ app.MapGet(
     }
 )
 .RequireAuthorization();
+
 // Registra las rutas de la aplicación.
 app.MapRolEndpoints();
 app.MapUsuarioEndpoints();
