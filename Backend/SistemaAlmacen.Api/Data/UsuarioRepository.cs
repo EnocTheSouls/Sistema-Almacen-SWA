@@ -116,6 +116,60 @@ public sealed class UsuarioRepository
             FechaRegistro = reader.GetDateTime("fecha_registro")
         };
     }
+// Obtiene los datos internos necesarios para validar el inicio de sesión.
+public async Task<UsuarioLoginDto?> ObtenerParaLoginAsync(
+    string nombreUsuario)
+{
+    await using var connection =
+        _connectionFactory.CreateConnection();
+
+    await connection.OpenAsync();
+
+    await using var command =
+        connection.CreateCommand();
+
+    command.CommandText = """
+        SELECT
+            u.id_usuario,
+            u.nombre,
+            u.usuario,
+            u.password_hash,
+            u.id_rol,
+            r.nombre AS nombre_rol,
+            u.activo
+        FROM usuarios AS u
+        INNER JOIN roles AS r
+            ON r.id_rol = u.id_rol
+        WHERE u.usuario = @nombreUsuario
+        LIMIT 1;
+        """;
+
+    // Busca al usuario mediante un parámetro seguro.
+    command.Parameters.AddWithValue(
+        "@nombreUsuario",
+        nombreUsuario.Trim()
+    );
+
+    await using var reader =
+        await command.ExecuteReaderAsync();
+
+    // Devuelve null cuando el usuario no existe.
+    if (!await reader.ReadAsync())
+    {
+        return null;
+    }
+
+    return new UsuarioLoginDto
+    {
+        IdUsuario = reader.GetInt32("id_usuario"),
+        Nombre = reader.GetString("nombre"),
+        NombreUsuario = reader.GetString("usuario"),
+        PasswordHash = reader.GetString("password_hash"),
+        IdRol = reader.GetInt32("id_rol"),
+        NombreRol = reader.GetString("nombre_rol"),
+        Activo = reader.GetBoolean("activo")
+    };
+}
 
     // Guarda un usuario con la contraseña protegida.
     public async Task<int> CrearAsync(Usuario usuario)
