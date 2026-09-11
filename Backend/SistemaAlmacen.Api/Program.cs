@@ -1,12 +1,21 @@
 using MySqlConnector;
 using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Endpoints;
+using Microsoft.AspNetCore.Identity;
+using SistemaAlmacen.Api.Models;
+using SistemaAlmacen.Api.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuración de OpenAPI
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<MySqlConnectionFactory>();
 builder.Services.AddScoped<RolRepository>();
+builder.Services.AddScoped<UsuarioRepository>();
+// Registra la protección de contraseñas.
+builder.Services.AddScoped<PasswordHasher<Usuario>>();
+builder.Services.AddScoped<PasswordService>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -67,4 +76,5 @@ app.MapGet("/api/database/test", async (MySqlConnectionFactory connectionFactory
 }
 );
 app.MapRolEndpoints();
+app.MapUsuarioEndpoints();
 app.Run();

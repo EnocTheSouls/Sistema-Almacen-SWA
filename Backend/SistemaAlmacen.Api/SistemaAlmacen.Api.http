@@ -30,3 +30,14 @@ Content-Type: application/json
 DELETE  {{SistemaAlmacen_Api_HostAddress}}/api/roles/11
 Accept: application/json
 
+###Crear usuario administrador###
+POST {{SistemaAlmacen_Api_HostAddress}}/api/usuarios
+Content-Type: application/json
+Accept: application/json
+
+{
+  "nombre":"Administrador del sistema",
+  "nombreUsuario": "admin",
+  "password": "CONTRASEÑA_TEMPORAL_NO_GUARDAR",
+  "idRol": 1
+}
