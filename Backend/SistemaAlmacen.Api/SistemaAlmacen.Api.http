@@ -1,0 +1,27 @@
+@SistemaAlmacen_Api_HostAddress = http://localhost:5042
+
+### Consultar todos los roles
+GET {{SistemaAlmacen_Api_HostAddress}}/api/roles
+Accept: application/json
+
+### Consultar un rol por identificador
+GET {{SistemaAlmacen_Api_HostAddress}}/api/roles/1
+Accept: application/json
+
+### Crear un rol temporal
+POST {{SistemaAlmacen_Api_HostAddress}}/api/roles
+Content-Type: application/json
+
+{
+  "nombre": "Auditor",
+  "descripcion": "Consulta de movimientos y bitácora"
+}
+
+### Actualizar un rol temporal 
+PUT {{SistemaAlmacen_Api_HostAddress}}/api/roles/11
+Content-Type: application/json
+
+{
+  "nombre": "Auditor",
+  "descripcion": "Consulta autorizada de movimientos, Inventario y bitacora"
+}
