@@ -13,7 +13,7 @@ public static class UsuarioEndpoints
     {
         // Agrupa las rutas bajo /api/usuarios.
         var grupo = app.MapGroup("/api/usuarios")
-            .WithTags("Usuarios");
+            .WithTags("Usuarios").RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
         // Obtiene todos los usuarios registrados.
         grupo.MapGet("/", async (

@@ -9,7 +9,7 @@ public static class RolEndpoints
     public static void MapRolEndpoints(this WebApplication app)
     {
         var grupo = app.MapGroup("/api/roles")
-            .WithTags("Roles");
+            .WithTags("Roles").RequireAuthorization(policy => policy.RequireRole("Administrador"));
 
         // Obtener todos los roles
         grupo.MapGet("/", async (RolRepository repository) =>
