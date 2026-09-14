@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MySqlConnector;
 using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Dtos;
@@ -158,5 +159,143 @@ public static class UsuarioEndpoints
             }
         })
         .WithName("CrearUsuario");
+
+
+        // Actualiza los datos generales de un usuario.
+        grupo.MapPut("/{idUsuario:int}", async (
+            int idUsuario,
+            ActualizarUsuarioDto dto,
+            ClaimsPrincipal principal,
+            UsuarioRepository usuarioRepository,
+            RolRepository rolRepository) =>
+        {
+            // Valida que el nombre tenga contenido.
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje = "El nombre es obligatorio."
+                });
+            }
+
+            // Valida que el nombre de usuario tenga contenido.
+            if (string.IsNullOrWhiteSpace(dto.NombreUsuario))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje = "El nombre de usuario es obligatorio."
+                });
+            }
+
+            // Valida la longitud del nombre.
+            if (dto.Nombre.Trim().Length > 150)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El nombre no puede exceder 150 caracteres."
+                });
+            }
+
+            // Valida la longitud del nombre de usuario.
+            if (dto.NombreUsuario.Trim().Length > 50)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El nombre de usuario no puede exceder 50 caracteres."
+                });
+            }
+
+            // Comprueba que el usuario exista.
+            var usuarioExistente =
+                await usuarioRepository.ObtenerPorIdAsync(idUsuario);
+
+            if (usuarioExistente is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe un usuario con el identificador {idUsuario}."
+                });
+            }
+
+            // Obtiene el ID del administrador autenticado desde el JWT.
+            var idUsuarioAutenticadoTexto =
+                principal.FindFirstValue(
+                    ClaimTypes.NameIdentifier
+                );
+
+            if (!int.TryParse(
+                idUsuarioAutenticadoTexto,
+                out var idUsuarioAutenticado))
+            {
+                return Results.Unauthorized();
+            }
+
+            // Impide desactivar la cuenta que está en uso.
+            if (idUsuario == idUsuarioAutenticado &&
+                !dto.Activo)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "No puedes desactivar tu propia cuenta."
+                });
+            }
+
+            // Comprueba que el rol seleccionado exista.
+            var rol =
+                await rolRepository.ObtenerPorIdAsync(dto.IdRol);
+
+            if (rol is null)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        $"No existe un rol con el identificador {dto.IdRol}."
+                });
+            }
+
+            try
+            {
+                var actualizado =
+                    await usuarioRepository.ActualizarAsync(
+                        idUsuario,
+                        dto.Nombre,
+                        dto.NombreUsuario,
+                        dto.IdRol,
+                        dto.Activo
+                    );
+
+                if (!actualizado)
+                {
+                    return Results.Problem(
+                        title: "No se actualizó el usuario",
+                        detail:
+                            "MySQL no modificó el registro del usuario.",
+                        statusCode:
+                            StatusCodes.Status500InternalServerError
+                    );
+                }
+
+                // Devuelve los datos actualizados sin exponer el hash.
+                var usuarioActualizado =
+                    await usuarioRepository.ObtenerPorIdAsync(idUsuario);
+
+                return Results.Ok(usuarioActualizado);
+            }
+            catch (MySqlException ex) when (ex.Number == 1062)
+            {
+                // Evita nombres de usuario duplicados.
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "Ya existe otro usuario con ese nombre de usuario."
+                });
+            }
+        })
+        .WithName("ActualizarUsuario");
+
     }
 }

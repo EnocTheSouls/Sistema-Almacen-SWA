@@ -288,6 +288,69 @@ public async Task<UsuarioLoginDto?> ObtenerParaLoginPorIdAsync(
             command.LastInsertedId
         );
     }
+
+    // Actualiza los datos generales de un usuario.
+public async Task<bool> ActualizarAsync(
+    int idUsuario,
+    string nombre,
+    string nombreUsuario,
+    int idRol,
+    bool activo)
+{
+    // Limpia los datos antes de guardarlos.
+    var nombreLimpio = nombre.Trim();
+    var nombreUsuarioLimpio = nombreUsuario.Trim();
+
+    await using var connection =
+        _connectionFactory.CreateConnection();
+
+    await connection.OpenAsync();
+
+    await using var command =
+        connection.CreateCommand();
+
+    command.CommandText = """
+        UPDATE usuarios
+        SET
+            nombre = @nombre,
+            usuario = @nombreUsuario,
+            id_rol = @idRol,
+            activo = @activo
+        WHERE id_usuario = @idUsuario;
+        """;
+
+    // Envía los datos mediante parámetros seguros.
+    command.Parameters.AddWithValue(
+        "@idUsuario",
+        idUsuario
+    );
+
+    command.Parameters.AddWithValue(
+        "@nombre",
+        nombreLimpio
+    );
+
+    command.Parameters.AddWithValue(
+        "@nombreUsuario",
+        nombreUsuarioLimpio
+    );
+
+    command.Parameters.AddWithValue(
+        "@idRol",
+        idRol
+    );
+
+    command.Parameters.AddWithValue(
+        "@activo",
+        activo
+    );
+
+    var filasActualizadas =
+        await command.ExecuteNonQueryAsync();
+
+    // Devuelve true cuando el usuario fue actualizado.
+    return filasActualizadas > 0;
+}
     
 
     // Actualiza el hash de la contraseña de un usuario.
