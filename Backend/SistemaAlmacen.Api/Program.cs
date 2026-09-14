@@ -19,6 +19,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<MySqlConnectionFactory>();
 builder.Services.AddScoped<RolRepository>();
 builder.Services.AddScoped<UsuarioRepository>();
+builder.Services.AddScoped<ProyectoRepository>();
 
 // Registra la protección de contraseñas.
 builder.Services.AddScoped<PasswordHasher<Usuario>>();
@@ -191,4 +192,5 @@ app.MapGet(
 app.MapRolEndpoints();
 app.MapUsuarioEndpoints();
 app.MapAuthEndpoints();
+app.MapProyectoEndpoints();
 app.Run();
