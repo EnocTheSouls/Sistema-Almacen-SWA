@@ -9,6 +9,7 @@ using SistemaAlmacen.Api.Endpoints;
 using SistemaAlmacen.Api.Models;
 using SistemaAlmacen.Api.Services;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configura la documentación OpenAPI.
@@ -86,7 +87,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
+   
 // Redirige las solicitudes HTTP hacia HTTPS.
 app.UseHttpsRedirection();
 
