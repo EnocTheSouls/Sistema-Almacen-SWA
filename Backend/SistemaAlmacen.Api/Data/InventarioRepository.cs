@@ -28,23 +28,25 @@ public sealed class InventarioRepository
             connection.CreateCommand();
 
         command.CommandText =
-    CrearConsultaBase() +
-    Environment.NewLine +
-    """
-    ORDER BY
-        m.numero_parte_material,
-        z.codigo,
-        r.nombre,
-        u.nivel,
-        u.posicion;
-    """;
+            CrearConsultaBase() +
+            Environment.NewLine +
+            """
+            ORDER BY
+                m.numero_parte_material,
+                z.codigo,
+                r.nombre,
+                u.nivel,
+                u.posicion;
+            """;
 
         await using var reader =
             await command.ExecuteReaderAsync();
 
         while (await reader.ReadAsync())
         {
-            inventario.Add(MapearInventario(reader));
+            inventario.Add(
+                MapearInventario(reader)
+            );
         }
 
         return inventario;
@@ -63,11 +65,12 @@ public sealed class InventarioRepository
             connection.CreateCommand();
 
         command.CommandText =
-    CrearConsultaBase() +
-    Environment.NewLine +
-    """
-    WHERE i.id_inventario = @idInventario;
-    """;
+            CrearConsultaBase() +
+            Environment.NewLine +
+            """
+            WHERE i.id_inventario = @idInventario;
+            """;
+
         command.Parameters.AddWithValue(
             "@idInventario",
             idInventario
@@ -84,49 +87,10 @@ public sealed class InventarioRepository
         return MapearInventario(reader);
     }
 
-    // Obtiene el inventario de un material en todas sus ubicaciones.
-    public async Task<List<Inventario>> ObtenerPorMaterialAsync(
-        int idMaterial)
-    {
-        var inventario = new List<Inventario>();
-
-        await using var connection =
-            _connectionFactory.CreateConnection();
-
-        await connection.OpenAsync();
-
-        await using var command =
-            connection.CreateCommand();
-
-
-        command.CommandText = CrearConsultaBase() + """
-    WHERE i.id_material = @idMaterial
-    ORDER BY
-        z.codigo,
-        r.nombre,
-        u.nivel,
-        u.posicion;
-    """;
-
-        command.Parameters.AddWithValue(
-            "@idMaterial",
-            idMaterial
-        );
-
-        await using var reader =
-            await command.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
-        {
-            inventario.Add(MapearInventario(reader));
-        }
-
-        return inventario;
-    }
-
-    // Obtiene todos los materiales de una ubicación.
-    public async Task<List<Inventario>> ObtenerPorUbicacionAsync(
-        int idUbicacion)
+    // Obtiene el inventario de un material en sus ubicaciones.
+    public async Task<List<Inventario>>
+        ObtenerPorMaterialAsync(
+            int idMaterial)
     {
         var inventario = new List<Inventario>();
 
@@ -139,12 +103,57 @@ public sealed class InventarioRepository
             connection.CreateCommand();
 
         command.CommandText =
-    CrearConsultaBase() +
-    Environment.NewLine +
-    """
-    WHERE i.id_ubicacion = @idUbicacion
-    ORDER BY m.numero_parte_material;
-    """;
+            CrearConsultaBase() +
+            Environment.NewLine +
+            """
+            WHERE i.id_material = @idMaterial
+            ORDER BY
+                z.codigo,
+                r.nombre,
+                u.nivel,
+                u.posicion;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idMaterial",
+            idMaterial
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            inventario.Add(
+                MapearInventario(reader)
+            );
+        }
+
+        return inventario;
+    }
+
+    // Obtiene todos los materiales de una ubicación.
+    public async Task<List<Inventario>>
+        ObtenerPorUbicacionAsync(
+            int idUbicacion)
+    {
+        var inventario = new List<Inventario>();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText =
+            CrearConsultaBase() +
+            Environment.NewLine +
+            """
+            WHERE i.id_ubicacion = @idUbicacion
+            ORDER BY m.numero_parte_material;
+            """;
 
         command.Parameters.AddWithValue(
             "@idUbicacion",
@@ -156,16 +165,19 @@ public sealed class InventarioRepository
 
         while (await reader.ReadAsync())
         {
-            inventario.Add(MapearInventario(reader));
+            inventario.Add(
+                MapearInventario(reader)
+            );
         }
 
         return inventario;
     }
 
-    // Obtiene la existencia de un material en una ubicación específica.
-    public async Task<Inventario?> ObtenerPorMaterialYUbicacionAsync(
-        int idMaterial,
-        int idUbicacion)
+    // Obtiene un material en una ubicación específica.
+    public async Task<Inventario?>
+        ObtenerPorMaterialYUbicacionAsync(
+            int idMaterial,
+            int idUbicacion)
     {
         await using var connection =
             _connectionFactory.CreateConnection();
@@ -175,7 +187,10 @@ public sealed class InventarioRepository
         await using var command =
             connection.CreateCommand();
 
-        command.CommandText = CrearConsultaBase() + """
+        command.CommandText =
+            CrearConsultaBase() +
+            Environment.NewLine +
+            """
             WHERE i.id_material = @idMaterial
               AND i.id_ubicacion = @idUbicacion
             LIMIT 1;
@@ -202,7 +217,241 @@ public sealed class InventarioRepository
         return MapearInventario(reader);
     }
 
-    // Define las tablas y columnas utilizadas por las consultas.
+
+    // Registra una entrada de inventario y su movimiento.
+public async Task<Inventario?> RegistrarEntradaAsync(
+    int idMaterial,
+    int idUbicacion,
+    decimal cantidad,
+    int idUsuario,
+    string? referencia,
+    string? comentarios)
+{
+    var referenciaLimpia =
+        string.IsNullOrWhiteSpace(referencia)
+            ? null
+            : referencia.Trim();
+
+    var comentariosLimpios =
+        string.IsNullOrWhiteSpace(comentarios)
+            ? null
+            : comentarios.Trim();
+
+    await using var connection =
+        _connectionFactory.CreateConnection();
+
+    await connection.OpenAsync();
+
+    // Ambas operaciones se confirman o cancelan juntas.
+    await using var transaction =
+        await connection.BeginTransactionAsync();
+
+    try
+    {
+        long? idInventario = null;
+
+        // Busca y bloquea temporalmente la existencia actual.
+        await using (var buscarCommand =
+            connection.CreateCommand())
+        {
+            buscarCommand.Transaction = transaction;
+
+            buscarCommand.CommandText = """
+                SELECT id_inventario
+                FROM inventario
+                WHERE id_material = @idMaterial
+                  AND id_ubicacion = @idUbicacion
+                LIMIT 1
+                FOR UPDATE;
+                """;
+
+            buscarCommand.Parameters.AddWithValue(
+                "@idMaterial",
+                idMaterial
+            );
+
+            buscarCommand.Parameters.AddWithValue(
+                "@idUbicacion",
+                idUbicacion
+            );
+
+            var resultado =
+                await buscarCommand.ExecuteScalarAsync();
+
+            if (resultado is not null &&
+                resultado is not DBNull)
+            {
+                idInventario =
+                    Convert.ToInt64(resultado);
+            }
+        }
+
+        if (idInventario.HasValue)
+        {
+            // Aumenta el inventario disponible existente.
+            await using var actualizarCommand =
+                connection.CreateCommand();
+
+            actualizarCommand.Transaction = transaction;
+
+            actualizarCommand.CommandText = """
+                UPDATE inventario
+                SET
+                    disponible = disponible + @cantidad,
+                    ultima_actualizacion = CURRENT_TIMESTAMP
+                WHERE id_inventario = @idInventario;
+                """;
+
+            actualizarCommand.Parameters.AddWithValue(
+                "@cantidad",
+                cantidad
+            );
+
+            actualizarCommand.Parameters.AddWithValue(
+                "@idInventario",
+                idInventario.Value
+            );
+
+            await actualizarCommand.ExecuteNonQueryAsync();
+        }
+        else
+        {
+            // Crea la existencia inicial del material.
+            await using var insertarCommand =
+                connection.CreateCommand();
+
+            insertarCommand.Transaction = transaction;
+
+            insertarCommand.CommandText = """
+                INSERT INTO inventario (
+                    id_material,
+                    id_ubicacion,
+                    disponible,
+                    reservado,
+                    no_disponible,
+                    ultima_actualizacion
+                )
+                VALUES (
+                    @idMaterial,
+                    @idUbicacion,
+                    @cantidad,
+                    0,
+                    0,
+                    CURRENT_TIMESTAMP
+                );
+                """;
+
+            insertarCommand.Parameters.AddWithValue(
+                "@idMaterial",
+                idMaterial
+            );
+
+            insertarCommand.Parameters.AddWithValue(
+                "@idUbicacion",
+                idUbicacion
+            );
+
+            insertarCommand.Parameters.AddWithValue(
+                "@cantidad",
+                cantidad
+            );
+
+            await insertarCommand.ExecuteNonQueryAsync();
+
+            idInventario =
+                Convert.ToInt64(
+                    insertarCommand.LastInsertedId
+                );
+        }
+
+        // Registra el historial de la entrada.
+        await using (var movimientoCommand =
+            connection.CreateCommand())
+        {
+            movimientoCommand.Transaction = transaction;
+
+            movimientoCommand.CommandText = """
+                INSERT INTO movimiento_inventario (
+                    id_solicitud,
+                    id_arnes,
+                    fecha_hora,
+                    id_material,
+                    cantidad,
+                    tipo_movimiento,
+                    id_ubicacion_origen,
+                    id_ubicacion_destino,
+                    id_usuario,
+                    referencia,
+                    comentarios
+                )
+                VALUES (
+                    NULL,
+                    NULL,
+                    CURRENT_TIMESTAMP,
+                    @idMaterial,
+                    @cantidad,
+                    'ENTRADA',
+                    NULL,
+                    @idUbicacion,
+                    @idUsuario,
+                    @referencia,
+                    @comentarios
+                );
+                """;
+
+            movimientoCommand.Parameters.AddWithValue(
+                "@idMaterial",
+                idMaterial
+            );
+
+            movimientoCommand.Parameters.AddWithValue(
+                "@cantidad",
+                cantidad
+            );
+
+            movimientoCommand.Parameters.AddWithValue(
+                "@idUbicacion",
+                idUbicacion
+            );
+
+            movimientoCommand.Parameters.AddWithValue(
+                "@idUsuario",
+                idUsuario
+            );
+
+            movimientoCommand.Parameters.AddWithValue(
+                "@referencia",
+                referenciaLimpia is null
+                    ? DBNull.Value
+                    : referenciaLimpia
+            );
+
+            movimientoCommand.Parameters.AddWithValue(
+                "@comentarios",
+                comentariosLimpios is null
+                    ? DBNull.Value
+                    : comentariosLimpios
+            );
+
+            await movimientoCommand.ExecuteNonQueryAsync();
+        }
+
+        // Confirma inventario y movimiento al mismo tiempo.
+        await transaction.CommitAsync();
+
+        return await ObtenerPorIdAsync(
+            idInventario.Value
+        );
+    }
+    catch
+    {
+        // Cancela todo si cualquiera de las operaciones falla.
+        await transaction.RollbackAsync();
+        throw;
+    }
+}
+
+    // Define las tablas y columnas de las consultas.
     private static string CrearConsultaBase()
     {
         return """
@@ -248,10 +497,14 @@ public sealed class InventarioRepository
                 reader.GetInt32("id_material"),
 
             NumeroParteMaterial =
-                reader.GetString("numero_parte_material"),
+                reader.GetString(
+                    "numero_parte_material"
+                ),
 
             DescripcionMaterial =
-                reader.GetString("descripcion_material"),
+                reader.GetString(
+                    "descripcion_material"
+                ),
 
             UnidadMedida = reader.IsDBNull(
                 reader.GetOrdinal("unidad_medida")
@@ -296,7 +549,9 @@ public sealed class InventarioRepository
                 reader.GetDecimal("no_disponible"),
 
             UltimaActualizacion =
-                reader.GetDateTime("ultima_actualizacion")
+                reader.GetDateTime(
+                    "ultima_actualizacion"
+                )
         };
     }
 }

@@ -2,7 +2,6 @@ using MySqlConnector;
 using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Dtos;
 
-
 namespace SistemaAlmacen.Api.Endpoints;
 
 // Define las rutas HTTP del módulo de materiales.
@@ -84,132 +83,214 @@ public static class MaterialEndpoints
         .WithName("ObtenerMaterialPorNumeroParte");
 
         // Crea un material nuevo.
-grupo.MapPost("/", async (
-    CrearMaterialDto dto,
-    MaterialRepository repository) =>
+        grupo.MapPost("/", async (
+            CrearMaterialDto dto,
+            MaterialRepository repository) =>
+        {
+            // Valida el número de parte.
+            if (string.IsNullOrWhiteSpace(
+                dto.NumeroParteMaterial))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El número de parte del material es obligatorio."
+                });
+            }
+
+            if (dto.NumeroParteMaterial.Trim().Length > 100)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El número de parte no puede exceder 100 caracteres."
+                });
+            }
+
+            // Valida la descripción obligatoria.
+            if (string.IsNullOrWhiteSpace(dto.Descripcion))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La descripción del material es obligatoria."
+                });
+            }
+
+            if (dto.Descripcion.Trim().Length > 255)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La descripción no puede exceder 255 caracteres."
+                });
+            }
+
+            // Valida los campos opcionales.
+            if (dto.UnidadMedida?.Trim().Length > 20)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La unidad de medida no puede exceder 20 caracteres."
+                });
+            }
+
+            if (dto.CodigoBarras?.Trim().Length > 100)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El código de barras no puede exceder 100 caracteres."
+                });
+            }
+
+            if (dto.SerialKits?.Trim().Length > 100)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El serial de kits no puede exceder 100 caracteres."
+                });
+            }
+
+            // GenericCode es obligatorio y permite un carácter.
+            if (string.IsNullOrWhiteSpace(dto.GenericCode))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El código genérico es obligatorio."
+                });
+            }
+
+            if (dto.GenericCode.Trim().Length != 1)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El código genérico debe contener exactamente un carácter."
+                });
+            }
+
+            // Valida el tipo de empaque.
+            if (dto.TipoEmpaque?.Trim().Length > 30)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El tipo de empaque no puede exceder 30 caracteres."
+                });
+            }
+
+            // Valida la cantidad estándar por empaque.
+            if (dto.StdPack.HasValue &&
+                dto.StdPack.Value <= 0)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La cantidad estándar por empaque debe ser mayor que cero."
+                });
+            }
+
+            // Ambos datos deben existir juntos.
+            if (string.IsNullOrWhiteSpace(dto.TipoEmpaque) !=
+                !dto.StdPack.HasValue)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El tipo de empaque y el estándar de empaque deben capturarse juntos."
+                });
+            }
+
+            try
+            {
+                var materialCreado =
+                    await repository.CrearAsync(
+                        dto.NumeroParteMaterial,
+                        dto.Descripcion,
+                        dto.UnidadMedida,
+                        dto.CodigoBarras,
+                        dto.SerialKits,
+                        dto.GenericCode,
+                        dto.TipoEmpaque,
+                        dto.StdPack
+                    );
+
+                if (materialCreado is null)
+                {
+                    return Results.Problem(
+                        title:
+                            "No se obtuvo el material creado",
+                        detail:
+                            "El registro fue insertado, pero no pudo consultarse.",
+                        statusCode:
+                            StatusCodes.Status500InternalServerError
+                    );
+                }
+
+                return Results.Created(
+                    $"/api/materiales/{materialCreado.IdMaterial}",
+                    materialCreado
+                );
+            }
+            catch (MySqlException ex)
+                when (ex.Number == 1062)
+            {
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "Ya existe un material con el mismo número de parte, código de barras o serial de kits."
+                });
+            }
+        })
+        .WithName("CrearMaterial")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador"));
+        grupo.MapPut("/{idMaterial:int}", async (
+int idMaterial,
+ActualizarMaterialDto dto,
+MaterialRepository repository) =>
 {
-    // Valida el número de parte.
+    var materialExistente =
+        await repository.ObtenerPorIdAsync(
+            idMaterial
+        );
+
+    if (materialExistente is null)
+    {
+        return Results.NotFound(new
+        {
+            mensaje =
+                $"No existe el material {idMaterial}."
+        });
+    }
+
     if (string.IsNullOrWhiteSpace(
         dto.NumeroParteMaterial))
     {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El número de parte del material es obligatorio."
-        });
+        return Results.BadRequest();
     }
 
-    if (dto.NumeroParteMaterial.Trim().Length > 100)
+    if (string.IsNullOrWhiteSpace(
+        dto.Descripcion))
     {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El número de parte no puede exceder 100 caracteres."
-        });
+        return Results.BadRequest();
     }
 
-    // Valida la descripción obligatoria.
-    if (string.IsNullOrWhiteSpace(dto.Descripcion))
+    if (string.IsNullOrWhiteSpace(
+        dto.GenericCode))
     {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "La descripción del material es obligatoria."
-        });
-    }
-
-    if (dto.Descripcion.Trim().Length > 255)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "La descripción no puede exceder 255 caracteres."
-        });
-    }
-
-    // Valida los campos opcionales.
-    if (dto.UnidadMedida?.Trim().Length > 20)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "La unidad de medida no puede exceder 20 caracteres."
-        });
-    }
-
-    if (dto.CodigoBarras?.Trim().Length > 100)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El código de barras no puede exceder 100 caracteres."
-        });
-    }
-
-    if (dto.SerialKits?.Trim().Length > 100)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El serial de kits no puede exceder 100 caracteres."
-        });
-    }
-
-    // GenericCode es obligatorio y permite un carácter.
-    if (string.IsNullOrWhiteSpace(dto.GenericCode))
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El código genérico es obligatorio."
-        });
-    }
-
-    if (dto.GenericCode.Trim().Length != 1)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El código genérico debe contener exactamente un carácter."
-        });
-    }
-
-    // Valida el tipo de empaque.
-    if (dto.TipoEmpaque?.Trim().Length > 30)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El tipo de empaque no puede exceder 30 caracteres."
-        });
-    }
-
-    // Valida la cantidad estándar por empaque.
-    if (dto.StdPack.HasValue &&
-        dto.StdPack.Value <= 0)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "La cantidad estándar por empaque debe ser mayor que cero."
-        });
-    }
-
-    // Ambos datos deben existir juntos.
-    if (string.IsNullOrWhiteSpace(dto.TipoEmpaque) !=
-        !dto.StdPack.HasValue)
-    {
-        return Results.BadRequest(new
-        {
-            mensaje =
-                "El tipo de empaque y el estándar de empaque deben capturarse juntos."
-        });
+        return Results.BadRequest();
     }
 
     try
     {
-        var materialCreado =
-            await repository.CrearAsync(
+        var material =
+            await repository.ActualizarAsync(
+                idMaterial,
                 dto.NumeroParteMaterial,
                 dto.Descripcion,
                 dto.UnidadMedida,
@@ -217,40 +298,51 @@ grupo.MapPost("/", async (
                 dto.SerialKits,
                 dto.GenericCode,
                 dto.TipoEmpaque,
-                dto.StdPack
+                dto.StdPack,
+                dto.Activo
             );
 
-        if (materialCreado is null)
-        {
-            return Results.Problem(
-                title:
-                    "No se obtuvo el material creado",
-                detail:
-                    "El registro fue insertado, pero no pudo consultarse.",
-                statusCode:
-                    StatusCodes.Status500InternalServerError
-            );
-        }
-
-        return Results.Created(
-            $"/api/materiales/{materialCreado.IdMaterial}",
-            materialCreado
-        );
+        return Results.Ok(material);
     }
-    catch (MySqlException ex) when (ex.Number == 1062)
+    catch (MySqlException ex)
+        when (ex.Number == 1062)
     {
-        // Controla número de parte, código de barras
-        // o serial de kits duplicados.
         return Results.Conflict(new
         {
             mensaje =
-                "Ya existe un material con el mismo número de parte, código de barras o serial de kits."
+                "Ya existe un material con esos datos."
         });
     }
 })
-.WithName("CrearMaterial")
+.WithName("ActualizarMaterial")
 .RequireAuthorization(policy =>
-    policy.RequireRole("Administrador")
-);
+policy.RequireRole("Administrador"));
+        grupo.MapPatch(
+            "/{idMaterial:int}/estado",
+            async (
+                int idMaterial,
+                bool activo,
+                MaterialRepository repository) =>
+        {
+            var actualizado =
+                await repository.CambiarEstadoAsync(
+                    idMaterial,
+                    activo
+                );
+
+            if (!actualizado)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe el material {idMaterial}."
+                });
+            }
+
+            return Results.NoContent();
+        })
+        .WithName("CambiarEstadoMaterial")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador"));
     }
 }

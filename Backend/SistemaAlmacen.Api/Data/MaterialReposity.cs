@@ -278,6 +278,146 @@ public sealed class MaterialRepository
         return await ObtenerPorIdAsync(idMaterial);
     }
 
+    public async Task<Material?> ActualizarAsync(
+    int idMaterial,
+    string numeroParteMaterial,
+    string descripcion,
+    string? unidadMedida,
+    string? codigoBarras,
+    string? serialKits,
+    string genericCode,
+    string? tipoEmpaque,
+    decimal? stdPack,
+    bool activo)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE materiales
+        SET
+            numero_parte_material = @numeroParteMaterial,
+            descripcion = @descripcion,
+            unidad_medida = @unidadMedida,
+            codigo_barras = @codigoBarras,
+            serial_kits = @serialKits,
+            generic_code = @genericCode,
+            tipo_empaque = @tipoEmpaque,
+            std_pack = @stdPack,
+            activo = @activo
+        WHERE id_material = @idMaterial;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idMaterial",
+            idMaterial
+        );
+
+        command.Parameters.AddWithValue(
+            "@numeroParteMaterial",
+            numeroParteMaterial.Trim().ToUpperInvariant()
+        );
+
+        command.Parameters.AddWithValue(
+            "@descripcion",
+            descripcion.Trim()
+        );
+
+        command.Parameters.AddWithValue(
+            "@unidadMedida",
+            string.IsNullOrWhiteSpace(unidadMedida)
+                ? DBNull.Value
+                : unidadMedida.Trim().ToUpperInvariant()
+        );
+
+        command.Parameters.AddWithValue(
+            "@codigoBarras",
+            string.IsNullOrWhiteSpace(codigoBarras)
+                ? DBNull.Value
+                : codigoBarras.Trim()
+        );
+
+        command.Parameters.AddWithValue(
+            "@serialKits",
+            string.IsNullOrWhiteSpace(serialKits)
+                ? DBNull.Value
+                : serialKits.Trim()
+        );
+
+        command.Parameters.AddWithValue(
+            "@genericCode",
+            genericCode.Trim().ToUpperInvariant()
+        );
+
+        command.Parameters.AddWithValue(
+            "@tipoEmpaque",
+            string.IsNullOrWhiteSpace(tipoEmpaque)
+                ? DBNull.Value
+                : tipoEmpaque.Trim().ToUpperInvariant()
+        );
+
+        command.Parameters.AddWithValue(
+            "@stdPack",
+            stdPack.HasValue
+                ? stdPack.Value
+                : DBNull.Value
+        );
+
+        command.Parameters.AddWithValue(
+            "@activo",
+            activo
+        );
+
+        var filas =
+            await command.ExecuteNonQueryAsync();
+
+        if (filas == 0)
+        {
+            return null;
+        }
+
+        return await ObtenerPorIdAsync(
+            idMaterial
+        );
+    }
+    public async Task<bool> CambiarEstadoAsync(
+        int idMaterial,
+        bool activo)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE materiales
+        SET activo = @activo
+        WHERE id_material = @idMaterial;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idMaterial",
+            idMaterial
+        );
+
+        command.Parameters.AddWithValue(
+            "@activo",
+            activo
+        );
+
+        var filas =
+            await command.ExecuteNonQueryAsync();
+
+        return filas > 0;
+    }
 
     // Convierte una fila de MySQL en un material.
     private static Material MapearMaterial(
