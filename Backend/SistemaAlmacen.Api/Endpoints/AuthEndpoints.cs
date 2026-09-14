@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Dtos;
 using SistemaAlmacen.Api.Models;
 using SistemaAlmacen.Api.Services;
+
 
 namespace SistemaAlmacen.Api.Endpoints;
 
@@ -102,5 +104,124 @@ public static class AuthEndpoints
         })
         .WithName("IniciarSesion")
         .AllowAnonymous();
+
+        // Cambia la contraseña del usuario autenticado.
+grupo.MapPut("/cambiar-password", async (
+    CambiarPasswordDto dto,
+    ClaimsPrincipal principal,
+    UsuarioRepository usuarioRepository,
+    PasswordService passwordService) =>
+{
+    // Valida que ambas contraseñas tengan contenido.
+    if (string.IsNullOrWhiteSpace(dto.PasswordActual) ||
+        string.IsNullOrWhiteSpace(dto.PasswordNueva))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje =
+                "La contraseña actual y la nueva son obligatorias."
+        });
+    }
+
+    // Valida la longitud mínima de la contraseña nueva.
+    if (dto.PasswordNueva.Length < 8)
+    {
+        return Results.BadRequest(new
+        {
+            mensaje =
+                "La contraseña nueva debe contener al menos 8 caracteres."
+        });
+    }
+
+    // Obtiene el identificador desde el token JWT.
+    var idUsuarioTexto =
+        principal.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+    if (!int.TryParse(idUsuarioTexto, out var idUsuario))
+    {
+        return Results.Unauthorized();
+    }
+
+    // Obtiene el usuario y su hash desde MySQL.
+    var usuarioLogin =
+        await usuarioRepository.ObtenerParaLoginPorIdAsync(
+            idUsuario
+        );
+
+    if (usuarioLogin is null || !usuarioLogin.Activo)
+    {
+        return Results.Unauthorized();
+    }
+
+    // Construye el modelo requerido por PasswordService.
+    var usuario = new Usuario
+    {
+        IdUsuario = usuarioLogin.IdUsuario,
+        Nombre = usuarioLogin.Nombre,
+        NombreUsuario = usuarioLogin.NombreUsuario,
+        PasswordHash = usuarioLogin.PasswordHash,
+        IdRol = usuarioLogin.IdRol,
+        Activo = usuarioLogin.Activo
+    };
+
+    // Comprueba que la contraseña actual sea correcta.
+    var passwordActualValido =
+        passwordService.VerificarPassword(
+            usuario,
+            usuarioLogin.PasswordHash,
+            dto.PasswordActual
+        );
+
+    if (!passwordActualValido)
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = "La contraseña actual es incorrecta."
+        });
+    }
+
+    // Evita reutilizar la misma contraseña.
+    if (dto.PasswordActual == dto.PasswordNueva)
+    {
+        return Results.BadRequest(new
+        {
+            mensaje =
+                "La contraseña nueva debe ser diferente de la actual."
+        });
+    }
+
+    // Genera y guarda el nuevo hash.
+    var passwordHashNuevo =
+        passwordService.CrearHash(
+            usuario,
+            dto.PasswordNueva
+        );
+
+    var actualizado =
+        await usuarioRepository.ActualizarPasswordAsync(
+            idUsuario,
+            passwordHashNuevo
+        );
+
+    if (!actualizado)
+    {
+        return Results.Problem(
+            title: "No se actualizó la contraseña",
+            detail:
+                "No fue posible guardar la contraseña nueva.",
+            statusCode:
+                StatusCodes.Status500InternalServerError
+        );
+    }
+
+    return Results.Ok(new
+    {
+        mensaje = "La contraseña se actualizó correctamente."
+    });
+})
+.WithName("CambiarPassword")
+.RequireAuthorization();
     }
 }
