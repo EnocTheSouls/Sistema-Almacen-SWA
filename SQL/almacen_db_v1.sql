@@ -337,9 +337,11 @@ VALUES
 
 
 
+
 USE almacen_db;
 
 SELECT
+    TABLE_NAME AS tabla,
     COLUMN_NAME AS columna,
     COLUMN_TYPE AS tipo,
     IS_NULLABLE AS acepta_null,
@@ -348,5 +350,11 @@ SELECT
     EXTRA AS extra
 FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = 'almacen_db'
-  AND TABLE_NAME = 'arneses'
-ORDER BY ORDINAL_POSITION;
+  AND TABLE_NAME IN (
+      'materiales',
+      'inventario',
+      'movimiento_inventario'
+  )
+ORDER BY
+    TABLE_NAME,
+    ORDINAL_POSITION;

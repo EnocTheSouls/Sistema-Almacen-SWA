@@ -22,6 +22,11 @@ builder.Services.AddScoped<UsuarioRepository>();
 builder.Services.AddScoped<ProyectoRepository>();
 builder.Services.AddScoped<FamiliaRepository>();
 builder.Services.AddScoped<ArnesRepository>();
+builder.Services.AddScoped<ZonaRepository>();
+builder.Services.AddScoped<RackRepository>();
+builder.Services.AddScoped<UbicacionRepository>();
+builder.Services.AddScoped<MaterialRepository>();
+builder.Services.AddScoped<InventarioRepository>();
 
 // Registra la protección de contraseñas.
 builder.Services.AddScoped<PasswordHasher<Usuario>>();
@@ -197,4 +202,9 @@ app.MapAuthEndpoints();
 app.MapProyectoEndpoints();
 app.MapFamiliaEndpoints();
 app.MapArnesEndpoints();
+app.MapZonaEndpoints();
+app.MapRackEndpoints();
+app.MapUbicacionEndpoints();
+app.MapMaterialEndpoints();
+app.MapInventarioEndpoints();
 app.Run();
