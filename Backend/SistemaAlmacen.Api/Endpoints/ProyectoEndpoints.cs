@@ -1,5 +1,6 @@
+using MySqlConnector;
 using SistemaAlmacen.Api.Data;
-
+using SistemaAlmacen.Api.Dtos;
 namespace SistemaAlmacen.Api.Endpoints;
 
 // Define las rutas HTTP del módulo de proyectos.
@@ -45,5 +46,156 @@ public static class ProyectoEndpoints
             return Results.Ok(proyecto);
         })
         .WithName("ObtenerProyectoPorId");
+        // Crea un proyecto nuevo.
+        grupo.MapPost("/", async (
+            CrearProyectoDto dto,
+            ProyectoRepository repository) =>
+        {
+            // Valida que el nombre tenga contenido.
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje = "El nombre del proyecto es obligatorio."
+                });
+            }
+
+            // Valida la longitud definida en MySQL.
+            if (dto.Nombre.Trim().Length > 50)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El nombre del proyecto no puede exceder 50 caracteres."
+                });
+            }
+
+            if (dto.Descripcion?.Trim().Length > 255)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La descripción no puede exceder 255 caracteres."
+                });
+            }
+
+            try
+            {
+                var proyectoCreado =
+                    await repository.CrearAsync(
+                        dto.Nombre,
+                        dto.Descripcion
+                    );
+
+                return Results.Created(
+                    $"/api/proyectos/{proyectoCreado.IdProyecto}",
+                    proyectoCreado
+                );
+            }
+            catch (MySqlException ex) when (ex.Number == 1062)
+            {
+                // Evita proyectos con nombres duplicados.
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "Ya existe un proyecto con ese nombre."
+                });
+            }
+        })
+        .WithName("CrearProyecto")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador")
+        );
+
+
+
+        // Actualiza los datos de un proyecto existente.
+        grupo.MapPut("/{idProyecto:int}", async (
+            int idProyecto,
+            ActualizarProyectoDto dto,
+            ProyectoRepository repository) =>
+        {
+            // Valida que el nombre tenga contenido.
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje = "El nombre del proyecto es obligatorio."
+                });
+            }
+
+            // Valida la longitud definida en MySQL.
+            if (dto.Nombre.Trim().Length > 50)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El nombre del proyecto no puede exceder 50 caracteres."
+                });
+            }
+
+            if (dto.Descripcion?.Trim().Length > 255)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La descripción no puede exceder 255 caracteres."
+                });
+            }
+
+            // Comprueba que el proyecto exista.
+            var proyectoExistente =
+                await repository.ObtenerPorIdAsync(idProyecto);
+
+            if (proyectoExistente is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe un proyecto con el identificador {idProyecto}."
+                });
+            }
+
+            try
+            {
+                var actualizado =
+                    await repository.ActualizarAsync(
+                        idProyecto,
+                        dto.Nombre,
+                        dto.Descripcion,
+                        dto.Activo
+                    );
+
+                if (!actualizado)
+                {
+                    return Results.Problem(
+                        title: "No se actualizó el proyecto",
+                        detail:
+                            "MySQL no modificó el registro del proyecto.",
+                        statusCode:
+                            StatusCodes.Status500InternalServerError
+                    );
+                }
+
+                // Devuelve el proyecto con los datos actualizados.
+                var proyectoActualizado =
+                    await repository.ObtenerPorIdAsync(idProyecto);
+
+                return Results.Ok(proyectoActualizado);
+            }
+            catch (MySqlException ex) when (ex.Number == 1062)
+            {
+                // Evita utilizar el nombre de otro proyecto.
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "Ya existe otro proyecto con ese nombre."
+                });
+            }
+        })
+        .WithName("ActualizarProyecto")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador")
+        );
     }
 }

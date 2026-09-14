@@ -20,6 +20,7 @@ builder.Services.AddSingleton<MySqlConnectionFactory>();
 builder.Services.AddScoped<RolRepository>();
 builder.Services.AddScoped<UsuarioRepository>();
 builder.Services.AddScoped<ProyectoRepository>();
+builder.Services.AddScoped<FamiliaRepository>();
 
 // Registra la protección de contraseñas.
 builder.Services.AddScoped<PasswordHasher<Usuario>>();
@@ -193,4 +194,5 @@ app.MapRolEndpoints();
 app.MapUsuarioEndpoints();
 app.MapAuthEndpoints();
 app.MapProyectoEndpoints();
+app.MapFamiliaEndpoints();
 app.Run();
