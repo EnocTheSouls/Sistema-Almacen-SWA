@@ -335,10 +335,18 @@ VALUES
 ('Entregada', 'Material entregado a producción', 'Verde', TRUE),
 ('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
 
-SELECT DATABASE();
-SHOW DATABASES;
-SHOW TABLES;
 
 
+USE almacen_db;
 
-
+SELECT
+    COLUMN_NAME AS columna,
+    COLUMN_TYPE AS tipo,
+    IS_NULLABLE AS acepta_null,
+    COLUMN_KEY AS clave,
+    COLUMN_DEFAULT AS valor_default,
+    EXTRA AS extra
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'almacen_db'
+  AND TABLE_NAME = 'arneses'
+ORDER BY ORDINAL_POSITION;
