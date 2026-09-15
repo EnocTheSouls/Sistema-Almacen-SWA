@@ -39,7 +39,36 @@ public static class SolicitudEndpoints
         })
         .WithName("ObtenerSolicitudesPendientes");
 
+        // Obtiene únicamente las solicitudes creadas por el usuario autenticado.
+        grupo.MapGet("/mias", async (
+            ClaimsPrincipal principal,
+            SolicitudRepository solicitudRepository) =>
+        {
+            // Obtiene el identificador del usuario desde el token JWT.
+            var idUsuarioTexto =
+                principal.FindFirstValue(
+                    ClaimTypes.NameIdentifier
+                );
 
+            if (!int.TryParse(
+                idUsuarioTexto,
+                out var idUsuario))
+            {
+                return Results.Unauthorized();
+            }
+
+            var solicitudes =
+                await solicitudRepository.ObtenerPorUsuarioAsync(
+                    idUsuario
+                );
+
+            return Results.Ok(solicitudes);
+        })
+        .WithName("ObtenerMisSolicitudes")
+        .RequireAuthorization(policy =>
+            policy.RequireRole(
+                "Produccion"
+            ));
 
 
 

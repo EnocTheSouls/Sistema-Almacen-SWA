@@ -157,6 +157,61 @@ public sealed class SolicitudRepository
 
         return solicitudes;
     }
+
+    // Obtiene las solicitudes creadas por un usuario específico.
+    public async Task<List<Solicitud>> ObtenerPorUsuarioAsync(
+        int idUsuario)
+    {
+        var solicitudes =
+            new List<Solicitud>();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText =
+            CrearConsultaEncabezado() +
+            Environment.NewLine +
+            """
+        WHERE s.usuario_solicitud = @idUsuario
+        ORDER BY
+            s.fecha_solicitud DESC,
+            s.id_solicitud DESC;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idUsuario",
+            idUsuario
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            solicitudes.Add(
+                MapearSolicitud(reader)
+            );
+        }
+
+        // Cierra el lector antes de consultar los detalles.
+        await reader.CloseAsync();
+
+        // Agrega los materiales de cada solicitud.
+        foreach (var solicitud in solicitudes)
+        {
+            solicitud.Materiales =
+                await ObtenerDetallesAsync(
+                    solicitud.IdSolicitud
+                );
+        }
+
+        return solicitudes;
+    }
     // Obtiene solicitudes utilizando filtros opcionales combinables.
     public async Task<List<Solicitud>>
         ObtenerFiltradasAsync(
