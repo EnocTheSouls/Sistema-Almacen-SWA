@@ -27,6 +27,10 @@ builder.Services.AddScoped<RackRepository>();
 builder.Services.AddScoped<UbicacionRepository>();
 builder.Services.AddScoped<MaterialRepository>();
 builder.Services.AddScoped<InventarioRepository>();
+builder.Services.AddScoped<EstacionRepository>();
+builder.Services.AddScoped<SolicitudRepository>();
+builder.Services.AddScoped<MovimientoInventarioRepository>();
+
 
 // Registra la protección de contraseñas.
 builder.Services.AddScoped<PasswordHasher<Usuario>>();
@@ -95,7 +99,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-   
+
 // Redirige las solicitudes HTTP hacia HTTPS.
 app.UseHttpsRedirection();
 
@@ -207,4 +211,7 @@ app.MapRackEndpoints();
 app.MapUbicacionEndpoints();
 app.MapMaterialEndpoints();
 app.MapInventarioEndpoints();
+app.MapEstacionEndpoints();
+app.MapSolicitudEndpoints();
+app.MapMovimientoInventarioEndpoints();
 app.Run();

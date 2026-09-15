@@ -145,6 +145,56 @@ public sealed class MaterialRepository
 
         return MapearMaterial(reader);
     }
+
+
+    // Busca un material por número de parte o código de barras.
+    public async Task<Material?> ObtenerPorCodigoAsync(
+        string codigo)
+    {
+        var codigoLimpio =
+            codigo.Trim().ToUpperInvariant();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            id_material,
+            numero_parte_material,
+            descripcion,
+            unidad_medida,
+            codigo_barras,
+            serial_kits,
+            generic_code,
+            tipo_empaque,
+            std_pack,
+            activo
+        FROM materiales
+        WHERE UPPER(numero_parte_material) = @codigo
+           OR UPPER(codigo_barras) = @codigo
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@codigo",
+            codigoLimpio
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return MapearMaterial(reader);
+    }
     // Crea un material y devuelve el registro creado.
     public async Task<Material?> CrearAsync(
         string numeroParteMaterial,

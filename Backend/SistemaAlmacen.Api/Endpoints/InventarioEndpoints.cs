@@ -51,6 +51,123 @@ public static class InventarioEndpoints
         })
         .WithName("ObtenerInventarioPorId");
 
+
+        // Busca inventario mediante Material Number o código de barras.
+        grupo.MapGet("/escanear/{codigo}", async (
+            string codigo,
+            MaterialRepository materialRepository,
+            InventarioRepository inventarioRepository) =>
+        {
+            // Valida el código recibido desde el lector.
+            if (string.IsNullOrWhiteSpace(codigo))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El código escaneado es obligatorio."
+                });
+            }
+
+            if (codigo.Trim().Length > 100)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El código escaneado no puede exceder 100 caracteres."
+                });
+            }
+
+            // Busca por Material Number o Barcode.
+            var material =
+                await materialRepository.ObtenerPorCodigoAsync(
+                    codigo
+                );
+
+            if (material is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe un material relacionado con el código {codigo.Trim()}."
+                });
+            }
+
+            if (!material.Activo)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El material escaneado está inactivo."
+                });
+            }
+
+            // Un material puede estar distribuido en varias ubicaciones.
+            var ubicaciones =
+                await inventarioRepository.ObtenerPorMaterialAsync(
+                    material.IdMaterial
+                );
+
+            var qtyTotalDisponible =
+                ubicaciones.Sum(
+                    inventario => inventario.Disponible
+                );
+
+            return Results.Ok(new
+            {
+                idMaterial =
+                    material.IdMaterial,
+
+                materialNumber =
+                    material.NumeroParteMaterial,
+
+                materialName =
+                    material.Descripcion,
+
+                unidadMedida =
+                    material.UnidadMedida,
+
+                barcode =
+                    material.CodigoBarras,
+
+                tipoEmpaque =
+                    material.TipoEmpaque,
+
+                stdPack =
+                    material.StdPack,
+
+                qtyTotalDisponible,
+
+                ubicaciones =
+                    ubicaciones.Select(
+                        inventario => new
+                        {
+                            inventario.IdInventario,
+                            inventario.IdUbicacion,
+
+                            location =
+                                inventario.RutaUbicacion,
+
+                            qty =
+                                inventario.Disponible,
+
+                            qtyReserved =
+                                inventario.Reservado,
+
+                            qtyUnavailable =
+                                inventario.NoDisponible
+                        }
+                    )
+            });
+        })
+        .WithName("EscanearMaterialInventario")
+        .RequireAuthorization(policy =>
+            policy.RequireRole(
+                "Administrador",
+                "Supervisor",
+                "Materialista"
+            ));
+
+
         // Obtiene el inventario de un material.
         grupo.MapGet("/material/{idMaterial:int}", async (
             int idMaterial,
@@ -310,8 +427,130 @@ public static class InventarioEndpoints
         .RequireAuthorization(policy =>
             policy.RequireRole(
                 "Administrador",
-                "Supervisor"
+                "Supervisor",
+                "Materialista"
 
+            )
+        );
+        // Registra una salida de material desde una ubicación.
+        grupo.MapPost("/salida", async (
+            SalidaInventarioDto dto,
+            ClaimsPrincipal principal,
+            MaterialRepository materialRepository,
+            UbicacionRepository ubicacionRepository,
+            InventarioRepository inventarioRepository) =>
+        {
+            if (dto.Cantidad <= 0)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "La cantidad de salida debe ser mayor que cero."
+                });
+            }
+
+            var idUsuarioTexto =
+                principal.FindFirstValue(
+                    ClaimTypes.NameIdentifier
+                );
+
+            if (!int.TryParse(
+                idUsuarioTexto,
+                out var idUsuario))
+            {
+                return Results.Unauthorized();
+            }
+
+            var material =
+                await materialRepository.ObtenerPorIdAsync(
+                    dto.IdMaterial
+                );
+
+            if (material is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe un material con el identificador {dto.IdMaterial}."
+                });
+            }
+
+            var ubicacion =
+                await ubicacionRepository.ObtenerPorIdAsync(
+                    dto.IdUbicacion
+                );
+
+            if (ubicacion is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe una ubicación con el identificador {dto.IdUbicacion}."
+                });
+            }
+
+            var inventarioActual =
+                await inventarioRepository
+                    .ObtenerPorMaterialYUbicacionAsync(
+                        dto.IdMaterial,
+                        dto.IdUbicacion
+                    );
+
+            if (inventarioActual is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        "No existe inventario para ese material en la ubicación indicada."
+                });
+            }
+
+            if (inventarioActual.Disponible <
+                dto.Cantidad)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "No existe inventario disponible suficiente."
+                });
+            }
+
+            var inventario =
+                await inventarioRepository
+                    .RegistrarSalidaAsync(
+                        dto.IdMaterial,
+                        dto.IdUbicacion,
+                        dto.Cantidad,
+                        idUsuario,
+                        dto.Referencia,
+                        dto.Comentarios
+                    );
+
+            if (inventario is null)
+            {
+                return Results.Problem(
+                    title:
+                        "No se registró la salida",
+                    detail:
+                        "La salida fue procesada, pero no pudo consultarse.",
+                    statusCode:
+                        StatusCodes.Status500InternalServerError
+                );
+            }
+
+            return Results.Ok(new
+            {
+                mensaje =
+                    "La salida de inventario se registró correctamente.",
+                inventario
+            });
+        })
+        .WithName("RegistrarSalidaInventario")
+        .RequireAuthorization(policy =>
+            policy.RequireRole(
+                "Administrador",
+                "Supervisor",
+                "Materialista"
             )
         );
 
