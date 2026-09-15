@@ -92,8 +92,22 @@ builder.Services
 
 // Habilita las reglas de autorización.
 builder.Services.AddAuthorization();
+// Permite que el frontend local consuma la API.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendLocal", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
+
+// Aplica CORS antes de validar el JWT.
+app.UseCors("FrontendLocal");
 
 if (app.Environment.IsDevelopment())
 {
