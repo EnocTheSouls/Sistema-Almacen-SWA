@@ -72,7 +72,7 @@ public static class SolicitudEndpoints
 
 
 
-        // Obtiene los contadores del dashboard de almacén.
+        // Obtiene los contadores del dashboard de almacén..
         grupo.MapGet("/dashboard", async (
             SolicitudRepository solicitudRepository) =>
         {
