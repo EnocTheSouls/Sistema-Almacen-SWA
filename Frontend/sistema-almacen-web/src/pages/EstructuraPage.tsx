@@ -16,6 +16,7 @@ import { FamiliaFormModal } from "../components/estructura/FamiliaFormModal";
 
 import "./EstructuraPage.css";
 
+
 import {
   actualizarProyecto,
   crearProyecto,
@@ -30,13 +31,30 @@ import {
   obtenerFamilias,
 } from "../services/familiaService";
 
+import {
+  actualizarEstacion,
+  cambiarEstadoEstacion,
+  crearEstacion,
+  eliminarEstacion,
+  obtenerEstaciones,
+} from "../services/estacionService";
+
+import {
+  EstacionFormModal,
+} from "../components/estructura/EstacionFormModal";
+
 import type {
   Proyecto,
 } from "../types/proyecto";
 
+
 import type {
   Familia,
 } from "../types/familia";
+
+import type {
+  Estacion,
+} from "../types/estacion";
 
 type TabActiva =
   | "proyectos"
@@ -52,11 +70,53 @@ export function EstructuraPage() {
 
   const [familias, setFamilias] =
     useState<Familia[]>([]);
+
   // Controla el formulario de familias.
   const [
     mostrarFormularioFamilia,
     setMostrarFormularioFamilia,
   ] = useState(false);
+
+
+
+  const [estaciones, setEstaciones] =
+    useState<Estacion[]>([]);
+
+  const [
+    mostrarFormularioEstacion,
+    setMostrarFormularioEstacion,
+  ] = useState(false);
+
+  const [
+    idProyectoEstacion,
+    setIdProyectoEstacion,
+  ] = useState(0);
+
+  const [
+    idFamiliaEstacion,
+    setIdFamiliaEstacion,
+  ] = useState(0);
+
+  const [
+    nombreEstacion,
+    setNombreEstacion,
+  ] = useState("");
+
+  const [
+    estacionEnEdicion,
+    setEstacionEnEdicion,
+  ] = useState<Estacion | null>(null);
+
+  const [
+    estacionAEliminar,
+    setEstacionAEliminar,
+  ] = useState<Estacion | null>(null);
+
+  const [
+    mostrarConfirmacionEliminarEstacion,
+    setMostrarConfirmacionEliminarEstacion,
+  ] = useState(false);
+
 
   const [
     idProyectoFamilia,
@@ -141,13 +201,17 @@ export function EstructuraPage() {
       const [
         proyectosData,
         familiasData,
+        estacionesData,
       ] = await Promise.all([
         obtenerProyectos(),
         obtenerFamilias(),
+        obtenerEstaciones(),
       ]);
 
       setProyectos(proyectosData);
       setFamilias(familiasData);
+      setEstaciones(estacionesData);
+
     } catch (error) {
       console.error(
         "Error al cargar la estructura:",
@@ -458,6 +522,270 @@ export function EstructuraPage() {
       }
     };
 
+  const abrirNuevaEstacion = () => {
+    limpiarMensajes();
+
+    setEstacionEnEdicion(null);
+    setIdProyectoEstacion(0);
+    setIdFamiliaEstacion(0);
+    setNombreEstacion("");
+    setMostrarFormularioEstacion(true);
+  };
+
+  const cerrarFormularioEstacion = () => {
+    if (guardando) {
+      return;
+    }
+
+    setMostrarFormularioEstacion(false);
+    setEstacionEnEdicion(null);
+    setIdProyectoEstacion(0);
+    setIdFamiliaEstacion(0);
+    setNombreEstacion("");
+    setErrorFormulario("");
+  };
+
+  const guardarEstacion = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    const nombreLimpio =
+      nombreEstacion.trim();
+
+    if (idProyectoEstacion <= 0) {
+      setErrorFormulario(
+        "Debes seleccionar un proyecto."
+      );
+
+      return;
+    }
+
+    if (idFamiliaEstacion <= 0) {
+      setErrorFormulario(
+        "Debes seleccionar una familia."
+      );
+
+      return;
+    }
+
+    if (!nombreLimpio) {
+      setErrorFormulario(
+        "El nombre de la estación es obligatorio."
+      );
+
+      return;
+    }
+
+    if (nombreLimpio.length > 100) {
+      setErrorFormulario(
+        "El nombre no puede exceder 100 caracteres."
+      );
+
+      return;
+    }
+
+    try {
+      setGuardando(true);
+      limpiarMensajes();
+
+      if (estacionEnEdicion) {
+        const estacionActualizada =
+          await actualizarEstacion(
+            estacionEnEdicion.idEstacion,
+            {
+              idFamilia:
+                idFamiliaEstacion,
+              nombre:
+                nombreLimpio,
+              activo:
+                estacionEnEdicion.activo,
+            }
+          );
+
+        setEstaciones(
+          (estacionesActuales) =>
+            estacionesActuales.map(
+              (estacion) =>
+                estacion.idEstacion ===
+                  estacionActualizada.idEstacion
+                  ? estacionActualizada
+                  : estacion
+            )
+        );
+
+        setMensajeExito(
+          `La estación "${estacionActualizada.nombre}" se actualizó correctamente.`
+        );
+      } else {
+        const estacionCreada =
+          await crearEstacion({
+            idFamilia:
+              idFamiliaEstacion,
+            nombre:
+              nombreLimpio,
+          });
+
+        setEstaciones(
+          (estacionesActuales) => [
+            ...estacionesActuales,
+            estacionCreada,
+          ]
+        );
+
+        setMensajeExito(
+          `La estación "${estacionCreada.nombre}" se registró correctamente.`
+        );
+      }
+
+      setMostrarFormularioEstacion(false);
+      setEstacionEnEdicion(null);
+      setIdProyectoEstacion(0);
+      setIdFamiliaEstacion(0);
+      setNombreEstacion("");
+    } catch (error) {
+      mostrarErrorBackend(
+        error,
+        estacionEnEdicion
+          ? "No se pudo actualizar la estación."
+          : "No se pudo registrar la estación."
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const abrirEdicionEstacion = (
+    estacion: Estacion
+  ) => {
+    limpiarMensajes();
+
+    setEstacionEnEdicion(estacion);
+    setIdProyectoEstacion(
+      estacion.idProyecto
+    );
+    setIdFamiliaEstacion(
+      estacion.idFamilia
+    );
+    setNombreEstacion(
+      estacion.nombre
+    );
+    setMostrarFormularioEstacion(true);
+  };
+
+  const cambiarEstadoDeEstacion = async (
+    estacion: Estacion
+  ) => {
+    try {
+      setGuardando(true);
+      limpiarMensajes();
+
+      const nuevoEstado =
+        !estacion.activo;
+
+      await cambiarEstadoEstacion(
+        estacion.idEstacion,
+        nuevoEstado
+      );
+
+      setEstaciones(
+        (estacionesActuales) =>
+          estacionesActuales.map(
+            (estacionActual) =>
+              estacionActual.idEstacion ===
+                estacion.idEstacion
+                ? {
+                  ...estacionActual,
+                  activo: nuevoEstado,
+                }
+                : estacionActual
+          )
+      );
+
+      setMensajeExito(
+        nuevoEstado
+          ? `La estación "${estacion.nombre}" fue activada.`
+          : `La estación "${estacion.nombre}" fue marcada como inactiva.`
+      );
+    } catch (error) {
+      mostrarErrorBackend(
+        error,
+        "No se pudo cambiar el estado de la estación."
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const solicitarEliminacionEstacion = (
+    estacion: Estacion
+  ) => {
+    limpiarMensajes();
+
+    setEstacionAEliminar(estacion);
+
+    setMostrarConfirmacionEliminarEstacion(
+      true
+    );
+  };
+
+  const cancelarEliminacionEstacion = () => {
+    if (guardando) {
+      return;
+    }
+
+    setEstacionAEliminar(null);
+
+    setMostrarConfirmacionEliminarEstacion(
+      false
+    );
+
+    setErrorFormulario("");
+  };
+
+  const confirmarEliminacionEstacion =
+    async () => {
+      if (!estacionAEliminar) {
+        return;
+      }
+
+      try {
+        setGuardando(true);
+        setErrorFormulario("");
+
+        await eliminarEstacion(
+          estacionAEliminar.idEstacion
+        );
+
+        setEstaciones(
+          (estacionesActuales) =>
+            estacionesActuales.filter(
+              (estacion) =>
+                estacion.idEstacion !==
+                estacionAEliminar.idEstacion
+            )
+        );
+
+        setMensajeExito(
+          `La estación "${estacionAEliminar.nombre}" fue eliminada.`
+        );
+
+        setEstacionAEliminar(null);
+
+        setMostrarConfirmacionEliminarEstacion(
+          false
+        );
+      } catch (error) {
+        mostrarErrorBackend(
+          error,
+          "No se puede eliminar la estación porque tiene solicitudes asociadas. Puedes marcarla como inactiva."
+        );
+      } finally {
+        setGuardando(false);
+      }
+    };
+
+
 
 
   const abrirNuevoProyecto = () => {
@@ -734,9 +1062,7 @@ export function EstructuraPage() {
       return;
     }
 
-    setMensajeExito(
-      "Las estaciones se implementarán en la segunda fase."
-    );
+    abrirNuevaEstacion();
   };
 
   return (
@@ -776,14 +1102,19 @@ export function EstructuraPage() {
               {mensajeExito}
             </div>
           )}
-
           {errorFormulario &&
             !mostrarFormularioProyecto &&
-            !mostrarConfirmacionEliminar && (
+            !mostrarFormularioFamilia &&
+            !mostrarFormularioEstacion &&
+            !mostrarConfirmacionEliminar &&
+            !mostrarConfirmacionEliminarFamilia &&
+            !mostrarConfirmacionEliminarEstacion && (
               <div style={errorStyle}>
                 {errorFormulario}
               </div>
             )}
+
+
 
           <div style={tabsContainerStyle}>
             <button
@@ -879,26 +1210,25 @@ export function EstructuraPage() {
 
 
             )}
-
           {!cargando &&
             !errorCarga &&
             tabActiva === "estaciones" && (
-              <div style={emptyStyle}>
-                <strong>
-                  Estaciones pendientes
-                </strong>
+              <EstacionesTable
+                estaciones={estaciones}
+                guardando={guardando}
+                onEditar={
+                  abrirEdicionEstacion
+                }
+                onEliminar={
+                  solicitarEliminacionEstacion
+                }
+                onCambiarEstado={
+                  cambiarEstadoDeEstacion
+                }
+              />
 
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                  }}
-                >
-                  Esta sección se habilitará
-                  cuando la planta defina las
-                  estaciones oficiales.
-                </p>
-              </div>
             )}
+
         </section>
       </div>
 
@@ -1041,6 +1371,35 @@ export function EstructuraPage() {
         />
       )}
 
+      {mostrarFormularioEstacion && (
+        <EstacionFormModal
+          proyectos={proyectos}
+          familias={familias}
+          idProyecto={idProyectoEstacion}
+          idFamilia={idFamiliaEstacion}
+          nombre={nombreEstacion}
+          guardando={guardando}
+          error={errorFormulario}
+          esEdicion={
+            estacionEnEdicion !== null
+          }
+          onCambiarProyecto={
+            setIdProyectoEstacion
+          }
+          onCambiarFamilia={
+            setIdFamiliaEstacion
+          }
+          onCambiarNombre={
+            setNombreEstacion
+          }
+          onGuardar={guardarEstacion}
+          onCancelar={
+            cerrarFormularioEstacion
+          }
+        />
+      )}
+      ``
+
       {mostrarConfirmacionEliminar &&
         proyectoAEliminar && (
           <div style={modalOverlayStyle}>
@@ -1176,6 +1535,81 @@ export function EstructuraPage() {
                   type="button"
                   onClick={
                     confirmarEliminacionFamilia
+                  }
+                  disabled={guardando}
+                  style={{
+                    ...deleteButtonStyle,
+                    opacity:
+                      guardando ? 0.7 : 1,
+                  }}
+                >
+                  {guardando
+                    ? "Eliminando..."
+                    : "Eliminar"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+      {mostrarConfirmacionEliminarEstacion &&
+        estacionAEliminar && (
+          <div style={modalOverlayStyle}>
+            <section
+              style={{
+                ...modalStyle,
+                maxWidth: "460px",
+                textAlign: "center",
+              }}
+            >
+              <div style={warningCircleStyle}>
+                ×
+              </div>
+
+              <h2 style={modalTitleStyle}>
+                Eliminar estación
+              </h2>
+
+              <p style={modalDescriptionStyle}>
+                ¿Estás seguro de eliminar la
+                estación{" "}
+                <strong>
+                  {estacionAEliminar.nombre}
+                </strong>
+                ?
+              </p>
+
+              <p style={warningTextStyle}>
+                Solo podrá eliminarse si no
+                tiene solicitudes asociadas.
+              </p>
+
+              {errorFormulario && (
+                <div style={errorStyle}>
+                  {errorFormulario}
+                </div>
+              )}
+
+              <div
+                style={{
+                  ...modalActionsStyle,
+                  justifyContent: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={
+                    cancelarEliminacionEstacion
+                  }
+                  disabled={guardando}
+                  style={secondaryButtonStyle}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    confirmarEliminacionEstacion
                   }
                   disabled={guardando}
                   style={{
@@ -1478,6 +1912,162 @@ function FamiliasTable({
     </div>
   );
 }
+
+interface EstacionesTableProps {
+  estaciones: Estacion[];
+  guardando: boolean;
+
+  onEditar: (
+    estacion: Estacion
+  ) => void;
+
+  onEliminar: (
+    estacion: Estacion
+  ) => void;
+
+  onCambiarEstado: (
+    estacion: Estacion
+  ) => void;
+}
+
+function EstacionesTable({
+  estaciones,
+  guardando,
+  onEditar,
+  onEliminar,
+  onCambiarEstado,
+}: EstacionesTableProps) {
+  if (estaciones.length === 0) {
+    return (
+      <div style={emptyStyle}>
+        No hay estaciones registradas.
+      </div>
+    );
+  }
+
+  return (
+    <div style={tableContainerStyle}>
+      <table style={tableStyle}>
+        <thead>
+          <tr style={tableHeaderRowStyle}>
+            <th style={thStyle}>
+              ID
+            </th>
+
+            <th style={thStyle}>
+              Proyecto
+            </th>
+
+            <th style={thStyle}>
+              Familia
+            </th>
+
+            <th style={thStyle}>
+              Estación
+            </th>
+
+            <th style={thStyle}>
+              Estado
+            </th>
+
+            <th
+              style={{
+                ...thStyle,
+                width: "105px",
+                textAlign: "right",
+              }}
+            >
+              Acciones
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {estaciones.map((estacion) => (
+            <tr key={estacion.idEstacion}>
+              <td style={tdStyle}>
+                {estacion.idEstacion}
+              </td>
+
+              <td style={tdStyle}>
+                {estacion.nombreProyecto}
+              </td>
+
+              <td style={tdStyle}>
+                {estacion.nombreFamilia}
+              </td>
+
+              <td style={tdStyle}>
+                <strong>
+                  {estacion.nombre}
+                </strong>
+              </td>
+
+              <td style={tdStyle}>
+                <button
+                  type="button"
+                  disabled={guardando}
+                  onClick={() =>
+                    onCambiarEstado(
+                      estacion
+                    )
+                  }
+                  title={
+                    estacion.activo
+                      ? "Marcar como inactiva"
+                      : "Volver a activar"
+                  }
+                  style={
+                    estacion.activo
+                      ? activeStatusStyle
+                      : inactiveStatusStyle
+                  }
+                >
+                  {estacion.activo
+                    ? "Activa"
+                    : "Inactiva"}
+                </button>
+              </td>
+
+              <td style={actionsCellStyle}>
+                <button
+                  type="button"
+                  title="Editar estación"
+                  aria-label={
+                    `Editar ${estacion.nombre}`
+                  }
+                  disabled={guardando}
+                  onClick={() =>
+                    onEditar(estacion)
+                  }
+                  style={editIconButtonStyle}
+                >
+                  <PencilIcon />
+                </button>
+
+                <button
+                  type="button"
+                  title="Eliminar estación"
+                  aria-label={
+                    `Eliminar ${estacion.nombre}`
+                  }
+                  disabled={guardando}
+                  onClick={() =>
+                    onEliminar(estacion)
+                  }
+                  style={deleteIconButtonStyle}
+                >
+                  <CloseIcon />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 
 function PencilIcon() {
   return (

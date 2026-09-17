@@ -326,7 +326,6 @@ export function Sidebar() {
                   {currentUser.role}
                 </div>
               </div>
-
               <button
                 type="button"
                 onClick={manejarCierreSesion}
