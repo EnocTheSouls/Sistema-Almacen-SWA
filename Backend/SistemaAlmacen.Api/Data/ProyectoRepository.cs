@@ -44,14 +44,20 @@ public sealed class ProyectoRepository
         {
             proyectos.Add(new Proyecto
             {
-                IdProyecto = reader.GetInt32("id_proyecto"),
-                Nombre = reader.GetString("nombre"),
+                IdProyecto =
+                    reader.GetInt32("id_proyecto"),
+
+                Nombre =
+                    reader.GetString("nombre"),
+
                 Descripcion = reader.IsDBNull(
                     reader.GetOrdinal("descripcion")
                 )
                     ? null
                     : reader.GetString("descripcion"),
-                Activo = reader.GetBoolean("activo")
+
+                Activo =
+                    reader.GetBoolean("activo")
             });
         }
 
@@ -77,10 +83,10 @@ public sealed class ProyectoRepository
                 descripcion,
                 activo
             FROM proyectos
-            WHERE id_proyecto = @idProyecto;
+            WHERE id_proyecto = @idProyecto
+            LIMIT 1;
             """;
 
-        // Envía el identificador mediante un parámetro seguro.
         command.Parameters.AddWithValue(
             "@idProyecto",
             idProyecto
@@ -97,24 +103,30 @@ public sealed class ProyectoRepository
 
         return new Proyecto
         {
-            IdProyecto = reader.GetInt32("id_proyecto"),
-            Nombre = reader.GetString("nombre"),
+            IdProyecto =
+                reader.GetInt32("id_proyecto"),
+
+            Nombre =
+                reader.GetString("nombre"),
+
             Descripcion = reader.IsDBNull(
                 reader.GetOrdinal("descripcion")
             )
                 ? null
                 : reader.GetString("descripcion"),
-            Activo = reader.GetBoolean("activo")
-        };
 
+            Activo =
+                reader.GetBoolean("activo")
+        };
     }
+
     // Crea un proyecto y devuelve el registro creado.
     public async Task<Proyecto> CrearAsync(
         string nombre,
         string? descripcion)
     {
-        // Limpia los datos antes de guardarlos.
-        var nombreLimpio = nombre.Trim();
+        var nombreLimpio =
+            nombre.Trim();
 
         var descripcionLimpia =
             string.IsNullOrWhiteSpace(descripcion)
@@ -130,19 +142,18 @@ public sealed class ProyectoRepository
             connection.CreateCommand();
 
         command.CommandText = """
-        INSERT INTO proyectos (
-            nombre,
-            descripcion,
-            activo
-        )
-        VALUES (
-            @nombre,
-            @descripcion,
-            TRUE
-        );
-        """;
+            INSERT INTO proyectos (
+                nombre,
+                descripcion,
+                activo
+            )
+            VALUES (
+                @nombre,
+                @descripcion,
+                TRUE
+            );
+            """;
 
-        // Envía los datos mediante parámetros seguros.
         command.Parameters.AddWithValue(
             "@nombre",
             nombreLimpio
@@ -157,9 +168,10 @@ public sealed class ProyectoRepository
 
         await command.ExecuteNonQueryAsync();
 
-        // Recupera el identificador generado por MySQL.
         var idProyecto =
-            Convert.ToInt32(command.LastInsertedId);
+            Convert.ToInt32(
+                command.LastInsertedId
+            );
 
         return new Proyecto
         {
@@ -169,66 +181,187 @@ public sealed class ProyectoRepository
             Activo = true
         };
     }
-    // Actualiza los datos de un proyecto existente.
-public async Task<bool> ActualizarAsync(
-    int idProyecto,
-    string nombre,
-    string? descripcion,
-    bool activo)
-{
-    // Limpia los datos antes de guardarlos.
-    var nombreLimpio = nombre.Trim();
 
-    var descripcionLimpia =
-        string.IsNullOrWhiteSpace(descripcion)
-            ? null
-            : descripcion.Trim();
+    // Actualiza los datos o el estado de un proyecto.
+    public async Task<bool> ActualizarAsync(
+        int idProyecto,
+        string nombre,
+        string? descripcion,
+        bool activo)
+    {
+        var nombreLimpio =
+            nombre.Trim();
 
-    await using var connection =
-        _connectionFactory.CreateConnection();
+        var descripcionLimpia =
+            string.IsNullOrWhiteSpace(descripcion)
+                ? null
+                : descripcion.Trim();
 
-    await connection.OpenAsync();
+        await using var connection =
+            _connectionFactory.CreateConnection();
 
-    await using var command =
-        connection.CreateCommand();
+        await connection.OpenAsync();
 
-    command.CommandText = """
-        UPDATE proyectos
-        SET
-            nombre = @nombre,
-            descripcion = @descripcion,
-            activo = @activo
-        WHERE id_proyecto = @idProyecto;
-        """;
+        await using var command =
+            connection.CreateCommand();
 
-    // Envía los datos mediante parámetros seguros.
-    command.Parameters.AddWithValue(
-        "@idProyecto",
-        idProyecto
-    );
+        command.CommandText = """
+            UPDATE proyectos
+            SET
+                nombre = @nombre,
+                descripcion = @descripcion,
+                activo = @activo
+            WHERE id_proyecto = @idProyecto;
+            """;
 
-    command.Parameters.AddWithValue(
-        "@nombre",
-        nombreLimpio
-    );
+        command.Parameters.AddWithValue(
+            "@idProyecto",
+            idProyecto
+        );
 
-    command.Parameters.AddWithValue(
-        "@descripcion",
-        descripcionLimpia is null
-            ? DBNull.Value
-            : descripcionLimpia
-    );
+        command.Parameters.AddWithValue(
+            "@nombre",
+            nombreLimpio
+        );
 
-    command.Parameters.AddWithValue(
-        "@activo",
-        activo
-    );
+        command.Parameters.AddWithValue(
+            "@descripcion",
+            descripcionLimpia is null
+                ? DBNull.Value
+                : descripcionLimpia
+        );
 
-    var filasActualizadas =
-        await command.ExecuteNonQueryAsync();
+        command.Parameters.AddWithValue(
+            "@activo",
+            activo
+        );
 
-    // Indica si el proyecto fue actualizado.
-    return filasActualizadas > 0;
-}
+        var filasActualizadas =
+            await command.ExecuteNonQueryAsync();
 
+        return filasActualizadas > 0;
+    }
+
+    // Indica si el proyecto tiene familias asociadas.
+    public async Task<bool> TieneFamiliasAsync(
+        int idProyecto)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM familias
+                WHERE id_proyecto = @idProyecto
+            );
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idProyecto",
+            idProyecto
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (resultado is null ||
+            resultado is DBNull)
+        {
+            return false;
+        }
+
+        return Convert.ToInt32(resultado) == 1;
+    }
+
+    // Indica si el proyecto tiene otras relaciones
+    // que impidan eliminarlo físicamente.
+    public async Task<bool> TieneRelacionesAsync(
+        int idProyecto)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM familias
+                WHERE id_proyecto = @idProyecto
+
+                UNION ALL
+
+                SELECT 1
+                FROM solicitudes
+                WHERE id_proyecto = @idProyecto
+
+                UNION ALL
+
+                SELECT 1
+                FROM zona_proyecto
+                WHERE id_proyecto = @idProyecto
+
+                UNION ALL
+
+                SELECT 1
+                FROM material_asignado_proyecto
+                WHERE id_proyecto = @idProyecto
+            );
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idProyecto",
+            idProyecto
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (resultado is null ||
+            resultado is DBNull)
+        {
+            return false;
+        }
+
+        return Convert.ToInt32(resultado) == 1;
+    }
+
+    // Elimina físicamente un proyecto.
+    // Este método debe ejecutarse solamente después
+    // de comprobar que el proyecto no tiene relaciones.
+    public async Task<bool> EliminarAsync(
+        int idProyecto)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            DELETE FROM proyectos
+            WHERE id_proyecto = @idProyecto;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idProyecto",
+            idProyecto
+        );
+
+        var filasEliminadas =
+            await command.ExecuteNonQueryAsync();
+
+        return filasEliminadas > 0;
+    }
 }

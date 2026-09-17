@@ -299,6 +299,75 @@ public sealed class EstacionRepository
 
         return filasAfectadas > 0;
     }
+    // Comprueba si la estación tiene solicitudes relacionadas.
+    public async Task<bool> TieneRelacionesAsync(
+        int idEstacion)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM solicitudes
+                WHERE id_estacion = @idEstacion
+            );
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idEstacion",
+            idEstacion
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (resultado is null ||
+            resultado is DBNull)
+        {
+            return false;
+        }
+
+        return Convert.ToInt32(
+            resultado
+        ) == 1;
+    }
+
+    // Elimina físicamente una estación.
+    // Debe llamarse después de comprobar
+    // que no tenga solicitudes relacionadas.
+    public async Task<bool> EliminarAsync(
+        int idEstacion)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            DELETE FROM estaciones
+            WHERE id_estacion = @idEstacion;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idEstacion",
+            idEstacion
+        );
+
+        var filasEliminadas =
+            await command.ExecuteNonQueryAsync();
+
+        return filasEliminadas > 0;
+    }
+
 
     // Convierte una fila de MySQL en una estación.
     private static Estacion MapearEstacion(

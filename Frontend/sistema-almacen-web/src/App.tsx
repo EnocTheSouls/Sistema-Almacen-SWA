@@ -4,8 +4,20 @@ import {
   Routes,
 } from "react-router-dom";
 
-import { estaAutenticado } from "./auth/authService";
+import { currentUser } from "./auth/userSession";
+
+import { ProtectedRoute } from "./components/ProtectedRoute";
+
 import { LoginPage } from "./pages/LoginPage";
+import { SessionExpiredPage } from "./pages/SessionExpiredPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { UserListPage } from "./pages/UserListPage";
+import { CreateUserPage } from "./pages/CreateUserPage";
+import { EstructuraPage } from "./pages/EstructuraPage";
+import { MaterialesPage } from "./pages/MaterialesPage";
+import { SolicitudesPage } from "./pages/SolicitudesPage";
+import { InventarioPage } from "./pages/InventarioPage";
+import { BitacoraPage } from "./pages/BitacoraPage";
 
 function App() {
   return (
@@ -16,28 +28,100 @@ function App() {
       />
 
       <Route
+        path="/sesion-expirada"
+        element={<SessionExpiredPage />}
+      />
+
+      <Route
         path="/dashboard"
         element={
-          estaAutenticado() ? (
-            <main
-              style={{
-                minHeight: "100vh",
-                padding: "40px",
-                background: "#f1f5f9",
-              }}
-            >
-              <h1>Dashboard de Almacén</h1>
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
 
-              <p>
-                El inicio de sesión funcionó correctamente.
-              </p>
-            </main>
-          ) : (
-            <Navigate
-              to="/login"
-              replace
-            />
-          )
+      <Route
+        path="/usuarios"
+        element={
+          <ProtectedRoute>
+            {currentUser.role === "ADMIN" ? (
+              <UserListPage />
+            ) : (
+              <Navigate
+                to="/dashboard"
+                replace
+              />
+            )}
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/usuarios/nuevo"
+        element={
+          <ProtectedRoute>
+            {currentUser.role === "ADMIN" ? (
+              <CreateUserPage />
+            ) : (
+              <Navigate
+                to="/dashboard"
+                replace
+              />
+            )}
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/proyectos"
+        element={
+          <ProtectedRoute>
+            {currentUser.role === "ADMIN" ? (
+              <EstructuraPage />
+            ) : (
+              <Navigate
+                to="/dashboard"
+                replace
+              />
+            )}
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/materiales"
+        element={
+          <ProtectedRoute>
+            <MaterialesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/solicitudes"
+        element={
+          <ProtectedRoute>
+            <SolicitudesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/inventario"
+        element={
+          <ProtectedRoute>
+            <InventarioPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/kardex"
+        element={
+          <ProtectedRoute>
+            <BitacoraPage />
+          </ProtectedRoute>
         }
       />
 
@@ -45,11 +129,7 @@ function App() {
         path="/"
         element={
           <Navigate
-            to={
-              estaAutenticado()
-                ? "/dashboard"
-                : "/login"
-            }
+            to="/dashboard"
             replace
           />
         }

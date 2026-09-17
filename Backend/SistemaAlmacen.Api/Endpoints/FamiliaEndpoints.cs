@@ -254,5 +254,89 @@ public static class FamiliaEndpoints
         .RequireAuthorization(policy =>
             policy.RequireRole("Administrador")
         );
+
+
+        // Elimina una familia solamente cuando no tiene relaciones.
+        grupo.MapDelete("/{idFamilia:int}", async (
+            int idFamilia,
+            FamiliaRepository repository) =>
+        {
+            // Valida el identificador recibido.
+            if (idFamilia <= 0)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El identificador de la familia no es válido."
+                });
+            }
+
+            // Comprueba que la familia exista.
+            var familia =
+                await repository.ObtenerPorIdAsync(
+                    idFamilia
+                );
+
+            if (familia is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe una familia con el identificador {idFamilia}."
+                });
+            }
+
+            // Verifica si tiene estaciones, arneses o solicitudes.
+            var tieneRelaciones =
+                await repository.TieneRelacionesAsync(
+                    idFamilia
+                );
+
+            if (tieneRelaciones)
+            {
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "No se puede eliminar la familia porque tiene estaciones, arneses o solicitudes asociadas. Puedes marcarla como inactiva."
+                });
+            }
+
+            try
+            {
+                var eliminada =
+                    await repository.EliminarAsync(
+                        idFamilia
+                    );
+
+                if (!eliminada)
+                {
+                    return Results.Problem(
+                        title:
+                            "No se eliminó la familia",
+                        detail:
+                            "MySQL no eliminó el registro solicitado.",
+                        statusCode:
+                            StatusCodes.Status500InternalServerError
+                    );
+                }
+
+                // La eliminación fue exitosa.
+                return Results.NoContent();
+            }
+            catch (MySqlException ex)
+                when (ex.Number == 1451)
+            {
+                // Protección adicional ante relaciones no detectadas.
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "No se puede eliminar la familia porque tiene información relacionada. Puedes marcarla como inactiva."
+                });
+            }
+        })
+        .WithName("EliminarFamilia")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador")
+        );
     }
 }

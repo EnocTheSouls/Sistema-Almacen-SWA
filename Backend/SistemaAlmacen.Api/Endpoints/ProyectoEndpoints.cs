@@ -197,5 +197,90 @@ public static class ProyectoEndpoints
         .RequireAuthorization(policy =>
             policy.RequireRole("Administrador")
         );
+
+
+        // Elimina un proyecto únicamente cuando no tiene relaciones.
+        grupo.MapDelete("/{idProyecto:int}", async (
+            int idProyecto,
+            ProyectoRepository repository) =>
+        {
+            // Valida el identificador recibido.
+            if (idProyecto <= 0)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El identificador del proyecto no es válido."
+                });
+            }
+
+            // Comprueba que el proyecto exista.
+            var proyecto =
+                await repository.ObtenerPorIdAsync(
+                    idProyecto
+                );
+
+            if (proyecto is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe un proyecto con el identificador {idProyecto}."
+                });
+            }
+
+            // Impide eliminar proyectos con información relacionada.
+            var tieneRelaciones =
+                await repository.TieneRelacionesAsync(
+                    idProyecto
+                );
+
+            if (tieneRelaciones)
+            {
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "No se puede eliminar el proyecto porque tiene familias, estaciones, solicitudes u otros registros asociados."
+                });
+            }
+
+            try
+            {
+                var eliminado =
+                    await repository.EliminarAsync(
+                        idProyecto
+                    );
+
+                if (!eliminado)
+                {
+                    return Results.Problem(
+                        title:
+                            "No se eliminó el proyecto",
+                        detail:
+                            "MySQL no eliminó el registro solicitado.",
+                        statusCode:
+                            StatusCodes.Status500InternalServerError
+                    );
+                }
+
+                // La eliminación fue exitosa y no requiere contenido.
+                return Results.NoContent();
+            }
+            catch (MySqlException ex)
+                when (ex.Number == 1451)
+            {
+                // Protección adicional si se crea una relación
+                // entre la validación y la eliminación.
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "No se puede eliminar el proyecto porque ya tiene información relacionada."
+                });
+            }
+        })
+        .WithName("EliminarProyecto")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador")
+        );
     }
 }

@@ -1,0 +1,397 @@
+.estructura-page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.estructura-card {
+  padding: 30px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.estructura-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.estructura-title {
+  margin: 0;
+  color: #102957;
+  font-size: 30px;
+}
+
+.estructura-description {
+  margin: 7px 0 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.estructura-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.estructura-tab {
+  padding: 10px 18px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102957;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.estructura-tab:hover {
+  border-color: #9fb4d4;
+  background: #f8fafc;
+}
+
+.estructura-tab--active {
+  border-color: #102957;
+  background: #102957;
+  color: #ffffff;
+}
+
+.estructura-primary-button,
+.estructura-secondary-button,
+.estructura-delete-button {
+  min-height: 42px;
+  padding: 10px 17px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.estructura-primary-button {
+  border: 0;
+  background: #1c4e9c;
+  color: #ffffff;
+}
+
+.estructura-primary-button:hover:not(:disabled) {
+  background: #173f7e;
+}
+
+.estructura-secondary-button {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+.estructura-secondary-button:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.estructura-delete-button {
+  border: 0;
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.estructura-delete-button:hover:not(:disabled) {
+  background: #991b1b;
+}
+
+.estructura-primary-button:disabled,
+.estructura-secondary-button:disabled,
+.estructura-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.estructura-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.estructura-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.estructura-table thead tr {
+  background: #f8fafc;
+}
+
+.estructura-table th {
+  padding: 14px;
+  border-bottom: 2px solid #e2e8f0;
+  color: #102957;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.estructura-table td {
+  padding: 14px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #334155;
+  font-size: 14px;
+}
+
+.estructura-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.estructura-table tbody tr:hover {
+  background: #fbfdff;
+}
+
+.estructura-actions-header,
+.estructura-actions-cell {
+  width: 105px;
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.estructura-status {
+  display: inline-block;
+  min-width: 76px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.estructura-status--active {
+  border: 1px solid #bbf7d0;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.estructura-status--inactive {
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.estructura-icon-button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.estructura-icon-button--edit {
+  margin-right: 7px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.estructura-icon-button--delete {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.estructura-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.estructura-message,
+.estructura-empty {
+  padding: 40px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+}
+
+.estructura-empty {
+  border: 1px dashed #cbd5e1;
+}
+
+.estructura-error,
+.estructura-success {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.estructura-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  text-align: center;
+}
+
+.estructura-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 650;
+}
+
+.estructura-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.estructura-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 30px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 25px 70px rgba(15, 23, 42, 0.3);
+}
+
+.estructura-modal--confirmation {
+  max-width: 460px;
+  text-align: center;
+}
+
+.estructura-modal-title {
+  margin: 0;
+  color: #102957;
+  font-size: 24px;
+}
+
+.estructura-modal-description {
+  margin: 8px 0 24px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.estructura-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.estructura-modal-actions--center {
+  justify-content: center;
+}
+
+.estructura-warning-circle {
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.estructura-warning-text {
+  margin: 0 0 22px;
+  padding: 12px;
+  border-radius: 9px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.estructura-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.estructura-label {
+  color: #17335f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.estructura-input,
+.estructura-textarea,
+.estructura-select {
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 0 13px;
+  background: #ffffff;
+  color: #102957;
+  font-size: 15px;
+  outline: none;
+}
+
+.estructura-textarea {
+  min-height: 100px;
+  padding-top: 12px;
+  resize: vertical;
+}
+
+.estructura-input:focus,
+.estructura-textarea:focus,
+.estructura-select:focus {
+  border-color: #3f73d8;
+  box-shadow: 0 0 0 4px rgba(63, 115, 216, 0.12);
+}
+
+.estructura-help-text {
+  color: #64748b;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .estructura-card {
+    padding: 20px;
+  }
+
+  .estructura-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .estructura-tabs {
+    overflow-x: auto;
+  }
+
+  .estructura-modal {
+    padding: 22px;
+  }
+
+  .estructura-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .estructura-modal-actions button {
+    width: 100%;
+  }
+}

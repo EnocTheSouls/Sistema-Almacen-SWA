@@ -48,20 +48,9 @@ public sealed class FamiliaRepository
         // Convierte cada registro en un objeto Familia.
         while (await reader.ReadAsync())
         {
-            familias.Add(new Familia
-            {
-                IdFamilia = reader.GetInt32("id_familia"),
-                IdProyecto = reader.GetInt32("id_proyecto"),
-                NombreProyecto =
-                    reader.GetString("nombre_proyecto"),
-                Nombre = reader.GetString("nombre"),
-                Descripcion = reader.IsDBNull(
-                    reader.GetOrdinal("descripcion")
-                )
-                    ? null
-                    : reader.GetString("descripcion"),
-                Activo = reader.GetBoolean("activo")
-            });
+            familias.Add(
+                MapearFamilia(reader)
+            );
         }
 
         return familias;
@@ -90,10 +79,10 @@ public sealed class FamiliaRepository
             FROM familias AS f
             INNER JOIN proyectos AS p
                 ON p.id_proyecto = f.id_proyecto
-            WHERE f.id_familia = @idFamilia;
+            WHERE f.id_familia = @idFamilia
+            LIMIT 1;
             """;
 
-        // Envía el identificador como parámetro seguro.
         command.Parameters.AddWithValue(
             "@idFamilia",
             idFamilia
@@ -108,29 +97,17 @@ public sealed class FamiliaRepository
             return null;
         }
 
-        return new Familia
-        {
-            IdFamilia = reader.GetInt32("id_familia"),
-            IdProyecto = reader.GetInt32("id_proyecto"),
-            NombreProyecto =
-                reader.GetString("nombre_proyecto"),
-            Nombre = reader.GetString("nombre"),
-            Descripcion = reader.IsDBNull(
-                reader.GetOrdinal("descripcion")
-            )
-                ? null
-                : reader.GetString("descripcion"),
-            Activo = reader.GetBoolean("activo")
-        };
+        return MapearFamilia(reader);
     }
+
     // Crea una familia y devuelve el registro creado.
     public async Task<Familia?> CrearAsync(
         int idProyecto,
         string nombre,
         string? descripcion)
     {
-        // Limpia los datos antes de guardarlos.
-        var nombreLimpio = nombre.Trim();
+        var nombreLimpio =
+            nombre.Trim();
 
         var descripcionLimpia =
             string.IsNullOrWhiteSpace(descripcion)
@@ -146,21 +123,20 @@ public sealed class FamiliaRepository
             connection.CreateCommand();
 
         command.CommandText = """
-        INSERT INTO familias (
-            id_proyecto,
-            nombre,
-            descripcion,
-            activo
-        )
-        VALUES (
-            @idProyecto,
-            @nombre,
-            @descripcion,
-            TRUE
-        );
-        """;
+            INSERT INTO familias (
+                id_proyecto,
+                nombre,
+                descripcion,
+                activo
+            )
+            VALUES (
+                @idProyecto,
+                @nombre,
+                @descripcion,
+                TRUE
+            );
+            """;
 
-        // Envía los datos mediante parámetros seguros.
         command.Parameters.AddWithValue(
             "@idProyecto",
             idProyecto
@@ -180,14 +156,18 @@ public sealed class FamiliaRepository
 
         await command.ExecuteNonQueryAsync();
 
-        // Recupera el identificador generado por MySQL.
         var idFamilia =
-            Convert.ToInt32(command.LastInsertedId);
+            Convert.ToInt32(
+                command.LastInsertedId
+            );
 
-        // Consulta nuevamente para incluir el nombre del proyecto.
-        return await ObtenerPorIdAsync(idFamilia);
+        // Consulta nuevamente para obtener el nombre del proyecto.
+        return await ObtenerPorIdAsync(
+            idFamilia
+        );
     }
-    // Actualiza los datos de una familia existente.
+
+    // Actualiza los datos o el estado de una familia.
     public async Task<bool> ActualizarAsync(
         int idFamilia,
         int idProyecto,
@@ -195,8 +175,8 @@ public sealed class FamiliaRepository
         string? descripcion,
         bool activo)
     {
-        // Limpia los datos antes de guardarlos.
-        var nombreLimpio = nombre.Trim();
+        var nombreLimpio =
+            nombre.Trim();
 
         var descripcionLimpia =
             string.IsNullOrWhiteSpace(descripcion)
@@ -212,16 +192,15 @@ public sealed class FamiliaRepository
             connection.CreateCommand();
 
         command.CommandText = """
-        UPDATE familias
-        SET
-            id_proyecto = @idProyecto,
-            nombre = @nombre,
-            descripcion = @descripcion,
-            activo = @activo
-        WHERE id_familia = @idFamilia;
-        """;
+            UPDATE familias
+            SET
+                id_proyecto = @idProyecto,
+                nombre = @nombre,
+                descripcion = @descripcion,
+                activo = @activo
+            WHERE id_familia = @idFamilia;
+            """;
 
-        // Envía los datos mediante parámetros seguros.
         command.Parameters.AddWithValue(
             "@idFamilia",
             idFamilia
@@ -252,7 +231,131 @@ public sealed class FamiliaRepository
         var filasActualizadas =
             await command.ExecuteNonQueryAsync();
 
-        // Indica si la familia fue actualizada.
         return filasActualizadas > 0;
+    }
+
+    // Comprueba si la familia tiene estaciones,
+    // arneses o solicitudes relacionadas.
+    public async Task<bool> TieneRelacionesAsync(
+        int idFamilia)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM estaciones
+                WHERE id_familia = @idFamilia
+
+                UNION ALL
+
+                SELECT 1
+                FROM arneses
+                WHERE id_familia = @idFamilia
+
+                UNION ALL
+
+                SELECT 1
+                FROM solicitudes
+                WHERE id_familia = @idFamilia
+            );
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idFamilia",
+            idFamilia
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (resultado is null ||
+            resultado is DBNull)
+        {
+            return false;
+        }
+
+        return Convert.ToInt32(
+            resultado
+        ) == 1;
+    }
+
+    // Elimina físicamente una familia.
+    // Debe ejecutarse después de comprobar
+    // que no tenga relaciones.
+    public async Task<bool> EliminarAsync(
+        int idFamilia)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            DELETE FROM familias
+            WHERE id_familia = @idFamilia;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idFamilia",
+            idFamilia
+        );
+
+        var filasEliminadas =
+            await command.ExecuteNonQueryAsync();
+
+        return filasEliminadas > 0;
+    }
+
+    // Convierte una fila de MySQL en un objeto Familia.
+    private static Familia MapearFamilia(
+        MySqlConnector.MySqlDataReader reader)
+    {
+        return new Familia
+        {
+            IdFamilia =
+                reader.GetInt32(
+                    "id_familia"
+                ),
+
+            IdProyecto =
+                reader.GetInt32(
+                    "id_proyecto"
+                ),
+
+            NombreProyecto =
+                reader.GetString(
+                    "nombre_proyecto"
+                ),
+
+            Nombre =
+                reader.GetString(
+                    "nombre"
+                ),
+
+            Descripcion = reader.IsDBNull(
+                reader.GetOrdinal(
+                    "descripcion"
+                )
+            )
+                ? null
+                : reader.GetString(
+                    "descripcion"
+                ),
+
+            Activo =
+                reader.GetBoolean(
+                    "activo"
+                )
+        };
     }
 }

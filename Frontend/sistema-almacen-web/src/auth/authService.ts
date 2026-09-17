@@ -30,7 +30,56 @@ export function cerrarSesion(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// Indica si existe un token guardado.
 export function estaAutenticado(): boolean {
-  return obtenerToken() !== null;
+  const token = obtenerToken();
+
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const partes = token.split(".");
+
+    if (partes.length !== 3) {
+      cerrarSesion();
+      return false;
+    }
+
+    const payloadTexto =
+      partes[1]
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    const payload = JSON.parse(
+      window.atob(payloadTexto)
+    ) as {
+      exp?: number;
+    };
+
+    if (!payload.exp) {
+      cerrarSesion();
+      return false;
+    }
+
+    const fechaExpiracion =
+      payload.exp * 1000;
+
+    const tokenVigente =
+      fechaExpiracion > Date.now();
+
+    if (!tokenVigente) {
+      cerrarSesion();
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      "El token guardado no es válido:",
+      error
+    );
+
+    cerrarSesion();
+    return false;
+  }
 }

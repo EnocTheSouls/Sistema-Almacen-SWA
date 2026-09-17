@@ -305,5 +305,86 @@ public static class EstacionEndpoints
         .WithName("CambiarEstadoEstacion")
         .RequireAuthorization(policy =>
             policy.RequireRole("Administrador"));
+
+                    // Elimina una estación únicamente cuando no tiene solicitudes.
+        grupo.MapDelete("/{idEstacion:int}", async (
+            int idEstacion,
+            EstacionRepository estacionRepository) =>
+        {
+            // Valida el identificador recibido.
+            if (idEstacion <= 0)
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El identificador de la estación no es válido."
+                });
+            }
+
+            // Comprueba que la estación exista.
+            var estacion =
+                await estacionRepository.ObtenerPorIdAsync(
+                    idEstacion
+                );
+
+            if (estacion is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe una estación con el identificador {idEstacion}."
+                });
+            }
+
+            // Impide eliminar estaciones utilizadas en solicitudes.
+            var tieneRelaciones =
+                await estacionRepository.TieneRelacionesAsync(
+                    idEstacion
+                );
+
+            if (tieneRelaciones)
+            {
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "No se puede eliminar la estación porque tiene solicitudes asociadas. Puedes marcarla como inactiva."
+                });
+            }
+
+            try
+            {
+                var eliminada =
+                    await estacionRepository.EliminarAsync(
+                        idEstacion
+                    );
+
+                if (!eliminada)
+                {
+                    return Results.Problem(
+                        title:
+                            "No se eliminó la estación",
+                        detail:
+                            "MySQL no eliminó el registro solicitado.",
+                        statusCode:
+                            StatusCodes.Status500InternalServerError
+                    );
+                }
+
+                return Results.NoContent();
+            }
+            catch (MySqlException ex)
+                when (ex.Number == 1451)
+            {
+                // Protección adicional por llave foránea.
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "No se puede eliminar la estación porque tiene información relacionada. Puedes marcarla como inactiva."
+                });
+            }
+        })
+        .WithName("EliminarEstacion")
+        .RequireAuthorization(policy =>
+            policy.RequireRole("Administrador"));
     }
 }
