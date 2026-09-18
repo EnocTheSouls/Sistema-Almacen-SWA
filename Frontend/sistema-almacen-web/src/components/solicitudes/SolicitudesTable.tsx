@@ -182,7 +182,7 @@ function obtenerEstadoStyle(
 
   if (estado === "pendiente") {
     background = "#fef3c7";
-    color = "#92400e";
+    color = "#920e0e";
   }
 
   if (

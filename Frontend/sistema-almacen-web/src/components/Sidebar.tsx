@@ -1,74 +1,124 @@
-import { useState } from "react";
+import {
+  useState,
+} from "react";
+
 import {
   Link,
   useLocation,
   useNavigate,
 } from "react-router-dom";
 
-import { cerrarSesion } from "../auth/authService";
-import { currentUser } from "../auth/userSession";
+import {
+  cerrarSesion,
+} from "../auth/authService";
 
-const SIDEBAR_FIXED_KEY = "sidebar_fijado";
+import {
+  obtenerUsuarioActual,
+} from "../auth/userSession";
+
+const SIDEBAR_FIXED_KEY =
+  "sidebar_fijado";
 
 export function Sidebar() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate =
+    useNavigate();
+
+  const location =
+    useLocation();
+
+
+  // Lee el usuario real desde el JWT.
+  const currentUser =
+    obtenerUsuarioActual();
+
+
+  const esAdministrador =
+    currentUser?.role === "ADMIN";
+
 
   // Recupera la preferencia guardada en el navegador.
-  const [fijado, setFijado] = useState(() => {
+  const [
+    fijado,
+    setFijado,
+  ] = useState(() => {
     return (
-      localStorage.getItem(SIDEBAR_FIXED_KEY) ===
-      "true"
+      localStorage.getItem(
+        SIDEBAR_FIXED_KEY
+      ) === "true"
     );
   });
 
   // Indica si el puntero está sobre el menú.
-  const [punteroDentro, setPunteroDentro] =
-    useState(false);
+  const [
+    punteroDentro,
+    setPunteroDentro,
+  ] = useState(false);
 
   // El menú se contrae si no está fijado
   // y el puntero se encuentra fuera.
   const collapsed =
-    !fijado && !punteroDentro;
+    !fijado &&
+    !punteroDentro;
 
   // Comprueba si una ruta está seleccionada.
-  const rutaActiva = (path: string) => {
+  const rutaActiva = (
+    path: string
+  ) => {
     if (path === "/dashboard") {
-      return location.pathname === path;
+      return (
+        location.pathname === path
+      );
     }
 
-    return location.pathname.startsWith(path);
+    return location.pathname.startsWith(
+      path
+    );
   };
 
   // Estilo para las opciones del menú.
-  const linkStyle = (path: string) => ({
+  const linkStyle = (
+    path: string
+  ) => ({
     display: "block",
     width: "100%",
-    boxSizing: "border-box" as const,
+    boxSizing:
+      "border-box" as const,
     padding: "12px 16px",
+
     borderLeft: rutaActiva(path)
       ? "5px solid #60a5fa"
       : "5px solid transparent",
+
     borderRadius: "8px",
+
     background: rutaActiva(path)
       ? "rgba(255, 255, 255, 0.13)"
       : "transparent",
+
     color: "#ffffff",
     fontSize: "15px",
+
     fontWeight: rutaActiva(path)
       ? "700"
       : "500",
+
     textDecoration: "none",
-    whiteSpace: "nowrap" as const,
+
+    whiteSpace:
+      "nowrap" as const,
+
     transition:
       "background-color 180ms ease, border-color 180ms ease",
   });
 
   // Fija o libera el menú.
   const cambiarFijado = () => {
-    const nuevoEstado = !fijado;
+    const nuevoEstado =
+      !fijado;
 
-    setFijado(nuevoEstado);
+    setFijado(
+      nuevoEstado
+    );
 
     localStorage.setItem(
       SIDEBAR_FIXED_KEY,
@@ -79,33 +129,52 @@ export function Sidebar() {
   // Elimina el token y regresa al login.
   const manejarCierreSesion = () => {
     cerrarSesion();
-    navigate("/login");
+
+    navigate(
+      "/login"
+    );
   };
 
   return (
     <aside
       onMouseEnter={() => {
-        setPunteroDentro(true);
+        setPunteroDentro(
+          true
+        );
       }}
       onMouseLeave={() => {
-        setPunteroDentro(false);
+        setPunteroDentro(
+          false
+        );
       }}
       style={{
         width: collapsed
           ? "42px"
           : "260px",
+
         minHeight: "100vh",
         flexShrink: 0,
         display: "flex",
-        flexDirection: "column",
+
+        flexDirection:
+          "column",
+
         overflow: "hidden",
-        boxSizing: "border-box",
+
+        boxSizing:
+          "border-box",
+
         background:
           "linear-gradient(180deg, #102957 0%, #0b2148 100%)",
+
         color: "#ffffff",
+
         boxShadow:
           "4px 0 15px rgba(15, 41, 87, 0.18)",
-        transition: "width 280ms ease",
+
+        transition:
+          "width 280ms ease",
+
         zIndex: 20,
       }}
     >
@@ -116,8 +185,13 @@ export function Sidebar() {
             width: "42px",
             height: "100vh",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "center",
+
             cursor: "pointer",
           }}
         >
@@ -126,10 +200,19 @@ export function Sidebar() {
               color: "#dbeafe",
               fontSize: "12px",
               fontWeight: "800",
-              letterSpacing: "4px",
-              writingMode: "vertical-rl",
-              textOrientation: "mixed",
-              transform: "rotate(180deg)",
+
+              letterSpacing:
+                "4px",
+
+              writingMode:
+                "vertical-rl",
+
+              textOrientation:
+                "mixed",
+
+              transform:
+                "rotate(180deg)",
+
               userSelect: "none",
             }}
           >
@@ -141,13 +224,19 @@ export function Sidebar() {
           <div
             style={{
               width: "260px",
-              padding: "20px 18px 0",
-              boxSizing: "border-box",
+
+              padding:
+                "20px 18px 0",
+
+              boxSizing:
+                "border-box",
             }}
           >
             <div
               style={{
-                position: "relative",
+                position:
+                  "relative",
+
                 minHeight: "30px",
               }}
             >
@@ -156,9 +245,14 @@ export function Sidebar() {
                   color: "#9fb4d4",
                   fontSize: "14px",
                   fontWeight: "800",
-                  letterSpacing: "3px",
+
+                  letterSpacing:
+                    "3px",
+
                   lineHeight: "30px",
-                  textAlign: "center",
+
+                  textAlign:
+                    "center",
                 }}
               >
                 MENÚ
@@ -166,7 +260,9 @@ export function Sidebar() {
 
               <button
                 type="button"
-                onClick={cambiarFijado}
+                onClick={
+                  cambiarFijado
+                }
                 title={
                   fijado
                     ? "Liberar menú"
@@ -178,28 +274,48 @@ export function Sidebar() {
                     : "Fijar menú abierto"
                 }
                 style={{
-                  position: "absolute",
+                  position:
+                    "absolute",
+
                   top: "2px",
                   right: "0",
+
                   width: "26px",
                   height: "26px",
+
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+
+                  alignItems:
+                    "center",
+
+                  justifyContent:
+                    "center",
+
                   padding: 0,
+
                   border:
                     "1px solid rgba(255, 255, 255, 0.2)",
-                  borderRadius: "6px",
+
+                  borderRadius:
+                    "6px",
+
                   background: fijado
                     ? "#2563eb"
                     : "rgba(255, 255, 255, 0.08)",
-                  color: "#ffffff",
-                  cursor: "pointer",
+
+                  color:
+                    "#ffffff",
+
+                  cursor:
+                    "pointer",
+
                   transition:
                     "background-color 180ms ease",
                 }}
               >
-                <PinIcon fijado={fijado} />
+                <PinIcon
+                  fijado={fijado}
+                />
               </button>
             </div>
 
@@ -207,9 +323,15 @@ export function Sidebar() {
               style={{
                 width: "45px",
                 height: "3px",
-                margin: "12px auto 0",
-                borderRadius: "999px",
-                background: "#60a5fa",
+
+                margin:
+                  "12px auto 0",
+
+                borderRadius:
+                  "999px",
+
+                background:
+                  "#60a5fa",
               }}
             />
           </div>
@@ -217,130 +339,211 @@ export function Sidebar() {
           <nav
             style={{
               width: "260px",
+
               display: "flex",
-              flexDirection: "column",
+
+              flexDirection:
+                "column",
+
               gap: "7px",
-              padding: "10px 18px 20px",
-              boxSizing: "border-box",
+
+              padding:
+                "10px 18px 20px",
+
+              boxSizing:
+                "border-box",
             }}
           >
-            <span style={sectionStyle}>
+            <span
+              style={
+                sectionStyle
+              }
+            >
               GENERAL
             </span>
 
             <Link
               to="/dashboard"
-              style={linkStyle("/dashboard")}
+              style={linkStyle(
+                "/dashboard"
+              )}
             >
               Dashboard
             </Link>
 
-            {currentUser.role === "ADMIN" && (
+            {esAdministrador && (
               <>
-              
                 <Link
                   to="/usuarios"
-                  style={linkStyle("/usuarios")}
+                  style={linkStyle(
+                    "/usuarios"
+                  )}
                 >
                   Usuarios
                 </Link>
 
                 <Link
                   to="/proyectos"
-                  style={linkStyle("/proyectos")}
+                  style={linkStyle(
+                    "/proyectos"
+                  )}
                 >
                   Proyectos
                 </Link>
               </>
             )}
+
             <Link
               to="/materiales"
-              style={linkStyle("/materiales")}
+              style={linkStyle(
+                "/materiales"
+              )}
             >
               Materiales
             </Link>
+
             <Link
               to="/solicitudes"
-              style={linkStyle("/solicitudes")}
+              style={linkStyle(
+                "/solicitudes"
+              )}
             >
               Solicitudes
             </Link>
+
             <Link
               to="/inventario"
-              style={linkStyle("/inventario")}
+              style={linkStyle(
+                "/inventario"
+              )}
             >
               Inventario
             </Link>
 
-            <Link
-              to="/kardex"
-              style={linkStyle("/kardex")}
-            >
-              Bitácora
-            </Link>
+            {esAdministrador && (
+              <Link
+                to="/kardex"
+                style={linkStyle(
+                  "/kardex"
+                )}
+              >
+                Bitácora
+              </Link>
+            )}
+
           </nav>
 
           <div
             style={{
               width: "260px",
-              marginTop: "auto",
+
+              marginTop:
+                "auto",
+
               padding: "18px",
-              boxSizing: "border-box",
+
+              boxSizing:
+                "border-box",
             }}
           >
             <div
               style={{
-                paddingTop: "18px",
+                paddingTop:
+                  "18px",
+
                 borderTop:
                   "1px solid rgba(255, 255, 255, 0.14)",
               }}
             >
               <div
                 style={{
-                  marginBottom: "14px",
-                  textAlign: "center",
+                  marginBottom:
+                    "14px",
+
+                  textAlign:
+                    "center",
                 }}
               >
                 <div
                   style={{
-                    overflow: "hidden",
-                    color: "#ffffff",
-                    fontSize: "15px",
-                    fontWeight: "700",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    overflow:
+                      "hidden",
+
+                    color:
+                      "#ffffff",
+
+                    fontSize:
+                      "15px",
+
+                    fontWeight:
+                      "700",
+
+                    textOverflow:
+                      "ellipsis",
+
+                    whiteSpace:
+                      "nowrap",
                   }}
                 >
-                  {currentUser.username}
+                  {currentUser?.username ?? "Usuario"}
                 </div>
 
                 <div
                   style={{
-                    marginTop: "4px",
-                    color: "#9fb4d4",
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    letterSpacing: "1px",
+                    marginTop:
+                      "4px",
+
+                    color:
+                      "#9fb4d4",
+
+                    fontSize:
+                      "12px",
+
+                    fontWeight:
+                      "700",
+
+                    letterSpacing:
+                      "1px",
                   }}
                 >
-                  {currentUser.role}
+                  {currentUser?.role ?? "SIN ROL"}
+                  
                 </div>
+
               </div>
+
               <button
                 type="button"
-                onClick={manejarCierreSesion}
+                onClick={
+                  manejarCierreSesion
+                }
                 style={{
                   width: "100%",
                   minHeight: "43px",
-                  padding: "10px 14px",
+
+                  padding:
+                    "10px 14px",
+
                   border:
                     "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "9px",
-                  background: "#c62828",
-                  color: "#ffffff",
-                  fontSize: "14px",
-                  fontWeight: "700",
-                  cursor: "pointer",
+
+                  borderRadius:
+                    "9px",
+
+                  background:
+                    "#c62828",
+
+                  color:
+                    "#ffffff",
+
+                  fontSize:
+                    "14px",
+
+                  fontWeight:
+                    "700",
+
+                  cursor:
+                    "pointer",
                 }}
               >
                 Cerrar sesión
@@ -372,6 +575,7 @@ function PinIcon({
         transform: fijado
           ? "rotate(0deg)"
           : "rotate(-35deg)",
+
         transition:
           "transform 180ms ease",
       }}

@@ -1,27 +1,75 @@
 import {
+  useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
 import { Layout } from "../components/Layout";
 
 import {
+  SolicitudDetalleModal,
+} from "../components/solicitudes/SolicitudDetalleModal";
+
+import {
   obtenerDashboard,
 } from "../services/dashboardService";
+
+import {
+  obtenerSolicitudes,
+} from "../services/solicitudService";
+
+import {
+  obtenerUsuarioActual,
+} from "../auth/userSession";
 
 import type {
   DashboardSolicitudes,
 } from "../types/dashboard";
 
-import {
-  currentUser,
-} from "../auth/userSession";
+import type {
+  Solicitud,
+} from "../types/solicitud";
+
+interface ConfiguracionDashboard {
+  actualizacionAutomatica: boolean;
+  segundosActualizacion: number;
+  limiteAmarillo: number;
+  limiteNaranja: number;
+  limiteRojo: number;
+  solicitudesVisibles: number;
+}
+
+const configuracionInicial: ConfiguracionDashboard = {
+  actualizacionAutomatica: true,
+  segundosActualizacion: 10,
+  limiteAmarillo: 10,
+  limiteNaranja: 20,
+  limiteRojo: 30,
+  solicitudesVisibles: 8,
+};
 
 export function DashboardPage() {
+  // Lee el usuario autenticado desde el JWT.
+  const currentUser =
+    obtenerUsuarioActual();
+
   const [
     dashboard,
     setDashboard,
   ] = useState<DashboardSolicitudes | null>(
+    null
+  );
+
+  const [
+    solicitudes,
+    setSolicitudes,
+  ] = useState<Solicitud[]>([]);
+
+  const [
+    solicitudSeleccionada,
+    setSolicitudSeleccionada,
+  ] = useState<Solicitud | null>(
     null
   );
 
@@ -31,79 +79,329 @@ export function DashboardPage() {
   ] = useState(true);
 
   const [
+    actualizando,
+    setActualizando,
+  ] = useState(false);
+
+  const [
     errorCarga,
     setErrorCarga,
   ] = useState("");
 
-  useEffect(() => {
-    const cargarDashboard = async () => {
+  const [
+    mensajeExito,
+    setMensajeExito,
+  ] = useState("");
+
+  const [
+    fechaHoraActual,
+    setFechaHoraActual,
+  ] = useState(new Date());
+
+  const configuracion =
+    configuracionInicial;
+
+  // Carga los indicadores y las solicitudes.
+  const cargarDatos = useCallback(
+    async (
+      mostrarIndicadorPrincipal = false
+    ) => {
       try {
-        setCargando(true);
+        if (mostrarIndicadorPrincipal) {
+          setCargando(true);
+        } else {
+          setActualizando(true);
+        }
+
         setErrorCarga("");
 
-        const respuesta =
-          await obtenerDashboard();
+        const [
+          dashboardData,
+          solicitudesData,
+        ] = await Promise.all([
+          obtenerDashboard(),
+          obtenerSolicitudes(),
+        ]);
 
-        setDashboard(respuesta);
+        setDashboard(
+          dashboardData
+        );
+
+        setSolicitudes(
+          solicitudesData
+        );
       } catch (error) {
         console.error(
-          "Error al cargar el dashboard:",
+          "Error al cargar el Dashboard:",
           error
         );
 
         setErrorCarga(
-          "No se pudieron cargar los indicadores."
+          "No se pudieron cargar los indicadores y las solicitudes."
         );
       } finally {
         setCargando(false);
+        setActualizando(false);
       }
-    };
+    },
+    []
+  );
 
-    cargarDashboard();
+  // Realiza la primera carga.
+  useEffect(() => {
+    cargarDatos(true);
+  }, [cargarDatos]);
+
+  // Actualiza el reloj cada segundo.
+  useEffect(() => {
+    const intervaloReloj =
+      window.setInterval(() => {
+        setFechaHoraActual(
+          new Date()
+        );
+      }, 1000);
+
+    return () => {
+      window.clearInterval(
+        intervaloReloj
+      );
+    };
   }, []);
 
-  // Agrupa los estados que representan una
-  // solicitud actualmente en proceso.
-  const solicitudesEnProceso =
-    (dashboard?.enSurtido ?? 0) +
-    (dashboard?.parciales ?? 0) +
-    (dashboard?.faltantes ?? 0);
+  // Actualiza automáticamente el Dashboard.
+  useEffect(() => {
+    if (
+      !configuracion.actualizacionAutomatica
+    ) {
+      return;
+    }
+
+    const segundos =
+      Math.max(
+        5,
+        configuracion.segundosActualizacion
+      );
+
+    const intervalo =
+      window.setInterval(() => {
+        cargarDatos(false);
+      }, segundos * 1000);
+
+    return () => {
+      window.clearInterval(
+        intervalo
+      );
+    };
+  }, [
+    cargarDatos,
+    configuracion.actualizacionAutomatica,
+    configuracion.segundosActualizacion,
+  ]);
+
+  // Muestra las solicitudes pendientes más antiguas primero.
+  const solicitudesPendientes =
+    useMemo(() => {
+      return solicitudes
+        .filter(
+          (solicitud) =>
+            solicitud.nombreEstado
+              .toLowerCase() ===
+            "pendiente"
+        )
+        .sort(
+          (
+            solicitudA,
+            solicitudB
+          ) =>
+            new Date(
+              solicitudA.fechaSolicitud
+            ).getTime() -
+            new Date(
+              solicitudB.fechaSolicitud
+            ).getTime()
+        )
+        .slice(
+          0,
+          configuracion.solicitudesVisibles
+        );
+    }, [
+      solicitudes,
+      configuracion.solicitudesVisibles,
+    ]);
+
+  const solicitudesSurtidas =
+    useMemo(() => {
+      return solicitudes.filter(
+        (solicitud) =>
+          solicitud.nombreEstado
+            .toLowerCase() ===
+          "surtida"
+      ).length;
+    }, [solicitudes]);
+
+  const abrirDetalle = (
+    solicitud: Solicitud
+  ) => {
+    setSolicitudSeleccionada(
+      solicitud
+    );
+
+    setMensajeExito("");
+  };
+
+  const cerrarDetalle = () => {
+    setSolicitudSeleccionada(
+      null
+    );
+  };
+
+  // Actualiza la solicitud después de modificarla.
+  const manejarSolicitudActualizada = (
+    solicitudActualizada: Solicitud,
+    mensaje: string
+  ) => {
+    setSolicitudes(
+      (solicitudesActuales) =>
+        solicitudesActuales.map(
+          (solicitud) =>
+            solicitud.idSolicitud ===
+            solicitudActualizada.idSolicitud
+              ? solicitudActualizada
+              : solicitud
+        )
+    );
+
+    setSolicitudSeleccionada(
+      solicitudActualizada
+    );
+
+    setMensajeExito(
+      mensaje
+    );
+
+    cargarDatos(false);
+  };
+
+  const activarPantallaCompleta =
+    async () => {
+      try {
+        if (
+          !document.fullscreenElement
+        ) {
+          await document.documentElement
+            .requestFullscreen();
+
+          return;
+        }
+
+        await document.exitFullscreen();
+      } catch (error) {
+        console.error(
+          "No se pudo cambiar a pantalla completa:",
+          error
+        );
+      }
+    };
 
   return (
     <Layout>
       <div style={pageContainerStyle}>
-        <section style={cardContainerStyle}>
-          <div style={headerStyle}>
+        <section
+          style={
+            dashboardContainerStyle
+          }
+        >
+          <header style={headerStyle}>
             <div>
               <h1 style={titleStyle}>
-                Bienvenido,{" "}
-                {currentUser.username}
+                Centro de solicitudes
               </h1>
 
-              <p style={descriptionStyle}>
-                Resumen general de las solicitudes
-                de material.
+              <p style={welcomeStyle}>
+                Bienvenido,{" "}
+                {currentUser?.nombre ??
+                  currentUser?.username ??
+                  "Usuario"}
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                window.location.reload()
+            <div
+              style={
+                headerActionsStyle
               }
-              disabled={cargando}
-              style={{
-                ...refreshButtonStyle,
-                opacity: cargando
-                  ? 0.65
-                  : 1,
-              }}
             >
-              {cargando
-                ? "Actualizando..."
-                : "Actualizar"}
-            </button>
+              <div style={clockStyle}>
+                <strong style={timeStyle}>
+                  {fechaHoraActual.toLocaleTimeString(
+                    "es-MX",
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    }
+                  )}
+                </strong>
+
+                <span style={dateStyle}>
+                  {fechaHoraActual.toLocaleDateString(
+                    "es-MX",
+                    {
+                      weekday: "long",
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    }
+                  )}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  cargarDatos(false)
+                }
+                disabled={actualizando}
+                title="Actualizar información"
+                aria-label="Actualizar información"
+                style={iconButtonStyle}
+              >
+                {actualizando
+                  ? "..."
+                  : "↻"}
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  activarPantallaCompleta
+                }
+                title="Pantalla completa"
+                aria-label="Pantalla completa"
+                style={iconButtonStyle}
+              >
+                ⛶
+              </button>
+            </div>
+          </header>
+
+          <div
+            style={
+              updateInformationStyle
+            }
+          >
+            Actualización automática cada{" "}
+            {
+              configuracion
+                .segundosActualizacion
+            }{" "}
+            segundos
           </div>
+
+          {mensajeExito && (
+            <div style={successStyle}>
+              {mensajeExito}
+            </div>
+          )}
 
           {errorCarga && (
             <div style={errorStyle}>
@@ -113,43 +411,309 @@ export function DashboardPage() {
 
           {cargando ? (
             <div style={loadingStyle}>
-              Cargando indicadores...
+              Cargando Dashboard...
             </div>
           ) : (
-            <div style={kpiGridStyle}>
-              <KpiCard
-                titulo="Pendientes"
-                cantidad={
-                  dashboard?.pendientes ?? 0
-                }
-                color="#92400e"
-                fondo="#fef3c7"
-                descripcion="Solicitudes esperando atención"
-              />
+            <>
+              <div style={kpiGridStyle}>
+                <KpiCard
+                  titulo="Pendientes"
+                  cantidad={
+                    dashboard?.pendientes ??
+                    solicitudesPendientes.length
+                  }
+                  color="#ffffff"
+                  fondo="#ea580c"
+                  descripcion="Solicitudes esperando atención"
+                />
 
-              <KpiCard
-                titulo="En proceso"
-                cantidad={
-                  solicitudesEnProceso
-                }
-                color="#1d4ed8"
-                fondo="#dbeafe"
-                descripcion="En surtido, parciales o faltantes"
-              />
+                <KpiCard
+                  titulo="Surtidas"
+                  cantidad={
+                    solicitudesSurtidas
+                  }
+                  color="#ffffff"
+                  fondo="#16a34a"
+                  descripcion="Material descontado y preparado"
+                />
 
-              <KpiCard
-                titulo="Surtidas"
-                cantidad={
-                  dashboard?.completadas ?? 0
+                <KpiCard
+                  titulo="Total"
+                  cantidad={
+                    solicitudes.length
+                  }
+                  color="#ffffff"
+                  fondo="#2563eb"
+                  descripcion="Solicitudes registradas"
+                />
+              </div>
+
+              <section
+                style={
+                  pendingSectionStyle
                 }
-                color="#166534"
-                fondo="#dcfce7"
-                descripcion="Material preparado por almacén"
-              />
-            </div>
+              >
+                <div
+                  style={
+                    pendingHeaderStyle
+                  }
+                >
+                  <div>
+                    <h2
+                      style={
+                        sectionTitleStyle
+                      }
+                    >
+                      Solicitudes pendientes
+                    </h2>
+
+                    <p
+                      style={
+                        sectionDescriptionStyle
+                      }
+                    >
+                      Las solicitudes más
+                      antiguas aparecen primero.
+                    </p>
+                  </div>
+
+                  <div
+                    style={
+                      pendingCounterStyle
+                    }
+                  >
+                    {dashboard?.pendientes ??
+                      solicitudesPendientes.length}{" "}
+                    pendientes
+                  </div>
+                </div>
+
+                {solicitudesPendientes.length ===
+                0 ? (
+                  <div style={emptyStyle}>
+                    No hay solicitudes
+                    pendientes.
+                  </div>
+                ) : (
+                  <div
+                    style={
+                      tableContainerStyle
+                    }
+                  >
+                    <table
+                      style={tableStyle}
+                    >
+                      <thead>
+                        <tr
+                          style={
+                            tableHeaderStyle
+                          }
+                        >
+                          <th style={thStyle}>
+                            Solicitud
+                          </th>
+
+                          <th style={thStyle}>
+                            Espera
+                          </th>
+
+                          <th style={thStyle}>
+                            Proyecto
+                          </th>
+
+                          <th style={thStyle}>
+                            Familia
+                          </th>
+
+                          <th style={thStyle}>
+                            Estación
+                          </th>
+
+                          <th style={thStyle}>
+                            Materiales
+                          </th>
+
+                          <th style={thStyle}>
+                            Solicitante
+                          </th>
+
+                          <th
+                            style={{
+                              ...thStyle,
+                              textAlign:
+                                "right",
+                            }}
+                          >
+                            Acción
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {solicitudesPendientes.map(
+                          (solicitud) => {
+                            const minutos =
+                              calcularMinutosEspera(
+                                solicitud.fechaSolicitud,
+                                fechaHoraActual
+                              );
+
+                            const alerta =
+                              obtenerAlertaEspera(
+                                minutos,
+                                configuracion
+                              );
+
+                            return (
+                              <tr
+                                key={
+                                  solicitud.idSolicitud
+                                }
+                                style={{
+                                  ...pendingRowStyle,
+
+                                  background:
+                                    alerta.fondo,
+
+                                  borderLeft:
+                                    `6px solid ${alerta.color}`,
+                                }}
+                                onClick={() =>
+                                  abrirDetalle(
+                                    solicitud
+                                  )
+                                }
+                              >
+                                <td style={tdStyle}>
+                                  <strong>
+                                    #
+                                    {
+                                      solicitud.idSolicitud
+                                    }
+                                  </strong>
+                                </td>
+
+                                <td style={tdStyle}>
+                                  <span
+                                    style={{
+                                      ...waitingBadgeStyle,
+
+                                      background:
+                                        alerta.color,
+                                    }}
+                                  >
+                                    {formatearTiempoEspera(
+                                      minutos
+                                    )}
+                                  </span>
+                                </td>
+
+                                <td style={tdStyle}>
+                                  {
+                                    solicitud.nombreProyecto
+                                  }
+                                </td>
+
+                                <td style={tdStyle}>
+                                  {
+                                    solicitud.nombreFamilia
+                                  }
+                                </td>
+
+                                <td style={tdStyle}>
+                                  <strong>
+                                    {
+                                      solicitud.nombreEstacion
+                                    }
+                                  </strong>
+                                </td>
+
+                                <td style={tdStyle}>
+                                  {
+                                    solicitud.materiales
+                                      ?.length ?? 0
+                                  }
+                                </td>
+
+                                <td style={tdStyle}>
+                                  {
+                                    solicitud
+                                      .nombreUsuarioSolicitud
+                                  }
+                                </td>
+
+                                <td
+                                  style={{
+                                    ...tdStyle,
+
+                                    textAlign:
+                                      "right",
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(
+                                      event
+                                    ) => {
+                                      event.stopPropagation();
+
+                                      abrirDetalle(
+                                        solicitud
+                                      );
+                                    }}
+                                    style={
+                                      openButtonStyle
+                                    }
+                                  >
+                                    Abrir
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div
+                  style={
+                    sectionActionsStyle
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href =
+                        "/solicitudes";
+                    }}
+                    style={
+                      viewAllButtonStyle
+                    }
+                  >
+                    Ver todas las solicitudes
+                  </button>
+                </div>
+              </section>
+            </>
           )}
         </section>
       </div>
+
+      {solicitudSeleccionada && (
+        <SolicitudDetalleModal
+          solicitud={
+            solicitudSeleccionada
+          }
+          onCerrar={
+            cerrarDetalle
+          }
+          onSolicitudActualizada={
+            manejarSolicitudActualizada
+          }
+        />
+      )}
     </Layout>
   );
 }
@@ -176,15 +740,6 @@ function KpiCard({
         background: fondo,
       }}
     >
-      <h3
-        style={{
-          ...kpiTitleStyle,
-          color,
-        }}
-      >
-        {titulo}
-      </h3>
-
       <strong
         style={{
           ...kpiNumberStyle,
@@ -193,6 +748,15 @@ function KpiCard({
       >
         {cantidad}
       </strong>
+
+      <h3
+        style={{
+          ...kpiTitleStyle,
+          color,
+        }}
+      >
+        {titulo}
+      </h3>
 
       <span
         style={{
@@ -206,16 +770,110 @@ function KpiCard({
   );
 }
 
+function calcularMinutosEspera(
+  fechaSolicitud: string,
+  fechaActual: Date
+) {
+  const fecha =
+    new Date(fechaSolicitud);
+
+  if (
+    Number.isNaN(
+      fecha.getTime()
+    )
+  ) {
+    return 0;
+  }
+
+  const diferencia =
+    fechaActual.getTime() -
+    fecha.getTime();
+
+  return Math.max(
+    0,
+    Math.floor(
+      diferencia / 60000
+    )
+  );
+}
+
+function formatearTiempoEspera(
+  minutos: number
+) {
+  if (minutos < 1) {
+    return "Ahora";
+  }
+
+  if (minutos < 60) {
+    return `${minutos} min`;
+  }
+
+  const horas =
+    Math.floor(
+      minutos / 60
+    );
+
+  const minutosRestantes =
+    minutos % 60;
+
+  if (minutosRestantes === 0) {
+    return `${horas} h`;
+  }
+
+  return `${horas} h ${minutosRestantes} min`;
+}
+
+function obtenerAlertaEspera(
+  minutos: number,
+  configuracion: ConfiguracionDashboard
+) {
+  if (
+    minutos >=
+    configuracion.limiteRojo
+  ) {
+    return {
+      fondo: "#fef2f2",
+      color: "#dc2626",
+    };
+  }
+
+  if (
+    minutos >=
+    configuracion.limiteNaranja
+  ) {
+    return {
+      fondo: "#fff7ed",
+      color: "#ea580c",
+    };
+  }
+
+  if (
+    minutos >=
+    configuracion.limiteAmarillo
+  ) {
+    return {
+      fondo: "#fefce8",
+      color: "#ca8a04",
+    };
+  }
+
+  return {
+    fondo: "#f8fafc",
+    color: "#2563eb",
+  };
+}
+
 const pageContainerStyle = {
   width: "100%",
-  maxWidth: "1200px",
+  maxWidth: "1500px",
   margin: "0 auto",
 };
 
-const cardContainerStyle = {
+const dashboardContainerStyle = {
   padding: "30px",
   borderRadius: "16px",
   background: "#ffffff",
+
   boxShadow:
     "0 4px 15px rgba(0, 0, 0, 0.08)",
 };
@@ -225,7 +883,7 @@ const headerStyle = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "20px",
-  marginBottom: "26px",
+  marginBottom: "12px",
 };
 
 const titleStyle = {
@@ -234,64 +892,207 @@ const titleStyle = {
   fontSize: "30px",
 };
 
-const descriptionStyle = {
+const welcomeStyle = {
   margin: "7px 0 0",
   color: "#64748b",
   fontSize: "14px",
-  lineHeight: 1.5,
 };
 
-const refreshButtonStyle = {
-  minHeight: "42px",
-  padding: "10px 16px",
+const headerActionsStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+};
+
+const clockStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  alignItems: "flex-end",
+  marginRight: "10px",
+};
+
+const timeStyle = {
+  color: "#102957",
+  fontSize: "27px",
+  fontWeight: "800",
+  lineHeight: 1,
+};
+
+const dateStyle = {
+  marginTop: "6px",
+  color: "#64748b",
+  fontSize: "12px",
+  textTransform:
+    "capitalize" as const,
+};
+
+const iconButtonStyle = {
+  width: "44px",
+  height: "44px",
   border: "1px solid #cbd5e1",
   borderRadius: "9px",
   background: "#ffffff",
   color: "#102957",
-  fontSize: "14px",
-  fontWeight: "700",
+  fontSize: "22px",
   cursor: "pointer",
-  whiteSpace: "nowrap" as const,
+};
+
+const updateInformationStyle = {
+  marginBottom: "22px",
+  padding: "10px 13px",
+  borderRadius: "8px",
+  background: "#f8fafc",
+  color: "#64748b",
+  fontSize: "12px",
+  textAlign: "right" as const,
 };
 
 const kpiGridStyle = {
   display: "grid",
+
   gridTemplateColumns:
-    "repeat(auto-fit, minmax(210px, 1fr))",
+    "repeat(3, minmax(220px, 1fr))",
+
   gap: "18px",
+  marginBottom: "28px",
 };
 
 const kpiCardStyle = {
-  minHeight: "150px",
+  minHeight: "155px",
   display: "flex",
   flexDirection: "column" as const,
   alignItems: "center",
   justifyContent: "center",
   padding: "22px",
-  boxSizing: "border-box" as const,
   borderRadius: "12px",
-  border: "1px solid rgba(148, 163, 184, 0.25)",
   textAlign: "center" as const,
 };
 
-const kpiTitleStyle = {
-  margin: "0 0 10px",
-  fontSize: "17px",
-  fontWeight: "750",
-};
-
 const kpiNumberStyle = {
-  display: "block",
-  marginBottom: "9px",
-  fontSize: "34px",
+  fontSize: "46px",
+  fontWeight: "800",
   lineHeight: 1,
 };
 
+const kpiTitleStyle = {
+  margin: "10px 0 5px",
+  fontSize: "20px",
+};
+
 const kpiDescriptionStyle = {
-  maxWidth: "210px",
+  fontSize: "13px",
+  opacity: 0.9,
+};
+
+const pendingSectionStyle = {
+  padding: "22px",
+  border: "1px solid #e2e8f0",
+  borderRadius: "12px",
+  background: "#ffffff",
+};
+
+const pendingHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "15px",
+  marginBottom: "16px",
+};
+
+const sectionTitleStyle = {
+  margin: 0,
+  color: "#102957",
+  fontSize: "22px",
+};
+
+const sectionDescriptionStyle = {
+  margin: "5px 0 0",
+  color: "#64748b",
+  fontSize: "13px",
+};
+
+const pendingCounterStyle = {
+  padding: "9px 14px",
+  borderRadius: "999px",
+  background: "#ffedd5",
+  color: "#c2410c",
+  fontWeight: "800",
+};
+
+const tableContainerStyle = {
+  overflowX: "auto" as const,
+  border: "1px solid #e2e8f0",
+  borderRadius: "10px",
+};
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse:
+    "collapse" as const,
+};
+
+const tableHeaderStyle = {
+  background: "#f1f5f9",
+};
+
+const thStyle = {
+  padding: "13px",
+  borderBottom:
+    "2px solid #cbd5e1",
+  color: "#102957",
+  fontSize: "13px",
+  textAlign: "left" as const,
+  whiteSpace: "nowrap" as const,
+};
+
+const tdStyle = {
+  padding: "14px 13px",
+  borderBottom:
+    "1px solid #e2e8f0",
+  color: "#334155",
+  fontSize: "14px",
+};
+
+const pendingRowStyle = {
+  cursor: "pointer",
+};
+
+const waitingBadgeStyle = {
+  display: "inline-block",
+  minWidth: "74px",
+  padding: "7px 10px",
+  borderRadius: "999px",
+  color: "#ffffff",
   fontSize: "12px",
-  lineHeight: 1.4,
-  opacity: 0.85,
+  fontWeight: "800",
+  textAlign: "center" as const,
+};
+
+const openButtonStyle = {
+  padding: "8px 14px",
+  border: "none",
+  borderRadius: "7px",
+  background: "#102957",
+  color: "#ffffff",
+  fontWeight: "700",
+  cursor: "pointer",
+};
+
+const sectionActionsStyle = {
+  display: "flex",
+  justifyContent: "flex-end",
+  marginTop: "18px",
+};
+
+const viewAllButtonStyle = {
+  minHeight: "42px",
+  padding: "10px 17px",
+  border: "1px solid #102957",
+  borderRadius: "8px",
+  background: "#ffffff",
+  color: "#102957",
+  fontWeight: "700",
+  cursor: "pointer",
 };
 
 const loadingStyle = {
@@ -302,12 +1103,30 @@ const loadingStyle = {
   textAlign: "center" as const,
 };
 
-const errorStyle = {
-  marginBottom: "20px",
-  padding: "14px 16px",
-  border: "1px solid #fecaca",
+const emptyStyle = {
+  padding: "38px",
+  border: "1px dashed #cbd5e1",
   borderRadius: "10px",
+  background: "#f8fafc",
+  color: "#64748b",
+  textAlign: "center" as const,
+};
+
+const successStyle = {
+  marginBottom: "18px",
+  padding: "13px 15px",
+  border: "1px solid #bbf7d0",
+  borderRadius: "9px",
+  background: "#f0fdf4",
+  color: "#166534",
+  fontWeight: "700",
+};
+
+const errorStyle = {
+  marginBottom: "18px",
+  padding: "13px 15px",
+  border: "1px solid #fecaca",
+  borderRadius: "9px",
   background: "#fef2f2",
   color: "#991b1b",
-  fontSize: "14px",
 };

@@ -330,7 +330,7 @@ export function SolicitudesPage() {
               cantidad={
                 solicitudes.length
               }
-              color="#1d4ed8"
+              color="rgb(29, 78, 216)"
               fondo="#eff6ff"
             />
 
@@ -344,8 +344,8 @@ export function SolicitudesPage() {
                     "pendiente"
                 ).length
               }
-              color="#92400e"
-              fondo="#fef3c7"
+              color="rgb(146, 14, 14)"
+              fondo="rgba(254, 199, 199)"
             />
 
             <Resumen
@@ -368,8 +368,8 @@ export function SolicitudesPage() {
                   }
                 ).length
               }
-              color="#1d4ed8"
-              fondo="#dbeafe"
+              color="rgb(146,14,14)"
+              fondo="rgb(254,243,199)"
             />
 
             <Resumen
@@ -383,7 +383,7 @@ export function SolicitudesPage() {
 
                     return (
                       estado ===
-                      "surtida" 
+                      "surtida"
                     );
                   }
                 ).length
@@ -655,20 +655,31 @@ const summaryCardStyle = {
   minHeight: "80px",
   display: "flex",
   flexDirection: "column" as const,
+  alignItems: "center",
   justifyContent: "center",
   padding: "14px 17px",
   borderRadius: "10px",
+  textAlign: "center" as const,
 };
 
 const summaryNumberStyle = {
+  display: "block",
   fontSize: "25px",
   fontWeight: "800",
+  lineHeight: 1,
+  letterSpacing: "-0.5px",
+
+
 };
 
 const summaryLabelStyle = {
-  marginTop: "3px",
-  fontSize: "13px",
+  display: "block",
+  marginTop: "12px",
+  fontSize: "20px",
   fontWeight: "700",
+  lineHeight: 1.2,
+  letterSpacing: "0.2px",
+  textAlign: "center" as const,
 };
 
 const filtersStyle = {

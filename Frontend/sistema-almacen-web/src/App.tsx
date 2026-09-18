@@ -4,7 +4,11 @@ import {
   Routes,
 } from "react-router-dom";
 
-import { currentUser } from "./auth/userSession";
+import {
+  obtenerUsuarioActual,
+} from "./auth/userSession";
+
+
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -20,6 +24,12 @@ import { InventarioPage } from "./pages/InventarioPage";
 import { BitacoraPage } from "./pages/BitacoraPage";
 
 function App() {
+  const currentUser =
+    obtenerUsuarioActual();
+
+  const esAdministrador =
+    currentUser?.role === "ADMIN";
+
   return (
     <Routes>
       <Route
@@ -45,7 +55,7 @@ function App() {
         path="/usuarios"
         element={
           <ProtectedRoute>
-            {currentUser.role === "ADMIN" ? (
+            {esAdministrador ? (
               <UserListPage />
             ) : (
               <Navigate
@@ -61,7 +71,7 @@ function App() {
         path="/usuarios/nuevo"
         element={
           <ProtectedRoute>
-            {currentUser.role === "ADMIN" ? (
+            {esAdministrador ? (
               <CreateUserPage />
             ) : (
               <Navigate
@@ -77,7 +87,7 @@ function App() {
         path="/proyectos"
         element={
           <ProtectedRoute>
-            {currentUser.role === "ADMIN" ? (
+            {esAdministrador ? (
               <EstructuraPage />
             ) : (
               <Navigate
