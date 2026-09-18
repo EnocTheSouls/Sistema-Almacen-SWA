@@ -454,6 +454,73 @@ public sealed class SolicitudRepository
                 idEstadoPendiente =
                     Convert.ToInt32(resultado);
             }
+            string nombreProyectoHistorico;
+            string nombreFamiliaHistorico;
+            string nombreEstacionHistorico;
+
+            // Obtiene los nombres históricos y valida la jerarquía completa.
+            await using (var estructuraCommand =
+                connection.CreateCommand())
+            {
+                estructuraCommand.Transaction =
+                    transaction;
+
+                estructuraCommand.CommandText = """
+        SELECT
+            p.nombre AS nombre_proyecto,
+            f.nombre AS nombre_familia,
+            e.nombre AS nombre_estacion
+        FROM estaciones AS e
+        INNER JOIN familias AS f
+            ON f.id_familia = e.id_familia
+        INNER JOIN proyectos AS p
+            ON p.id_proyecto = f.id_proyecto
+        WHERE p.id_proyecto = @idProyecto
+          AND f.id_familia = @idFamilia
+          AND e.id_estacion = @idEstacion
+        LIMIT 1;
+        """;
+
+                estructuraCommand.Parameters.AddWithValue(
+                    "@idProyecto",
+                    idProyecto
+                );
+
+                estructuraCommand.Parameters.AddWithValue(
+                    "@idFamilia",
+                    idFamilia
+                );
+
+                estructuraCommand.Parameters.AddWithValue(
+                    "@idEstacion",
+                    idEstacion
+                );
+
+                await using var estructuraReader =
+                    await estructuraCommand.ExecuteReaderAsync();
+
+                if (!await estructuraReader.ReadAsync())
+                {
+                    throw new InvalidOperationException(
+                        "El proyecto, la familia y la estación seleccionados no forman una estructura válida."
+                    );
+                }
+
+                nombreProyectoHistorico =
+                    estructuraReader.GetString(
+                        "nombre_proyecto"
+                    );
+
+                nombreFamiliaHistorico =
+                    estructuraReader.GetString(
+                        "nombre_familia"
+                    );
+
+                nombreEstacionHistorico =
+                    estructuraReader.GetString(
+                        "nombre_estacion"
+                    );
+            }
 
             long idSolicitud;
 
@@ -464,26 +531,31 @@ public sealed class SolicitudRepository
                 solicitudCommand.Transaction = transaction;
 
                 solicitudCommand.CommandText = """
-                    INSERT INTO solicitudes (
-                        id_estado,
-                        fecha_solicitud,
-                        id_familia,
-                        id_proyecto,
-                        id_estacion,
-                        usuario_solicitud,
-                        origen_solicitud
-                    )
-                    VALUES (
-                        @idEstado,
-                        CURRENT_TIMESTAMP,
-                        @idFamilia,
-                        @idProyecto,
-                        @idEstacion,
-                        @idUsuarioSolicitud,
-                        @origenSolicitud
-                    );
-                    """;
-
+    INSERT INTO solicitudes (
+        id_estado,
+        fecha_solicitud,
+        id_proyecto,
+        nombre_proyecto_historico,
+        id_familia,
+        nombre_familia_historico,
+        id_estacion,
+        nombre_estacion_historico,
+        usuario_solicitud,
+        origen_solicitud
+    )
+    VALUES (
+        @idEstado,
+        CURRENT_TIMESTAMP,
+        @idProyecto,
+        @nombreProyectoHistorico,
+        @idFamilia,
+        @nombreFamiliaHistorico,
+        @idEstacion,
+        @nombreEstacionHistorico,
+        @idUsuarioSolicitud,
+        @origenSolicitud
+    );
+    """;
                 solicitudCommand.Parameters.AddWithValue(
                     "@idEstado",
                     idEstadoPendiente
@@ -493,15 +565,29 @@ public sealed class SolicitudRepository
                     "@idFamilia",
                     idFamilia
                 );
+                solicitudCommand.Parameters.AddWithValue(
+                    "@nombreFamiliaHistorico",
+                     nombreFamiliaHistorico
+                );
 
                 solicitudCommand.Parameters.AddWithValue(
                     "@idProyecto",
                     idProyecto
                 );
+                solicitudCommand.Parameters.AddWithValue(
+                    "@nombreProyectoHistorico",
+                    nombreProyectoHistorico
+                );
+
 
                 solicitudCommand.Parameters.AddWithValue(
                     "@idEstacion",
                     idEstacion
+                );
+
+                solicitudCommand.Parameters.AddWithValue(
+                    "@nombreEstacionHistorico",
+                     nombreEstacionHistorico
                 );
 
                 solicitudCommand.Parameters.AddWithValue(
@@ -622,7 +708,6 @@ public sealed class SolicitudRepository
     }
 
 
-
     // Obtiene los contadores de solicitudes para el dashboard.
     public async Task<DashboardSolicitudes>
         ObtenerDashboardAsync()
@@ -635,66 +720,67 @@ public sealed class SolicitudRepository
         await using var command =
             connection.CreateCommand();
 
+        // Usa los identificadores de los estados para evitar
+        // diferencias causadas por cambios en sus nombres.
         command.CommandText = """
         SELECT
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Pendiente'
+                    WHEN s.id_estado = 1
                     THEN 1
                 END
             ) AS pendientes,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Asignada'
+                    WHEN s.id_estado = 2
                     THEN 1
                 END
             ) AS asignadas,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'En surtido'
+                    WHEN s.id_estado = 3
                     THEN 1
                 END
             ) AS en_surtido,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Parcial'
+                    WHEN s.id_estado = 4
                     THEN 1
                 END
             ) AS parciales,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Faltante'
+                    WHEN s.id_estado = 5
                     THEN 1
                 END
             ) AS faltantes,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Completada'
+                    WHEN s.id_estado = 6
                     THEN 1
                 END
             ) AS completadas,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Entregada'
+                    WHEN s.id_estado = 7
                     THEN 1
                 END
             ) AS entregadas,
 
             COUNT(
                 CASE
-                    WHEN es.nombre = 'Cancelada'
+                    WHEN s.id_estado = 8
                     THEN 1
                 END
             ) AS canceladas
-        FROM solicitudes AS s
-        INNER JOIN estado_solicitud AS es
-            ON es.id_estado = s.id_estado;
+
+        FROM solicitudes AS s;
         """;
 
         await using var reader =
@@ -709,42 +795,61 @@ public sealed class SolicitudRepository
         {
             Pendientes =
                 Convert.ToInt32(
-                    reader.GetInt64("pendientes")
+                    reader.GetInt64(
+                        "pendientes"
+                    )
                 ),
 
             Asignadas =
                 Convert.ToInt32(
-                    reader.GetInt64("asignadas")
+                    reader.GetInt64(
+                        "asignadas"
+                    )
                 ),
 
             EnSurtido =
                 Convert.ToInt32(
-                    reader.GetInt64("en_surtido")
+                    reader.GetInt64(
+                        "en_surtido"
+                    )
                 ),
 
             Parciales =
                 Convert.ToInt32(
-                    reader.GetInt64("parciales")
+                    reader.GetInt64(
+                        "parciales"
+                    )
                 ),
 
             Faltantes =
                 Convert.ToInt32(
-                    reader.GetInt64("faltantes")
+                    reader.GetInt64(
+                        "faltantes"
+                    )
                 ),
 
+            // El estado ID 6 ahora se llama Surtida.
+            // Conservamos la propiedad Completadas
+            // para no romper el frontend actual.
             Completadas =
                 Convert.ToInt32(
-                    reader.GetInt64("completadas")
+                    reader.GetInt64(
+                        "completadas"
+                    )
                 ),
 
             Entregadas =
                 Convert.ToInt32(
-                    reader.GetInt64("entregadas")
+                    reader.GetInt64(
+                        "entregadas"
+                    )
                 ),
 
             Canceladas =
                 Convert.ToInt32(
-                    reader.GetInt64("canceladas")
+                    reader.GetInt64(
+                        "canceladas"
+                    )
                 )
         };
     }
@@ -821,8 +926,9 @@ public sealed class SolicitudRepository
                     Convert.ToInt32(resultado);
             }
 
-            // Solo permite surtir solicitudes en proceso.
-            if (idEstadoActual != 3 &&
+            // Permite iniciar el surtido directamente desde Pendiente.
+            if (idEstadoActual != 1 &&
+                idEstadoActual != 3 &&
                 idEstadoActual != 4 &&
                 idEstadoActual != 5)
             {
@@ -833,9 +939,10 @@ public sealed class SolicitudRepository
                     Exitoso = false,
                     Codigo = "ESTADO_NO_PERMITIDO",
                     Mensaje =
-                        "La solicitud debe estar En surtido, Parcial o Faltante."
+                        "La solicitud debe estar Pendiente, En surtido, Parcial o Faltante."
                 };
             }
+
 
             int idMaterial;
             decimal cantidadSolicitada;
@@ -1175,7 +1282,7 @@ public sealed class SolicitudRepository
 
             var nombreNuevoEstado =
                 totalSurtido >= totalSolicitado
-                    ? "Completada"
+                    ? "Surtida"
                     : "Parcial";
 
             int idNuevoEstado;
@@ -1327,33 +1434,55 @@ public sealed class SolicitudRepository
     private static string CrearConsultaEncabezado()
     {
         return """
-            SELECT
-                s.id_solicitud,
-                s.id_estado,
-                es.nombre AS nombre_estado,
-                es.color AS color_estado,
-                s.fecha_solicitud,
-                s.id_proyecto,
-                p.nombre AS nombre_proyecto,
-                s.id_familia,
-                f.nombre AS nombre_familia,
-                s.id_estacion,
-                e.nombre AS nombre_estacion,
-                s.usuario_solicitud,
-                u.nombre AS nombre_usuario_solicitud,
-                s.origen_solicitud
-            FROM solicitudes AS s
-            INNER JOIN estado_solicitud AS es
-                ON es.id_estado = s.id_estado
-            INNER JOIN proyectos AS p
-                ON p.id_proyecto = s.id_proyecto
-            INNER JOIN familias AS f
-                ON f.id_familia = s.id_familia
-            INNER JOIN estaciones AS e
-                ON e.id_estacion = s.id_estacion
-            INNER JOIN usuarios AS u
-                ON u.id_usuario = s.usuario_solicitud
-            """;
+        SELECT
+            s.id_solicitud,
+            s.id_estado,
+            es.nombre AS nombre_estado,
+            es.color AS color_estado,
+            s.fecha_solicitud,
+
+            s.id_proyecto,
+            COALESCE(
+                p.nombre,
+                s.nombre_proyecto_historico,
+                'Proyecto eliminado'
+            ) AS nombre_proyecto,
+
+            s.id_familia,
+            COALESCE(
+                f.nombre,
+                s.nombre_familia_historico,
+                'Familia eliminada'
+            ) AS nombre_familia,
+
+            s.id_estacion,
+            COALESCE(
+                e.nombre,
+                s.nombre_estacion_historico,
+                'Estación eliminada'
+            ) AS nombre_estacion,
+
+            s.usuario_solicitud,
+            u.nombre AS nombre_usuario_solicitud,
+            s.origen_solicitud
+
+        FROM solicitudes AS s
+
+        INNER JOIN estado_solicitud AS es
+            ON es.id_estado = s.id_estado
+
+        LEFT JOIN proyectos AS p
+            ON p.id_proyecto = s.id_proyecto
+
+        LEFT JOIN familias AS f
+            ON f.id_familia = s.id_familia
+
+        LEFT JOIN estaciones AS e
+            ON e.id_estacion = s.id_estacion
+
+        INNER JOIN usuarios AS u
+            ON u.id_usuario = s.usuario_solicitud
+        """;
     }
 
     // Convierte una fila de MySQL en una solicitud.
@@ -1380,23 +1509,33 @@ public sealed class SolicitudRepository
             FechaSolicitud =
                 reader.GetDateTime("fecha_solicitud"),
 
-            IdProyecto =
-                reader.GetInt32("id_proyecto"),
+            IdProyecto = reader.IsDBNull(
+                reader.GetOrdinal("id_proyecto")
+            )
+            ? null
+                : reader.GetInt32("id_proyecto"),
 
             NombreProyecto =
-                reader.GetString("nombre_proyecto"),
+                 reader.GetString("nombre_proyecto"),
 
-            IdFamilia =
-                reader.GetInt32("id_familia"),
+            IdFamilia = reader.IsDBNull(
+                 reader.GetOrdinal("id_familia")
+            )
+            ? null
+                : reader.GetInt32("id_familia"),
 
             NombreFamilia =
-                reader.GetString("nombre_familia"),
+             reader.GetString("nombre_familia"),
 
-            IdEstacion =
-                reader.GetInt32("id_estacion"),
+            IdEstacion = reader.IsDBNull(
+             reader.GetOrdinal("id_estacion")
+            )
+            ? null
+            : reader.GetInt32("id_estacion"),
 
             NombreEstacion =
-                reader.GetString("nombre_estacion"),
+    reader.GetString("nombre_estacion"),
+
 
             IdUsuarioSolicitud =
                 reader.GetInt32("usuario_solicitud"),

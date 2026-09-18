@@ -336,21 +336,7 @@ public static class EstacionEndpoints
                 });
             }
 
-            // Impide eliminar estaciones utilizadas en solicitudes.
-            var tieneRelaciones =
-                await estacionRepository.TieneRelacionesAsync(
-                    idEstacion
-                );
-
-            if (tieneRelaciones)
-            {
-                return Results.Conflict(new
-                {
-                    mensaje =
-                        "No se puede eliminar la estación porque tiene solicitudes asociadas. Puedes marcarla como inactiva."
-                });
-            }
-
+        
             try
             {
                 var eliminada =

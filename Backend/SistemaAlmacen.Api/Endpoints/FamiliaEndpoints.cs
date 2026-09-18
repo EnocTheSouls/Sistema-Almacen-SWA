@@ -256,12 +256,13 @@ public static class FamiliaEndpoints
         );
 
 
-        // Elimina una familia solamente cuando no tiene relaciones.
+        // Elimina una familia del catálogo.
+        // Las solicitudes conservan el nombre histórico de la familia.
         grupo.MapDelete("/{idFamilia:int}", async (
             int idFamilia,
             FamiliaRepository repository) =>
         {
-            // Valida el identificador recibido.
+            // Valida el identificador.
             if (idFamilia <= 0)
             {
                 return Results.BadRequest(new
@@ -286,21 +287,6 @@ public static class FamiliaEndpoints
                 });
             }
 
-            // Verifica si tiene estaciones, arneses o solicitudes.
-            var tieneRelaciones =
-                await repository.TieneRelacionesAsync(
-                    idFamilia
-                );
-
-            if (tieneRelaciones)
-            {
-                return Results.Conflict(new
-                {
-                    mensaje =
-                        "No se puede eliminar la familia porque tiene estaciones, arneses o solicitudes asociadas. Puedes marcarla como inactiva."
-                });
-            }
-
             try
             {
                 var eliminada =
@@ -320,17 +306,15 @@ public static class FamiliaEndpoints
                     );
                 }
 
-                // La eliminación fue exitosa.
                 return Results.NoContent();
             }
             catch (MySqlException ex)
                 when (ex.Number == 1451)
             {
-                // Protección adicional ante relaciones no detectadas.
                 return Results.Conflict(new
                 {
                     mensaje =
-                        "No se puede eliminar la familia porque tiene información relacionada. Puedes marcarla como inactiva."
+                        "No se pudo eliminar la familia porque otro registro del catálogo todavía la utiliza."
                 });
             }
         })

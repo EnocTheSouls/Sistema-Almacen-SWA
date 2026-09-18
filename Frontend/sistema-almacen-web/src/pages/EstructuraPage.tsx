@@ -778,7 +778,7 @@ export function EstructuraPage() {
       } catch (error) {
         mostrarErrorBackend(
           error,
-          "No se puede eliminar la estación porque tiene solicitudes asociadas. Puedes marcarla como inactiva."
+          "No se pudo eliminar la estación del catálogo."
         );
       } finally {
         setGuardando(false);
@@ -1398,8 +1398,6 @@ export function EstructuraPage() {
           }
         />
       )}
-      ``
-
       {mostrarConfirmacionEliminar &&
         proyectoAEliminar && (
           <div style={modalOverlayStyle}>
@@ -1579,8 +1577,7 @@ export function EstructuraPage() {
               </p>
 
               <p style={warningTextStyle}>
-                Solo podrá eliminarse si no
-                tiene solicitudes asociadas.
+                La estación se eliminará del catálogo.
               </p>
 
               {errorFormulario && (
@@ -1626,10 +1623,6 @@ export function EstructuraPage() {
             </section>
           </div>
         )}
-
-
-
-
     </Layout>
   );
 }
@@ -1950,9 +1943,7 @@ function EstacionesTable({
       <table style={tableStyle}>
         <thead>
           <tr style={tableHeaderRowStyle}>
-            <th style={thStyle}>
-              ID
-            </th>
+            <th style={thStyle}>ID</th>
 
             <th style={thStyle}>
               Proyecto
@@ -2008,9 +1999,7 @@ function EstacionesTable({
                   type="button"
                   disabled={guardando}
                   onClick={() =>
-                    onCambiarEstado(
-                      estacion
-                    )
+                    onCambiarEstado(estacion)
                   }
                   title={
                     estacion.activo
@@ -2033,9 +2022,7 @@ function EstacionesTable({
                 <button
                   type="button"
                   title="Editar estación"
-                  aria-label={
-                    `Editar ${estacion.nombre}`
-                  }
+                  aria-label={`Editar ${estacion.nombre}`}
                   disabled={guardando}
                   onClick={() =>
                     onEditar(estacion)
@@ -2048,9 +2035,7 @@ function EstacionesTable({
                 <button
                   type="button"
                   title="Eliminar estación"
-                  aria-label={
-                    `Eliminar ${estacion.nombre}`
-                  }
+                  aria-label={`Eliminar ${estacion.nombre}`}
                   disabled={guardando}
                   onClick={() =>
                     onEliminar(estacion)
@@ -2067,7 +2052,6 @@ function EstacionesTable({
     </div>
   );
 }
-
 
 function PencilIcon() {
   return (

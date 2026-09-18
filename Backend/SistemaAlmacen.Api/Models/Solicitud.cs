@@ -14,17 +14,17 @@ public sealed class Solicitud
 
     public DateTime FechaSolicitud { get; set; }
 
-    public int IdProyecto { get; set; }
+    public int? IdProyecto { get; set; }
 
     public string NombreProyecto { get; set; } =
         string.Empty;
 
-    public int IdFamilia { get; set; }
+    public int? IdFamilia { get; set; }
 
     public string NombreFamilia { get; set; } =
         string.Empty;
-
-    public int IdEstacion { get; set; }
+    // Puede quedar nulo cuando la estación se elimina del catálogo.
+    public int? IdEstacion { get; set; }
 
     public string NombreEstacion { get; set; } =
         string.Empty;

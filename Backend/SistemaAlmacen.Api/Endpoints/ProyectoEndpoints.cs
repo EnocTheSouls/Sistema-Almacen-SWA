@@ -229,18 +229,19 @@ public static class ProyectoEndpoints
                 });
             }
 
-            // Impide eliminar proyectos con información relacionada.
-            var tieneRelaciones =
-                await repository.TieneRelacionesAsync(
+            // Solamente los racks asignados bloquean
+            // la eliminación física del proyecto.
+            var tieneRacksAsignados =
+                await repository.TieneRacksAsignadosAsync(
                     idProyecto
                 );
 
-            if (tieneRelaciones)
+            if (tieneRacksAsignados)
             {
                 return Results.Conflict(new
                 {
                     mensaje =
-                        "No se puede eliminar el proyecto porque tiene familias, estaciones, solicitudes u otros registros asociados."
+                        "No se puede eliminar el proyecto porque tiene uno o más racks asignados."
                 });
             }
 

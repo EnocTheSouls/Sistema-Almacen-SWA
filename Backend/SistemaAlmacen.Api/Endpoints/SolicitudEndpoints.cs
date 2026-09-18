@@ -593,32 +593,30 @@ public static class SolicitudEndpoints
                 });
             }
 
-            // Define las transiciones permitidas.
+            // Los estados de surtido se determinan automáticamente
+            // Los estados de surtido se calculan según
+            // las cantidades realmente surtidas.
+            // Los estados de surtido se determinan automáticamente
+            // mediante las cantidades realmente surtidas.
             var transicionesPermitidas =
                 new Dictionary<int, int[]>
                 {
-                    // Pendiente -> Asignada o Cancelada.
-                    [1] = new[] { 2, 8 },
+                    // Pendiente puede cancelarse manualmente.
+                    [1] = new[] { 8 },
 
-                    // Asignada -> En surtido o Cancelada.
-                    [2] = new[] { 3, 8 },
+                    // Estados reservados o automáticos.
+                    [2] = Array.Empty<int>(),
+                    [3] = Array.Empty<int>(),
+                    [4] = Array.Empty<int>(),
+                    [5] = Array.Empty<int>(),
 
-                    // En surtido -> Parcial, Faltante o Completada.
-                    [3] = new[] { 4, 5, 6 },
+                    // Surtida es el estado final del piloto.
+                    [6] = Array.Empty<int>(),
 
-                    // Parcial -> En surtido, Faltante o Completada.
-                    [4] = new[] { 3, 5, 6 },
-
-                    // Faltante -> En surtido, Parcial o Cancelada.
-                    [5] = new[] { 3, 4, 8 },
-
-                    // Completada -> Entregada.
-                    [6] = new[] { 7 },
-
-                    // Entregada es un estado final.
+                    // Entregada queda reservada para una versión futura.
                     [7] = Array.Empty<int>(),
 
-                    // Cancelada es un estado final.
+                    // Cancelada es final.
                     [8] = Array.Empty<int>()
                 };
 

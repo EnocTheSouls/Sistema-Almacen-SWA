@@ -1,3 +1,4 @@
+using MySqlConnector;
 using SistemaAlmacen.Api.Models;
 
 namespace SistemaAlmacen.Api.Data;
@@ -16,7 +17,8 @@ public sealed class FamiliaRepository
     // Obtiene todas las familias con el nombre del proyecto.
     public async Task<List<Familia>> ObtenerTodasAsync()
     {
-        var familias = new List<Familia>();
+        var familias =
+            new List<Familia>();
 
         await using var connection =
             _connectionFactory.CreateConnection();
@@ -45,7 +47,6 @@ public sealed class FamiliaRepository
         await using var reader =
             await command.ExecuteReaderAsync();
 
-        // Convierte cada registro en un objeto Familia.
         while (await reader.ReadAsync())
         {
             familias.Add(
@@ -91,7 +92,6 @@ public sealed class FamiliaRepository
         await using var reader =
             await command.ExecuteReaderAsync();
 
-        // Devuelve null cuando la familia no existe.
         if (!await reader.ReadAsync())
         {
             return null;
@@ -100,7 +100,7 @@ public sealed class FamiliaRepository
         return MapearFamilia(reader);
     }
 
-    // Crea una familia y devuelve el registro creado.
+    // Crea una familia asociada a un proyecto.
     public async Task<Familia?> CrearAsync(
         int idProyecto,
         string nombre,
@@ -110,7 +110,9 @@ public sealed class FamiliaRepository
             nombre.Trim();
 
         var descripcionLimpia =
-            string.IsNullOrWhiteSpace(descripcion)
+            string.IsNullOrWhiteSpace(
+                descripcion
+            )
                 ? null
                 : descripcion.Trim();
 
@@ -161,7 +163,8 @@ public sealed class FamiliaRepository
                 command.LastInsertedId
             );
 
-        // Consulta nuevamente para obtener el nombre del proyecto.
+        // Consulta la familia nuevamente
+        // para incluir el nombre del proyecto.
         return await ObtenerPorIdAsync(
             idFamilia
         );
@@ -179,7 +182,9 @@ public sealed class FamiliaRepository
             nombre.Trim();
 
         var descripcionLimpia =
-            string.IsNullOrWhiteSpace(descripcion)
+            string.IsNullOrWhiteSpace(
+                descripcion
+            )
                 ? null
                 : descripcion.Trim();
 
@@ -234,61 +239,8 @@ public sealed class FamiliaRepository
         return filasActualizadas > 0;
     }
 
-    // Comprueba si la familia tiene estaciones,
-    // arneses o solicitudes relacionadas.
-    public async Task<bool> TieneRelacionesAsync(
-        int idFamilia)
-    {
-        await using var connection =
-            _connectionFactory.CreateConnection();
-
-        await connection.OpenAsync();
-
-        await using var command =
-            connection.CreateCommand();
-
-        command.CommandText = """
-            SELECT EXISTS (
-                SELECT 1
-                FROM estaciones
-                WHERE id_familia = @idFamilia
-
-                UNION ALL
-
-                SELECT 1
-                FROM arneses
-                WHERE id_familia = @idFamilia
-
-                UNION ALL
-
-                SELECT 1
-                FROM solicitudes
-                WHERE id_familia = @idFamilia
-            );
-            """;
-
-        command.Parameters.AddWithValue(
-            "@idFamilia",
-            idFamilia
-        );
-
-        var resultado =
-            await command.ExecuteScalarAsync();
-
-        if (resultado is null ||
-            resultado is DBNull)
-        {
-            return false;
-        }
-
-        return Convert.ToInt32(
-            resultado
-        ) == 1;
-    }
-
-    // Elimina físicamente una familia.
-    // Debe ejecutarse después de comprobar
-    // que no tenga relaciones.
+    // Elimina una familia y sus registros dependientes.
+    // Las solicitudes conservan sus nombres históricos.
     public async Task<bool> EliminarAsync(
         int idFamilia)
     {
@@ -297,28 +249,120 @@ public sealed class FamiliaRepository
 
         await connection.OpenAsync();
 
-        await using var command =
-            connection.CreateCommand();
+        await using var transaction =
+            await connection.BeginTransactionAsync();
 
-        command.CommandText = """
-            DELETE FROM familias
-            WHERE id_familia = @idFamilia;
-            """;
+        try
+        {
+            // Desvincula la familia de los racks.
+            // Los racks físicos no se eliminan.
+            await using (var rackCommand =
+                connection.CreateCommand())
+            {
+                rackCommand.Transaction =
+                    transaction;
 
-        command.Parameters.AddWithValue(
-            "@idFamilia",
-            idFamilia
-        );
+                rackCommand.CommandText = """
+                    UPDATE racks
+                    SET id_familia = NULL
+                    WHERE id_familia = @idFamilia;
+                    """;
 
-        var filasEliminadas =
-            await command.ExecuteNonQueryAsync();
+                rackCommand.Parameters.AddWithValue(
+                    "@idFamilia",
+                    idFamilia
+                );
 
-        return filasEliminadas > 0;
+                await rackCommand
+                    .ExecuteNonQueryAsync();
+            }
+
+            // Elimina las estaciones de la familia.
+            // Las solicitudes conservarán
+            // nombre_estacion_historico.
+            await using (var estacionesCommand =
+                connection.CreateCommand())
+            {
+                estacionesCommand.Transaction =
+                    transaction;
+
+                estacionesCommand.CommandText = """
+                    DELETE FROM estaciones
+                    WHERE id_familia = @idFamilia;
+                    """;
+
+                estacionesCommand.Parameters.AddWithValue(
+                    "@idFamilia",
+                    idFamilia
+                );
+
+                await estacionesCommand
+                    .ExecuteNonQueryAsync();
+            }
+
+            // Elimina los arneses pertenecientes
+            // a la familia.
+            await using (var arnesesCommand =
+                connection.CreateCommand())
+            {
+                arnesesCommand.Transaction =
+                    transaction;
+
+                arnesesCommand.CommandText = """
+                    DELETE FROM arneses
+                    WHERE id_familia = @idFamilia;
+                    """;
+
+                arnesesCommand.Parameters.AddWithValue(
+                    "@idFamilia",
+                    idFamilia
+                );
+
+                await arnesesCommand
+                    .ExecuteNonQueryAsync();
+            }
+
+            int filasEliminadas;
+
+            // Elimina finalmente la familia.
+            // MySQL pondrá solicitudes.id_familia
+            // en NULL mediante ON DELETE SET NULL.
+            await using (var familiaCommand =
+                connection.CreateCommand())
+            {
+                familiaCommand.Transaction =
+                    transaction;
+
+                familiaCommand.CommandText = """
+                    DELETE FROM familias
+                    WHERE id_familia = @idFamilia;
+                    """;
+
+                familiaCommand.Parameters.AddWithValue(
+                    "@idFamilia",
+                    idFamilia
+                );
+
+                filasEliminadas =
+                    await familiaCommand
+                        .ExecuteNonQueryAsync();
+            }
+
+            await transaction.CommitAsync();
+
+            return filasEliminadas > 0;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
-    // Convierte una fila de MySQL en un objeto Familia.
+    // Convierte una fila de MySQL
+    // en un objeto Familia.
     private static Familia MapearFamilia(
-        MySqlConnector.MySqlDataReader reader)
+        MySqlDataReader reader)
     {
         return new Familia
         {

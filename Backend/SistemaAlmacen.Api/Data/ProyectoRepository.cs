@@ -335,6 +335,48 @@ public sealed class ProyectoRepository
         return Convert.ToInt32(resultado) == 1;
     }
 
+
+
+    // Comprueba si alguna familia del proyecto
+    // se encuentra asignada a un rack.
+    public async Task<bool> TieneRacksAsignadosAsync(
+        int idProyecto)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT EXISTS (
+            SELECT 1
+            FROM racks AS r
+            INNER JOIN familias AS f
+                ON f.id_familia = r.id_familia
+            WHERE f.id_proyecto = @idProyecto
+        );
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idProyecto",
+            idProyecto
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (resultado is null ||
+            resultado is DBNull)
+        {
+            return false;
+        }
+
+        return Convert.ToInt32(resultado) == 1;
+    }
+
     // Elimina físicamente un proyecto.
     // Este método debe ejecutarse solamente después
     // de comprobar que el proyecto no tiene relaciones.
