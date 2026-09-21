@@ -30,6 +30,10 @@ builder.Services.AddScoped<InventarioRepository>();
 builder.Services.AddScoped<EstacionRepository>();
 builder.Services.AddScoped<SolicitudRepository>();
 builder.Services.AddScoped<MovimientoInventarioRepository>();
+builder.Services.AddScoped<ImportacionBomRepository>();
+builder.Services.AddScoped<BomRepository>();
+builder.Services.AddScoped<BomImportService>();
+
 
 
 // Registra la protección de contraseñas.
@@ -104,7 +108,24 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Permite temporalmente solicitudes desde la red local.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "RedLocal",
+        policy =>
+        {
+            policy
+                .AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    );
+});
+
 var app = builder.Build();
+
+app.UseCors("RedLocal");
 
 // Aplica CORS antes de validar el JWT.
 app.UseCors("FrontendLocal");
@@ -228,4 +249,5 @@ app.MapInventarioEndpoints();
 app.MapEstacionEndpoints();
 app.MapSolicitudEndpoints();
 app.MapMovimientoInventarioEndpoints();
+app.MapBomImportEndpoints();
 app.Run();

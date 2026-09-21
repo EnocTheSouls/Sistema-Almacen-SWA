@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -31,6 +32,8 @@ import type {
   Solicitud,
 } from "../types/solicitud";
 
+import "./EstructuraPage.css";
+
 interface ConfiguracionDashboard {
   actualizacionAutomatica: boolean;
   segundosActualizacion: number;
@@ -41,8 +44,8 @@ interface ConfiguracionDashboard {
 }
 
 const configuracionInicial: ConfiguracionDashboard = {
-  actualizacionAutomatica: true,
-  segundosActualizacion: 10,
+  actualizacionAutomatica: false,
+  segundosActualizacion: 20,
   limiteAmarillo: 10,
   limiteNaranja: 20,
   limiteRojo: 30,
@@ -53,6 +56,10 @@ export function DashboardPage() {
   // Lee el usuario autenticado desde el JWT.
   const currentUser =
     obtenerUsuarioActual();
+
+  // Evita ejecutar varias actualizaciones al mismo tiempo.
+  const consultaEnProceso =
+    useRef(false);
 
   const [
     dashboard,
@@ -101,11 +108,18 @@ export function DashboardPage() {
   const configuracion =
     configuracionInicial;
 
-  // Carga los indicadores y las solicitudes.
+  // Carga los KPI y las solicitudes sin acumular peticiones.
   const cargarDatos = useCallback(
     async (
       mostrarIndicadorPrincipal = false
     ) => {
+      // No inicia otra consulta si todavía existe una activa.
+      if (consultaEnProceso.current) {
+        return;
+      }
+
+      consultaEnProceso.current = true;
+
       try {
         if (mostrarIndicadorPrincipal) {
           setCargando(true);
@@ -140,6 +154,7 @@ export function DashboardPage() {
           "No se pudieron cargar los indicadores y las solicitudes."
         );
       } finally {
+        consultaEnProceso.current = false;
         setCargando(false);
         setActualizando(false);
       }
@@ -265,7 +280,7 @@ export function DashboardPage() {
         solicitudesActuales.map(
           (solicitud) =>
             solicitud.idSolicitud ===
-            solicitudActualizada.idSolicitud
+              solicitudActualizada.idSolicitud
               ? solicitudActualizada
               : solicitud
         )
@@ -383,20 +398,6 @@ export function DashboardPage() {
               </button>
             </div>
           </header>
-
-          <div
-            style={
-              updateInformationStyle
-            }
-          >
-            Actualización automática cada{" "}
-            {
-              configuracion
-                .segundosActualizacion
-            }{" "}
-            segundos
-          </div>
-
           {mensajeExito && (
             <div style={successStyle}>
               {mensajeExito}
@@ -489,7 +490,7 @@ export function DashboardPage() {
                 </div>
 
                 {solicitudesPendientes.length ===
-                0 ? (
+                  0 ? (
                   <div style={emptyStyle}>
                     No hay solicitudes
                     pendientes.
@@ -935,16 +936,6 @@ const iconButtonStyle = {
   color: "#102957",
   fontSize: "22px",
   cursor: "pointer",
-};
-
-const updateInformationStyle = {
-  marginBottom: "22px",
-  padding: "10px 13px",
-  borderRadius: "8px",
-  background: "#f8fafc",
-  color: "#64748b",
-  fontSize: "12px",
-  textAlign: "right" as const,
 };
 
 const kpiGridStyle = {

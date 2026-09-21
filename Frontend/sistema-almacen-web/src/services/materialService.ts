@@ -1,6 +1,10 @@
-import { apiClient } from "../api/apiClient";
+import {
+  apiClient,
+} from "../api/apiClient";
 
 import type {
+  ActualizarMaterialRequest,
+  CrearMaterialRequest,
   MaterialCatalogo,
 } from "../types/material";
 
@@ -43,4 +47,58 @@ export async function obtenerMaterialPorNumeroParte(
     );
 
   return respuesta.data;
+}
+
+// Registra manualmente un material nuevo.
+// El Backend permite esta operación solo a Administradores.
+export async function crearMaterial(
+  datos: CrearMaterialRequest
+): Promise<MaterialCatalogo> {
+  const respuesta =
+    await apiClient.post<MaterialCatalogo>(
+      "/materiales",
+      datos
+    );
+
+  return respuesta.data;
+}
+
+// Actualiza un material.
+// Solo ADMIN puede usar este endpoint.
+export async function actualizarMaterial(
+  idMaterial: number,
+  datos: ActualizarMaterialRequest
+): Promise<MaterialCatalogo> {
+  const respuesta =
+    await apiClient.put<MaterialCatalogo>(
+      `/materiales/${idMaterial}`,
+      datos
+    );
+
+  return respuesta.data;
+}
+
+// Elimina un material sin relaciones.
+export async function eliminarMaterial(
+  idMaterial: number
+): Promise<void> {
+  await apiClient.delete(
+    `/materiales/${idMaterial}`
+  );
+}
+
+// Activa o inactiva un material.
+export async function cambiarEstadoMaterial(
+  idMaterial: number,
+  activo: boolean
+): Promise<void> {
+  await apiClient.patch(
+    `/materiales/${idMaterial}/estado`,
+    null,
+    {
+      params: {
+        activo,
+      },
+    }
+  );
 }

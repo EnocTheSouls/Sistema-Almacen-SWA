@@ -156,6 +156,69 @@ public sealed class EstacionRepository
         return estaciones;
     }
 
+    // Busca una estación de la familia o la crea desde el BOM.
+    public async Task<Estacion?> ObtenerOCrearAsync(
+        int idFamilia,
+        string nombre)
+    {
+        var nombreLimpio =
+            nombre
+                .Trim()
+                .ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(
+            nombreLimpio
+        ))
+        {
+            return null;
+        }
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            id_estacion
+        FROM estaciones
+        WHERE id_familia = @idFamilia
+          AND UPPER(nombre) = @nombre
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idFamilia",
+            idFamilia
+        );
+
+        command.Parameters.AddWithValue(
+            "@nombre",
+            nombreLimpio
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (
+            resultado is not null &&
+            resultado is not DBNull
+        )
+        {
+            return await ObtenerPorIdAsync(
+                Convert.ToInt32(resultado)
+            );
+        }
+
+        return await CrearAsync(
+            idFamilia,
+            nombreLimpio
+        );
+    }
+
     // Crea una estación y devuelve el registro creado.
     public async Task<Estacion?> CrearAsync(
         int idFamilia,

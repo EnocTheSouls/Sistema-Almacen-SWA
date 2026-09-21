@@ -161,6 +161,90 @@ public sealed class ArnesRepository
             Activo = reader.GetBoolean("activo")
         };
     }
+    // Busca un arnés existente o lo crea durante la importación.
+    public async Task<Arnes?> ObtenerOCrearAsync(
+        int idFamilia,
+        string numeroParteArnes,
+        string nivelDiseno)
+    {
+        var numeroParteLimpio =
+            numeroParteArnes
+                .Trim()
+                .ToUpperInvariant();
+
+        var nivelDisenoLimpio =
+            nivelDiseno
+                .Trim()
+                .ToUpperInvariant();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            id_arnes,
+            id_familia
+        FROM arneses
+        WHERE UPPER(numero_parte_arnes) =
+              @numeroParteArnes
+          AND UPPER(nivel_diseno) =
+              @nivelDiseno
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@numeroParteArnes",
+            numeroParteLimpio
+        );
+
+        command.Parameters.AddWithValue(
+            "@nivelDiseno",
+            nivelDisenoLimpio
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        if (await reader.ReadAsync())
+        {
+            var idArnes =
+                reader.GetInt32("id_arnes");
+
+            var idFamiliaActual =
+                reader.GetInt32("id_familia");
+
+            if (idFamiliaActual != idFamilia)
+            {
+                throw new InvalidOperationException(
+                    $"El arnés {numeroParteLimpio} ya pertenece a otra familia."
+                );
+            }
+
+            await reader.DisposeAsync();
+
+            return await ObtenerPorIdAsync(
+                idArnes
+            );
+        }
+
+        await reader.DisposeAsync();
+
+        return await CrearAsync(
+            idFamilia,
+            numeroParteLimpio,
+            "Creado automáticamente desde importación BOM",
+            nivelDisenoLimpio,
+            null
+        );
+    }
+
+
+
     // Crea un arnés y devuelve el registro completo.
     public async Task<Arnes?> CrearAsync(
         int idFamilia,

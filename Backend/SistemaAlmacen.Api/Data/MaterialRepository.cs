@@ -195,6 +195,83 @@ public sealed class MaterialRepository
 
         return MapearMaterial(reader);
     }
+
+    // Crea o actualiza un material encontrado en el BOM.
+    public async Task<Material?> ObtenerOCrearDesdeBomAsync(
+        string numeroParteMaterial,
+        string descripcion,
+        decimal? stdPack)
+    {
+        var numeroParteLimpio =
+            numeroParteMaterial
+                .Trim()
+                .ToUpperInvariant();
+
+        var descripcionLimpia =
+            descripcion.Trim();
+
+        var materialExistente =
+            await ObtenerPorNumeroParteAsync(
+                numeroParteLimpio
+            );
+
+        if (materialExistente is not null)
+        {
+            await using var connection =
+                _connectionFactory.CreateConnection();
+
+            await connection.OpenAsync();
+
+            await using var command =
+                connection.CreateCommand();
+
+            command.CommandText = """
+            UPDATE materiales
+            SET
+                descripcion = @descripcion,
+                std_pack = @stdPack,
+                activo = TRUE
+            WHERE id_material = @idMaterial;
+            """;
+
+            command.Parameters.AddWithValue(
+                "@idMaterial",
+                materialExistente.IdMaterial
+            );
+
+            command.Parameters.AddWithValue(
+                "@descripcion",
+                descripcionLimpia
+            );
+
+            command.Parameters.AddWithValue(
+                "@stdPack",
+                stdPack.HasValue
+                    ? stdPack.Value
+                    : DBNull.Value
+            );
+
+            await command.ExecuteNonQueryAsync();
+
+            return await ObtenerPorIdAsync(
+                materialExistente.IdMaterial
+            );
+        }
+
+        return await CrearAsync(
+            numeroParteLimpio,
+            descripcionLimpia,
+            "PZA",
+            null,
+            null,
+            "C",
+            stdPack.HasValue
+                ? "BOLSA"
+                : null,
+            stdPack
+        );
+    }
+
     // Crea un material y devuelve el registro creado.
     public async Task<Material?> CrearAsync(
         string numeroParteMaterial,
@@ -521,4 +598,32 @@ public sealed class MaterialRepository
                 reader.GetBoolean("activo")
         };
     }
+    // Elimina un material si no tiene relaciones.
+    public async Task<bool> EliminarAsync(
+        int idMaterial)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        DELETE FROM materiales
+        WHERE id_material = @idMaterial;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idMaterial",
+            idMaterial
+        );
+
+        var filas =
+            await command.ExecuteNonQueryAsync();
+
+        return filas > 0;
+    }
+
 }

@@ -8,7 +8,8 @@
   padding: 30px;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
 .estructura-header {
@@ -31,17 +32,23 @@
   line-height: 1.5;
 }
 
+/* =====================================================
+   PESTAÑAS
+   ===================================================== */
+
 .estructura-tabs {
   display: flex;
   gap: 10px;
   margin-bottom: 25px;
   padding-bottom: 18px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom:
+    1px solid #e2e8f0;
 }
 
 .estructura-tab {
   padding: 10px 18px;
-  border: 1px solid #dbe2ea;
+  border:
+    1px solid #dbe2ea;
   border-radius: 8px;
   background: #ffffff;
   color: #102957;
@@ -65,12 +72,17 @@
   color: #ffffff;
 }
 
+/* =====================================================
+   BOTONES GENERALES
+   ===================================================== */
+
 .estructura-primary-button,
 .estructura-secondary-button,
 .estructura-delete-button {
   min-height: 42px;
   padding: 10px 17px;
   border-radius: 9px;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -87,7 +99,8 @@
 }
 
 .estructura-secondary-button {
-  border: 1px solid #cbd5e1;
+  border:
+    1px solid #cbd5e1;
   background: #ffffff;
   color: #334155;
 }
@@ -113,10 +126,144 @@
   opacity: 0.65;
 }
 
+/* =====================================================
+   FILTROS
+   ===================================================== */
+
+.estructura-filters {
+  width: 100%;
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 2fr)
+    repeat(3, minmax(160px, 1fr))
+    auto;
+  align-items: end;
+  gap: 14px;
+  margin: 0 0 22px;
+  padding: 18px;
+  box-sizing: border-box;
+  border:
+    1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.estructura-filter-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.estructura-filter-label {
+  display: block;
+  color: #17335f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.estructura-filter-input,
+.estructura-filter-select {
+  width: 100%;
+  min-height: 43px;
+  padding: 9px 12px;
+  box-sizing: border-box;
+  border:
+    1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102957;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.estructura-filter-input::placeholder {
+  color: #94a3b8;
+}
+
+.estructura-filter-input:focus,
+.estructura-filter-select:focus {
+  border-color: #3f73d8;
+  box-shadow:
+    0 0 0 4px rgba(63, 115, 216, 0.12);
+}
+
+.estructura-clear-filters {
+  min-height: 43px;
+  padding: 9px 16px;
+  box-sizing: border-box;
+  border:
+    1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.estructura-clear-filters:hover {
+  border-color: #94a3b8;
+  background: #e2e8f0;
+}
+
+/* =====================================================
+   ENCABEZADO DE RESULTADOS
+   ===================================================== */
+
+.estructura-results-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin: 0 0 12px;
+}
+
+.estructura-results-title {
+  margin: 0;
+  color: #102957;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.estructura-results-counter {
+  min-height: 31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border:
+    1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.estructura-filter-summary {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* =====================================================
+   TABLAS
+   ===================================================== */
+
 .estructura-table-container {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
+  border:
+    1px solid #e2e8f0;
   border-radius: 10px;
 }
 
@@ -131,7 +278,8 @@
 
 .estructura-table th {
   padding: 14px;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom:
+    2px solid #e2e8f0;
   color: #102957;
   font-size: 13px;
   text-align: left;
@@ -140,7 +288,8 @@
 
 .estructura-table td {
   padding: 14px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom:
+    1px solid #e5e7eb;
   color: #334155;
   font-size: 14px;
 }
@@ -160,11 +309,16 @@
   white-space: nowrap;
 }
 
+/* =====================================================
+   ESTADOS
+   ===================================================== */
+
 .estructura-status {
   display: inline-block;
   min-width: 76px;
   padding: 6px 11px;
   border-radius: 999px;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 700;
   text-align: center;
@@ -172,16 +326,22 @@
 }
 
 .estructura-status--active {
-  border: 1px solid #bbf7d0;
+  border:
+    1px solid #bbf7d0;
   background: #dcfce7;
   color: #166534;
 }
 
 .estructura-status--inactive {
-  border: 1px solid #fecaca;
+  border:
+    1px solid #fecaca;
   background: #fee2e2;
   color: #991b1b;
 }
+
+/* =====================================================
+   BOTONES DE ACCIÓN
+   ===================================================== */
 
 .estructura-icon-button {
   display: inline-flex;
@@ -196,13 +356,15 @@
 
 .estructura-icon-button--edit {
   margin-right: 7px;
-  border: 1px solid #bfdbfe;
+  border:
+    1px solid #bfdbfe;
   background: #eff6ff;
   color: #1d4ed8;
 }
 
 .estructura-icon-button--delete {
-  border: 1px solid #fecaca;
+  border:
+    1px solid #fecaca;
   background: #fef2f2;
   color: #b91c1c;
 }
@@ -211,6 +373,10 @@
   cursor: not-allowed;
   opacity: 0.45;
 }
+
+/* =====================================================
+   MENSAJES
+   ===================================================== */
 
 .estructura-message,
 .estructura-empty {
@@ -222,7 +388,8 @@
 }
 
 .estructura-empty {
-  border: 1px dashed #cbd5e1;
+  border:
+    1px dashed #cbd5e1;
 }
 
 .estructura-error,
@@ -234,18 +401,24 @@
 }
 
 .estructura-error {
-  border: 1px solid #fecaca;
+  border:
+    1px solid #fecaca;
   background: #fef2f2;
   color: #991b1b;
   text-align: center;
 }
 
 .estructura-success {
-  border: 1px solid #bbf7d0;
+  border:
+    1px solid #bbf7d0;
   background: #f0fdf4;
   color: #166534;
   font-weight: 650;
 }
+
+/* =====================================================
+   MODALES
+   ===================================================== */
 
 .estructura-modal-overlay {
   position: fixed;
@@ -256,7 +429,8 @@
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  background: rgba(15, 23, 42, 0.58);
+  background:
+    rgba(15, 23, 42, 0.58);
 }
 
 .estructura-modal {
@@ -268,7 +442,8 @@
   box-sizing: border-box;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 25px 70px rgba(15, 23, 42, 0.3);
+  box-shadow:
+    0 25px 70px rgba(15, 23, 42, 0.3);
 }
 
 .estructura-modal--confirmation {
@@ -323,6 +498,10 @@
   line-height: 1.5;
 }
 
+/* =====================================================
+   FORMULARIOS
+   ===================================================== */
+
 .estructura-form-group {
   display: flex;
   flex-direction: column;
@@ -342,11 +521,13 @@
   width: 100%;
   min-height: 46px;
   box-sizing: border-box;
-  border: 1px solid #cbd5e1;
+  border:
+    1px solid #cbd5e1;
   border-radius: 9px;
   padding: 0 13px;
   background: #ffffff;
   color: #102957;
+  font-family: inherit;
   font-size: 15px;
   outline: none;
 }
@@ -361,13 +542,33 @@
 .estructura-textarea:focus,
 .estructura-select:focus {
   border-color: #3f73d8;
-  box-shadow: 0 0 0 4px rgba(63, 115, 216, 0.12);
+  box-shadow:
+    0 0 0 4px rgba(63, 115, 216, 0.12);
 }
 
 .estructura-help-text {
   color: #64748b;
   font-size: 12px;
 }
+
+/* =====================================================
+   PANTALLAS MEDIANAS
+   ===================================================== */
+
+@media (max-width: 1150px) {
+  .estructura-filters {
+    grid-template-columns:
+      repeat(2, minmax(220px, 1fr));
+  }
+
+  .estructura-clear-filters {
+    width: 100%;
+  }
+}
+
+/* =====================================================
+   PANTALLAS PEQUEÑAS
+   ===================================================== */
 
 @media (max-width: 720px) {
   .estructura-card {
@@ -381,6 +582,24 @@
 
   .estructura-tabs {
     overflow-x: auto;
+  }
+
+  .estructura-filters {
+    grid-template-columns: 1fr;
+    padding: 15px;
+  }
+
+  .estructura-clear-filters {
+    width: 100%;
+  }
+
+  .estructura-results-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .estructura-results-counter {
+    align-self: flex-start;
   }
 
   .estructura-modal {

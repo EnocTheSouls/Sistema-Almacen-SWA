@@ -1,3 +1,4 @@
+// Modelo utilizado por otras áreas antiguas del sistema.
 export interface Material {
   id: number;
   idMaterial: number;
@@ -10,7 +11,7 @@ export interface Material {
   activo: boolean;
 }
 
-// Representa el material devuelto por /api/materiales.
+// Material devuelto por /api/materiales.
 export interface MaterialCatalogo {
   idMaterial: number;
   numeroParteMaterial: string;
@@ -21,5 +22,23 @@ export interface MaterialCatalogo {
   genericCode: string;
   tipoEmpaque: string | null;
   stdPack: number | null;
+  activo: boolean;
+}
+
+// Datos enviados para registrar un material.
+export interface CrearMaterialRequest {
+  numeroParteMaterial: string;
+  descripcion: string;
+  unidadMedida: string | null;
+  codigoBarras: string | null;
+  serialKits: string | null;
+  genericCode: string;
+  tipoEmpaque: string | null;
+  stdPack: number | null;
+}
+
+// Datos enviados para actualizar un material.
+export interface ActualizarMaterialRequest
+  extends CrearMaterialRequest {
   activo: boolean;
 }

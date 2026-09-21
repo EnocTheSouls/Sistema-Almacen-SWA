@@ -1,3 +1,7 @@
+import type {
+  ReactNode,
+} from "react";
+
 import {
   Navigate,
   Route,
@@ -8,38 +12,65 @@ import {
   obtenerUsuarioActual,
 } from "./auth/userSession";
 
+import {
+  ProtectedRoute,
+} from "./components/ProtectedRoute";
 
+import {
+  LoginPage,
+} from "./pages/LoginPage";
 
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import {
+  SessionExpiredPage,
+} from "./pages/SessionExpiredPage";
 
-import { LoginPage } from "./pages/LoginPage";
-import { SessionExpiredPage } from "./pages/SessionExpiredPage";
-import { DashboardPage } from "./pages/DashboardPage";
-import { UserListPage } from "./pages/UserListPage";
-import { CreateUserPage } from "./pages/CreateUserPage";
-import { EstructuraPage } from "./pages/EstructuraPage";
-import { MaterialesPage } from "./pages/MaterialesPage";
-import { SolicitudesPage } from "./pages/SolicitudesPage";
-import { InventarioPage } from "./pages/InventarioPage";
-import { BitacoraPage } from "./pages/BitacoraPage";
+import {
+  DashboardPage,
+} from "./pages/DashboardPage";
 
-function App() {
-  const currentUser =
-    obtenerUsuarioActual();
+import {
+  UserListPage,
+} from "./pages/UserListPage";
 
-  const esAdministrador =
-    currentUser?.role === "ADMIN";
+import {
+  CreateUserPage,
+} from "./pages/CreateUserPage";
 
+import {
+  EstructuraPage,
+} from "./pages/EstructuraPage";
+
+import {
+  MaterialesPage,
+} from "./pages/MaterialesPage";
+
+import {
+  SolicitudesPage,
+} from "./pages/SolicitudesPage";
+
+import {
+  InventarioPage,
+} from "./pages/InventarioPage";
+
+import {
+  BitacoraPage,
+} from "./pages/BitacoraPage";
+
+export default function App() {
   return (
     <Routes>
       <Route
         path="/login"
-        element={<LoginPage />}
+        element={
+          <LoginPage />
+        }
       />
 
       <Route
         path="/sesion-expirada"
-        element={<SessionExpiredPage />}
+        element={
+          <SessionExpiredPage />
+        }
       />
 
       <Route
@@ -55,14 +86,9 @@ function App() {
         path="/usuarios"
         element={
           <ProtectedRoute>
-            {esAdministrador ? (
+            <RutaAdministrador>
               <UserListPage />
-            ) : (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            )}
+            </RutaAdministrador>
           </ProtectedRoute>
         }
       />
@@ -71,14 +97,9 @@ function App() {
         path="/usuarios/nuevo"
         element={
           <ProtectedRoute>
-            {esAdministrador ? (
+            <RutaAdministrador>
               <CreateUserPage />
-            ) : (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            )}
+            </RutaAdministrador>
           </ProtectedRoute>
         }
       />
@@ -87,14 +108,9 @@ function App() {
         path="/proyectos"
         element={
           <ProtectedRoute>
-            {esAdministrador ? (
+            <RutaAdministrador>
               <EstructuraPage />
-            ) : (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            )}
+            </RutaAdministrador>
           </ProtectedRoute>
         }
       />
@@ -130,7 +146,9 @@ function App() {
         path="/kardex"
         element={
           <ProtectedRoute>
-            <BitacoraPage />
+            <RutaAdministrador>
+              <BitacoraPage />
+            </RutaAdministrador>
           </ProtectedRoute>
         }
       />
@@ -149,7 +167,7 @@ function App() {
         path="*"
         element={
           <Navigate
-            to="/"
+            to="/dashboard"
             replace
           />
         }
@@ -158,4 +176,28 @@ function App() {
   );
 }
 
-export default App;
+interface RutaAdministradorProps {
+  children: ReactNode;
+}
+
+// Lee el JWT cada vez que se renderiza una ruta administrativa.
+function RutaAdministrador({
+  children,
+}: RutaAdministradorProps) {
+  const usuario =
+    obtenerUsuarioActual();
+
+  const esAdministrador =
+    usuario?.role === "ADMIN";
+
+  if (!esAdministrador) {
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
+  }
+
+  return children;
+}

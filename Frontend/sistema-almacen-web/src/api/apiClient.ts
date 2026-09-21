@@ -1,20 +1,23 @@
-import axios from "axios";
+ import axios from "axios";
 
 const TOKEN_KEY = "swa_token";
 
-// Cliente central para comunicarse con ASP.NET Core.
+// Obtiene la IP o nombre del equipo que sirve el frontend.
+const hostServidor =
+  window.location.hostname;
+
 export const apiClient = axios.create({
-  baseURL: "http://localhost:5042/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL:
+    `http://${hostServidor}:5042/api`,
 });
 
 // Agrega automáticamente el JWT.
 apiClient.interceptors.request.use(
   (config) => {
     const token =
-      localStorage.getItem(TOKEN_KEY);
+      localStorage.getItem(
+        TOKEN_KEY
+      );
 
     if (token) {
       config.headers.Authorization =
@@ -34,21 +37,28 @@ apiClient.interceptors.response.use(
       error.response?.status;
 
     const urlPeticion =
-      String(error.config?.url ?? "");
+      String(
+        error.config?.url ?? ""
+      );
 
     const esPeticionLogin =
-      urlPeticion.includes("/auth/login");
+      urlPeticion.includes(
+        "/auth/login"
+      );
 
     const habiaToken =
-      localStorage.getItem(TOKEN_KEY) !==
-      null;
+      localStorage.getItem(
+        TOKEN_KEY
+      ) !== null;
 
     if (
       status === 401 &&
       habiaToken &&
       !esPeticionLogin
     ) {
-      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(
+        TOKEN_KEY
+      );
 
       if (
         window.location.pathname !==

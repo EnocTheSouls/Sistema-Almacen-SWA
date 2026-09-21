@@ -172,6 +172,21 @@ public static class MaterialEndpoints
                         "El código genérico debe contener exactamente un carácter."
                 });
             }
+            var genericCodeLimpio =
+            dto.GenericCode
+            .Trim()
+            .ToUpperInvariant();
+
+            if (!new[] { "C", "P", "S", "W" }
+                .Contains(genericCodeLimpio))
+            {
+                return Results.BadRequest(new
+                {
+                    mensaje =
+                        "El código genérico debe ser C, P, S o W."
+                });
+            }
+
 
             // Valida el tipo de empaque.
             if (dto.TipoEmpaque?.Trim().Length > 30)
@@ -250,70 +265,69 @@ public static class MaterialEndpoints
         .RequireAuthorization(policy =>
             policy.RequireRole("Administrador"));
         grupo.MapPut("/{idMaterial:int}", async (
-int idMaterial,
-ActualizarMaterialDto dto,
-MaterialRepository repository) =>
-{
-    var materialExistente =
-        await repository.ObtenerPorIdAsync(
-            idMaterial
-        );
-
-    if (materialExistente is null)
-    {
-        return Results.NotFound(new
+        int idMaterial,
+        ActualizarMaterialDto dto,
+        MaterialRepository repository) =>
         {
-            mensaje =
-                $"No existe el material {idMaterial}."
-        });
-    }
-
-    if (string.IsNullOrWhiteSpace(
-        dto.NumeroParteMaterial))
-    {
-        return Results.BadRequest();
-    }
-
-    if (string.IsNullOrWhiteSpace(
-        dto.Descripcion))
-    {
-        return Results.BadRequest();
-    }
-
-    if (string.IsNullOrWhiteSpace(
-        dto.GenericCode))
-    {
-        return Results.BadRequest();
-    }
-
-    try
-    {
-        var material =
-            await repository.ActualizarAsync(
-                idMaterial,
-                dto.NumeroParteMaterial,
-                dto.Descripcion,
-                dto.UnidadMedida,
-                dto.CodigoBarras,
-                dto.SerialKits,
-                dto.GenericCode,
-                dto.TipoEmpaque,
-                dto.StdPack,
-                dto.Activo
+            var materialExistente =
+                await repository.ObtenerPorIdAsync(
+                idMaterial
             );
 
-        return Results.Ok(material);
-    }
-    catch (MySqlException ex)
-        when (ex.Number == 1062)
-    {
-        return Results.Conflict(new
-        {
-            mensaje =
-                "Ya existe un material con esos datos."
-        });
-    }
-})
+            if (materialExistente is null)
+            {
+                return Results.NotFound(new
+                {
+                    mensaje =
+                        $"No existe el material {idMaterial}."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                dto.NumeroParteMaterial))
+            {
+                return Results.BadRequest();
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                dto.Descripcion))
+            {
+                return Results.BadRequest();
+            }
+
+           
+
+            try
+            {
+                var material =
+                    await repository.ActualizarAsync(
+                        idMaterial,
+                        dto.NumeroParteMaterial,
+                        dto.Descripcion,
+                        dto.UnidadMedida,
+                        dto.CodigoBarras,
+                        dto.SerialKits, 
+                        dto.GenericCode,
+                        dto.TipoEmpaque,
+                        dto.StdPack,
+                        dto.Activo
+                    );
+
+                return Results.Ok(material);
+            }
+            catch (MySqlException ex)
+                when (ex.Number == 1062)
+            {
+                return Results.Conflict(new
+                {
+                    mensaje =
+                        "Ya existe un material con esos datos."
+                });
+
+
+
+            }
+        })
 .WithName("ActualizarMaterial")
 .RequireAuthorization(policy =>
 policy.RequireRole("Administrador"));
@@ -344,5 +358,63 @@ policy.RequireRole("Administrador"));
         .WithName("CambiarEstadoMaterial")
         .RequireAuthorization(policy =>
             policy.RequireRole("Administrador"));
+        // Elimina un material sin relaciones.
+        // Solamente un Administrador puede hacerlo.
+        grupo.MapDelete(
+            "/{idMaterial:int}",
+            async (
+                int idMaterial,
+                MaterialRepository repository) =>
+            {
+                var material =
+                    await repository.ObtenerPorIdAsync(
+                        idMaterial
+                    );
+
+                if (material is null)
+                {
+                    return Results.NotFound(new
+                    {
+                        mensaje =
+                            $"No existe el material {idMaterial}."
+                    });
+                }
+
+                try
+                {
+                    var eliminado =
+                        await repository.EliminarAsync(
+                            idMaterial
+                        );
+
+                    if (!eliminado)
+                    {
+                        return Results.NotFound(new
+                        {
+                            mensaje =
+                                $"No existe el material {idMaterial}."
+                        });
+                    }
+
+                    return Results.NoContent();
+                }
+                catch (MySqlException ex)
+                    when (ex.Number == 1451)
+                {
+                    return Results.Conflict(new
+                    {
+                        mensaje =
+                            "El material no puede eliminarse porque tiene inventario, solicitudes, movimientos o BOM relacionados. Puedes marcarlo como inactivo."
+                    });
+                }
+            }
+        )
+        .WithName("EliminarMaterial")
+        .RequireAuthorization(policy =>
+            policy.RequireRole(
+                "Administrador"
+            )
+        );
+
     }
 }

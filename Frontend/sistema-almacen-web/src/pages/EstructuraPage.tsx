@@ -1,6 +1,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -61,9 +62,44 @@ type TabActiva =
   | "familias"
   | "estaciones";
 
+type FiltroEstado =
+  | "todos"
+  | "activos"
+  | "inactivos";
+
 export function EstructuraPage() {
   const [tabActiva, setTabActiva] =
     useState<TabActiva>("proyectos");
+
+
+  // Texto general para buscar en la pestaña activa.
+  const [
+    textoFiltro,
+    setTextoFiltro,
+  ] = useState("");
+
+  // Filtra registros activos o inactivos.
+  const [
+    filtroEstado,
+    setFiltroEstado,
+  ] = useState<FiltroEstado>(
+    "todos"
+  );
+
+  // Proyecto seleccionado para Familias y Estaciones.
+  const [
+    filtroProyecto,
+    setFiltroProyecto,
+  ] = useState(0);
+
+  // Familia seleccionada para Estaciones.
+  const [
+    filtroFamilia,
+    setFiltroFamilia,
+  ] = useState(0);
+
+
+
 
   const [proyectos, setProyectos] =
     useState<Proyecto[]>([]);
@@ -229,6 +265,246 @@ export function EstructuraPage() {
   useEffect(() => {
     cargarEstructura();
   }, []);
+
+  // Normaliza texto para búsquedas sin distinguir mayúsculas.
+  const normalizarTexto = (
+    valor: string | null | undefined
+  ) => {
+    return (
+      valor
+        ?.trim()
+        .toLocaleLowerCase("es-MX") ??
+      ""
+    );
+  };
+
+  // Comprueba si un registro coincide con el estado elegido.
+  const coincideConEstado = (
+    activo: boolean
+  ) => {
+    if (filtroEstado === "activos") {
+      return activo;
+    }
+
+    if (filtroEstado === "inactivos") {
+      return !activo;
+    }
+
+    return true;
+  };
+
+  // Familias disponibles en el filtro de estaciones.
+  const familiasDisponiblesFiltro =
+    useMemo(() => {
+      if (filtroProyecto <= 0) {
+        return familias;
+      }
+
+      return familias.filter(
+        (familia) =>
+          familia.idProyecto ===
+          filtroProyecto
+      );
+    }, [
+      familias,
+      filtroProyecto,
+    ]);
+
+  // Proyectos que coinciden con la búsqueda y el estado.
+  const proyectosFiltrados =
+    useMemo(() => {
+      const texto =
+        normalizarTexto(
+          textoFiltro
+        );
+
+      return proyectos
+        .filter(
+          (proyecto) => {
+            const coincideTexto =
+              !texto ||
+              normalizarTexto(
+                proyecto.nombre
+              ).includes(texto) ||
+              normalizarTexto(
+                proyecto.descripcion
+              ).includes(texto);
+
+            return (
+              coincideTexto &&
+              coincideConEstado(
+                proyecto.activo
+              )
+            );
+          }
+        )
+        .sort(
+          (proyectoA, proyectoB) =>
+            proyectoA.idProyecto -
+            proyectoB.idProyecto
+        );
+    }, [
+      proyectos,
+      textoFiltro,
+      filtroEstado,
+    ]);
+
+  const familiasFiltradas =
+    useMemo(() => {
+      const texto =
+        normalizarTexto(
+          textoFiltro
+        );
+
+      return familias
+        .filter(
+          (familia) => {
+            const coincideTexto =
+              !texto ||
+              normalizarTexto(
+                familia.nombre
+              ).includes(texto) ||
+              normalizarTexto(
+                familia.nombreProyecto
+              ).includes(texto) ||
+              normalizarTexto(
+                familia.descripcion
+              ).includes(texto);
+
+            const coincideProyecto =
+              filtroProyecto <= 0 ||
+              familia.idProyecto ===
+              filtroProyecto;
+
+            return (
+              coincideTexto &&
+              coincideProyecto &&
+              coincideConEstado(
+                familia.activo
+              )
+            );
+          }
+        )
+        .sort(
+          (familiaA, familiaB) =>
+            familiaA.idFamilia -
+            familiaB.idFamilia
+        );
+    }, [
+      familias,
+      textoFiltro,
+      filtroProyecto,
+      filtroEstado,
+    ]);
+
+  const estacionesFiltradas =
+  useMemo(() => {
+    const texto =
+      normalizarTexto(
+        textoFiltro
+      );
+
+    return estaciones
+      .filter(
+        (estacion) => {
+          const coincideTexto =
+            !texto ||
+            normalizarTexto(
+              estacion.nombre
+            ).includes(texto) ||
+            normalizarTexto(
+              estacion.nombreProyecto
+            ).includes(texto) ||
+            normalizarTexto(
+              estacion.nombreFamilia
+            ).includes(texto);
+
+          const coincideProyecto =
+            filtroProyecto <= 0 ||
+            estacion.idProyecto ===
+              filtroProyecto;
+
+          const coincideFamilia =
+            filtroFamilia <= 0 ||
+            estacion.idFamilia ===
+              filtroFamilia;
+
+          return (
+            coincideTexto &&
+            coincideProyecto &&
+            coincideFamilia &&
+            coincideConEstado(
+              estacion.activo
+            )
+          );
+        }
+      )
+      .sort(
+        (estacionA, estacionB) =>
+          estacionA.idEstacion -
+          estacionB.idEstacion
+      );
+  }, [
+    estaciones,
+    textoFiltro,
+    filtroProyecto,
+    filtroFamilia,
+    filtroEstado,
+  ]);
+
+
+  // Reinicia todos los filtros.
+  const limpiarFiltros = () => {
+    setTextoFiltro("");
+    setFiltroEstado("todos");
+    setFiltroProyecto(0);
+    setFiltroFamilia(0);
+  };
+
+  // Cambia de pestaña y limpia filtros anteriores.
+  const cambiarPestana = (
+    nuevaPestana: TabActiva
+  ) => {
+    setTabActiva(
+      nuevaPestana
+    );
+
+    limpiarFiltros();
+  };
+
+  // Al cambiar proyecto, reinicia la familia.
+  const cambiarProyectoFiltro = (
+    idProyecto: number
+  ) => {
+    setFiltroProyecto(
+      idProyecto
+    );
+
+    setFiltroFamilia(0);
+  };
+
+  const cantidadTotalActual =
+    tabActiva === "proyectos"
+      ? proyectos.length
+      : tabActiva === "familias"
+        ? familias.length
+        : estaciones.length;
+
+  const cantidadFiltradaActual =
+    tabActiva === "proyectos"
+      ? proyectosFiltrados.length
+      : tabActiva === "familias"
+        ? familiasFiltradas.length
+        : estacionesFiltradas.length;
+
+  const tituloResultados =
+    tabActiva === "proyectos"
+      ? "Proyectos registrados"
+      : tabActiva === "familias"
+        ? "Familias registradas"
+        : "Estaciones registradas";
+
+
 
   const limpiarMensajes = () => {
     setMensajeExito("");
@@ -1120,7 +1396,7 @@ export function EstructuraPage() {
             <button
               type="button"
               onClick={() =>
-                setTabActiva("proyectos")
+                cambiarPestana("proyectos")
               }
               style={
                 tabActiva === "proyectos"
@@ -1134,7 +1410,7 @@ export function EstructuraPage() {
             <button
               type="button"
               onClick={() =>
-                setTabActiva("familias")
+                cambiarPestana("familias")
               }
               style={
                 tabActiva === "familias"
@@ -1148,7 +1424,7 @@ export function EstructuraPage() {
             <button
               type="button"
               onClick={() =>
-                setTabActiva("estaciones")
+                cambiarPestana("estaciones")
               }
               style={
                 tabActiva === "estaciones"
@@ -1166,6 +1442,184 @@ export function EstructuraPage() {
             </div>
           )}
 
+          <div className="estructura-filters">
+            <div className="estructura-filter-group">
+              <label
+                htmlFor="buscarEstructura"
+                className="estructura-filter-label"
+              >
+                Buscar
+              </label>
+
+              <input
+                id="buscarEstructura"
+                type="text"
+                value={textoFiltro}
+                onChange={(event) =>
+                  setTextoFiltro(
+                    event.target.value
+                  )
+                }
+                placeholder={
+                  tabActiva === "proyectos"
+                    ? "Nombre o descripción del proyecto"
+                    : tabActiva === "familias"
+                      ? "Familia, proyecto o descripción"
+                      : "Estación, familia o proyecto"
+                }
+                className="estructura-filter-input"
+              />
+            </div>
+
+            {(tabActiva === "familias" ||
+              tabActiva === "estaciones") && (
+                <div className="estructura-filter-group">
+                  <label
+                    htmlFor="filtroProyecto"
+                    className="estructura-filter-label"
+                  >
+                    Proyecto
+                  </label>
+
+                  <select
+                    id="filtroProyecto"
+                    value={
+                      filtroProyecto > 0
+                        ? filtroProyecto
+                        : ""
+                    }
+                    onChange={(event) =>
+                      cambiarProyectoFiltro(
+                        Number(
+                          event.target.value
+                        )
+                      )
+                    }
+                    className="estructura-filter-select"
+                  >
+                    <option value="">
+                      Todos los proyectos
+                    </option>
+
+                    {proyectos.map(
+                      (proyecto) => (
+                        <option
+                          key={
+                            proyecto.idProyecto
+                          }
+                          value={
+                            proyecto.idProyecto
+                          }
+                        >
+                          {proyecto.nombre}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+              )}
+
+            {tabActiva === "estaciones" && (
+              <div className="estructura-filter-group">
+                <label
+                  htmlFor="filtroFamilia"
+                  className="estructura-filter-label"
+                >
+                  Familia
+                </label>
+
+                <select
+                  id="filtroFamilia"
+                  value={
+                    filtroFamilia > 0
+                      ? filtroFamilia
+                      : ""
+                  }
+                  onChange={(event) =>
+                    setFiltroFamilia(
+                      Number(
+                        event.target.value
+                      )
+                    )
+                  }
+                  className="estructura-filter-select"
+                >
+                  <option value="">
+                    Todas las familias
+                  </option>
+
+                  {familiasDisponiblesFiltro.map(
+                    (familia) => (
+                      <option
+                        key={
+                          familia.idFamilia
+                        }
+                        value={
+                          familia.idFamilia
+                        }
+                      >
+                        {familia.nombre}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+            )}
+
+            <div className="estructura-filter-group">
+              <label
+                htmlFor="filtroEstado"
+                className="estructura-filter-label"
+              >
+                Estado
+              </label>
+
+              <select
+                id="filtroEstado"
+                value={filtroEstado}
+                onChange={(event) =>
+                  setFiltroEstado(
+                    event.target.value as
+                    FiltroEstado
+                  )
+                }
+                className="estructura-filter-select"
+              >
+                <option value="todos">
+                  Todos
+                </option>
+
+                <option value="activos">
+                  Activos
+                </option>
+
+                <option value="inactivos">
+                  Inactivos
+                </option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={limpiarFiltros}
+              className="estructura-clear-filters"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+
+          <div className="estructura-results-header">
+            <h2 className="estructura-results-title">
+              {tituloResultados}
+            </h2>
+
+            <span className="estructura-results-counter">
+              Mostrando{" "}
+              {cantidadFiltradaActual} de{" "}
+              {cantidadTotalActual}
+            </span>
+          </div>
+
           {!cargando && errorCarga && (
             <div style={errorStyle}>
               {errorCarga}
@@ -1176,7 +1630,9 @@ export function EstructuraPage() {
             !errorCarga &&
             tabActiva === "proyectos" && (
               <ProyectosTable
-                proyectos={proyectos}
+                proyectos={
+                  proyectosFiltrados
+                }
                 guardando={guardando}
                 onEditar={
                   abrirEdicionProyecto
@@ -1195,7 +1651,9 @@ export function EstructuraPage() {
             tabActiva === "familias" && (
 
               <FamiliasTable
-                familias={familias}
+                familias={
+                  familiasFiltradas
+                }
                 guardando={guardando}
                 onEditar={
                   abrirEdicionFamilia
@@ -1214,7 +1672,9 @@ export function EstructuraPage() {
             !errorCarga &&
             tabActiva === "estaciones" && (
               <EstacionesTable
-                estaciones={estaciones}
+                estaciones={
+                  estacionesFiltradas
+                }
                 guardando={guardando}
                 onEditar={
                   abrirEdicionEstacion
@@ -1651,7 +2111,8 @@ function ProyectosTable({
   if (proyectos.length === 0) {
     return (
       <div style={emptyStyle}>
-        No hay proyectos registrados.
+        No hay proyectos que coincidan con los filtros.
+
       </div>
     );
   }
@@ -1726,7 +2187,7 @@ function ProyectosTable({
                 <button
                   type="button"
                   title="Editar proyecto"
-                  aria-label={`Editar ${proyecto.nombre}`}
+                  aria-label={`Editar ${proyecto.nombre} `}
                   disabled={guardando}
                   onClick={() =>
                     onEditar(proyecto)
@@ -1739,7 +2200,7 @@ function ProyectosTable({
                 <button
                   type="button"
                   title="Eliminar proyecto"
-                  aria-label={`Eliminar ${proyecto.nombre}`}
+                  aria-label={`Eliminar ${proyecto.nombre} `}
                   disabled={guardando}
                   onClick={() =>
                     onEliminar(proyecto)
@@ -1783,7 +2244,8 @@ function FamiliasTable({
   if (familias.length === 0) {
     return (
       <div style={emptyStyle}>
-        No hay familias registradas.
+        No hay familias que coincidan con los filtros.
+
       </div>
     );
   }
@@ -1875,7 +2337,7 @@ function FamiliasTable({
                 <button
                   type="button"
                   title="Editar familia"
-                  aria-label={`Editar ${familia.nombre}`}
+                  aria-label={`Editar ${familia.nombre} `}
                   disabled={guardando}
                   onClick={() =>
                     onEditar(familia)
@@ -1888,7 +2350,7 @@ function FamiliasTable({
                 <button
                   type="button"
                   title="Eliminar familia"
-                  aria-label={`Eliminar ${familia.nombre}`}
+                  aria-label={`Eliminar ${familia.nombre} `}
                   disabled={guardando}
                   onClick={() =>
                     onEliminar(familia)
@@ -1933,7 +2395,7 @@ function EstacionesTable({
   if (estaciones.length === 0) {
     return (
       <div style={emptyStyle}>
-        No hay estaciones registradas.
+        No hay Estaciones que coincidan con los filtros.
       </div>
     );
   }
@@ -2022,7 +2484,7 @@ function EstacionesTable({
                 <button
                   type="button"
                   title="Editar estación"
-                  aria-label={`Editar ${estacion.nombre}`}
+                  aria-label={`Editar ${estacion.nombre} `}
                   disabled={guardando}
                   onClick={() =>
                     onEditar(estacion)
@@ -2035,7 +2497,7 @@ function EstacionesTable({
                 <button
                   type="button"
                   title="Eliminar estación"
-                  aria-label={`Eliminar ${estacion.nombre}`}
+                  aria-label={`Eliminar ${estacion.nombre} `}
                   disabled={guardando}
                   onClick={() =>
                     onEliminar(estacion)
