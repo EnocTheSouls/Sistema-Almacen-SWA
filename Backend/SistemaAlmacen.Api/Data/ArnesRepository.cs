@@ -161,6 +161,73 @@ public sealed class ArnesRepository
             Activo = reader.GetBoolean("activo")
         };
     }
+
+
+    // Busca un arnés por número de parte y nivel de diseño.
+    public async Task<Arnes?> ObtenerPorNumeroYDisenoAsync(
+        string numeroParteArnes,
+        string nivelDiseno)
+    {
+        var numeroParteLimpio =
+            numeroParteArnes
+                .Trim()
+                .ToUpperInvariant();
+
+        var nivelDisenoLimpio =
+            nivelDiseno
+                .Trim()
+                .ToUpperInvariant();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            id_arnes
+        FROM arneses
+        WHERE UPPER(
+            TRIM(
+                numero_parte_arnes
+            )
+        ) = @numeroParteArnes
+          AND UPPER(
+            TRIM(
+                nivel_diseno
+            )
+        ) = @nivelDiseno
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@numeroParteArnes",
+            numeroParteLimpio
+        );
+
+        command.Parameters.AddWithValue(
+            "@nivelDiseno",
+            nivelDisenoLimpio
+        );
+
+        var resultado =
+            await command.ExecuteScalarAsync();
+
+        if (
+            resultado is null ||
+            resultado is DBNull
+        )
+        {
+            return null;
+        }
+
+        return await ObtenerPorIdAsync(
+            Convert.ToInt32(resultado)
+        );
+    }
     // Busca un arnés existente o lo crea durante la importación.
     public async Task<Arnes?> ObtenerOCrearAsync(
         int idFamilia,
@@ -237,7 +304,7 @@ public sealed class ArnesRepository
         return await CrearAsync(
             idFamilia,
             numeroParteLimpio,
-            "Creado automáticamente desde importación BOM",
+            "Creado automáticamente desde importación 5MF",
             nivelDisenoLimpio,
             null
         );

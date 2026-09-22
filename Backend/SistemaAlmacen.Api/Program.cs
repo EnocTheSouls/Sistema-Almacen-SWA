@@ -31,8 +31,10 @@ builder.Services.AddScoped<EstacionRepository>();
 builder.Services.AddScoped<SolicitudRepository>();
 builder.Services.AddScoped<MovimientoInventarioRepository>();
 builder.Services.AddScoped<ImportacionBomRepository>();
+builder.Services.AddScoped<ImportacionFiveMfRepository>();
 builder.Services.AddScoped<BomRepository>();
 builder.Services.AddScoped<BomImportService>();
+builder.Services.AddScoped<FiveMfImportService>();
 
 
 
@@ -250,4 +252,5 @@ app.MapEstacionEndpoints();
 app.MapSolicitudEndpoints();
 app.MapMovimientoInventarioEndpoints();
 app.MapBomImportEndpoints();
+app.MapFiveMfImportEndpoints();
 app.Run();

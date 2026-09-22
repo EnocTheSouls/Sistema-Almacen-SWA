@@ -335,28 +335,4 @@ VALUES
 ('Entregada', 'Material entregado a producción', 'Verde', TRUE),
 ('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
 
-
-
-
-USE almacen_db;
-
-ALTER TABLE racks
-ADD COLUMN id_familia INT NULL
-AFTER id_zona;
-
-ALTER TABLE racks
-ADD CONSTRAINT fk_racks_familias
-FOREIGN KEY (id_familia)
-REFERENCES familias (id_familia);
-
-CREATE INDEX ix_racks_id_familia
-ON racks (id_familia);
-
-UPDATE racks
-SET id_familia = 1
-WHERE id_rack = 1;
-
-
-DESCRIBE racks;
-
-SHOW CREATE TABLE racks;
+SHOW CREATE TABLE materiales;

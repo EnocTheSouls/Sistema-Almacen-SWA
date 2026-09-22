@@ -62,3 +62,47 @@ export async function cambiarEstadoSolicitud(
 
   return respuesta.data;
 }
+
+export interface SurtirMaterialRequest {
+  idDetalle: number;
+  cantidad: number;
+}
+
+export interface SurtirMaterialResponse {
+  codigo: string;
+  mensaje: string;
+  solicitud: Solicitud;
+}
+
+// Registra la cantidad surtida sin validar inventario.
+export async function surtirMaterialSolicitud(
+  idSolicitud: number,
+  datos: SurtirMaterialRequest
+): Promise<SurtirMaterialResponse> {
+  const respuesta =
+    await apiClient.post<SurtirMaterialResponse>(
+      `/solicitudes/${idSolicitud}/surtir`,
+      datos
+    );
+
+  return respuesta.data;
+}
+
+export interface EliminarMaterialSolicitudResponse {
+  codigo: string;
+  mensaje: string;
+  solicitud: Solicitud;
+}
+
+// Elimina un material no surtido de una solicitud.
+export async function eliminarMaterialSolicitud(
+  idSolicitud: number,
+  idDetalle: number
+): Promise<EliminarMaterialSolicitudResponse> {
+  const respuesta =
+    await apiClient.delete<EliminarMaterialSolicitudResponse>(
+      `/solicitudes/${idSolicitud}/materiales/${idDetalle}`
+    );
+
+  return respuesta.data;
+}

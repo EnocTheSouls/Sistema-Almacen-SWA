@@ -7,6 +7,8 @@ import axios from "axios";
 
 import {
     cambiarEstadoSolicitud,
+    eliminarMaterialSolicitud,
+    surtirMaterialSolicitud,
 } from "../../services/solicitudService";
 
 import type {
@@ -100,6 +102,84 @@ export function SolicitudDetalleModal({
         mensajeExito,
         setMensajeExito,
     ] = useState("");
+
+    const [
+        cantidadesSurtir,
+        setCantidadesSurtir,
+    ] = useState<Record<number, string>>(
+        {}
+    );
+
+    const [
+        detalleProcesando,
+        setDetalleProcesando,
+    ] = useState<number | null>(
+        null
+    );
+    const [
+        detalleEliminando,
+        setDetalleEliminando,
+    ] = useState<number | null>(
+        null
+    );
+    // Ordena los materiales por su avance de surtido.
+    const materialesOrdenados =
+        useMemo(() => {
+            const obtenerPrioridad = (
+                cantidadSolicitada: number,
+                cantidadSurtida: number
+            ) => {
+                // Pendiente.
+                if (cantidadSurtida === 0) {
+                    return 1;
+                }
+
+                // Parcial.
+                if (
+                    cantidadSurtida <
+                    cantidadSolicitada
+                ) {
+                    return 2;
+                }
+
+                // Surtido.
+                return 3;
+            };
+
+            return [
+                ...solicitudActual.materiales,
+            ].sort(
+                (
+                    materialA,
+                    materialB
+                ) => {
+                    const prioridadA =
+                        obtenerPrioridad(
+                            materialA
+                                .cantidadSolicitada,
+                            materialA
+                                .cantidadSurtida
+                        );
+
+                    const prioridadB =
+                        obtenerPrioridad(
+                            materialB
+                                .cantidadSolicitada,
+                            materialB
+                                .cantidadSurtida
+                        );
+
+                    return (
+                        prioridadA -
+                        prioridadB
+                    );
+                }
+            );
+        }, [
+            solicitudActual.materiales,
+        ]);
+
+
 
     const estadosDisponibles =
         useMemo(() => {
@@ -195,16 +275,185 @@ export function SolicitudDetalleModal({
         } finally {
             setActualizando(false);
         }
+
+    };
+    const eliminarMaterial = async (
+        idDetalle: number,
+        numeroParteMaterial: string
+    ) => {
+        setError("");
+        setMensajeExito("");
+
+        const confirmar =
+            window.confirm(
+                `¿Eliminar el material ${numeroParteMaterial} de esta solicitud?`
+            );
+
+        if (!confirmar) {
+            return;
+        }
+
+        try {
+            setDetalleEliminando(
+                idDetalle
+            );
+
+            const respuesta =
+                await eliminarMaterialSolicitud(
+                    solicitudActual.idSolicitud,
+                    idDetalle
+                );
+
+            setSolicitudActual(
+                respuesta.solicitud
+            );
+
+            setCantidadesSurtir({});
+
+            setMensajeExito(
+                respuesta.mensaje
+            );
+
+            onSolicitudActualizada(
+                respuesta.solicitud,
+                respuesta.mensaje
+            );
+        } catch (errorEliminacion) {
+            console.error(
+                "Error al eliminar material:",
+                errorEliminacion
+            );
+
+            if (
+                axios.isAxiosError(
+                    errorEliminacion
+                )
+            ) {
+                const mensajeBackend =
+                    errorEliminacion.response
+                        ?.data?.mensaje ??
+                    errorEliminacion.response
+                        ?.data?.detail;
+
+                if (
+                    typeof mensajeBackend ===
+                    "string"
+                ) {
+                    setError(
+                        mensajeBackend
+                    );
+
+                    return;
+                }
+            }
+
+            setError(
+                "No se pudo eliminar el material de la solicitud."
+            );
+        } finally {
+            setDetalleEliminando(
+                null
+            );
+        }
+    };
+    const registrarSurtido = async (
+        idDetalle: number
+    ) => {
+        setError("");
+        setMensajeExito("");
+
+        const cantidadTexto =
+            cantidadesSurtir[idDetalle] ?? "";
+
+        const cantidad =
+            Number(cantidadTexto);
+
+        if (
+            !Number.isInteger(cantidad) ||
+            cantidad <= 0
+        ) {
+            setError(
+                "Captura una cantidad surtida mayor que cero."
+            );
+
+            return;
+        }
+
+        try {
+            setDetalleProcesando(idDetalle);
+
+            const respuesta =
+                await surtirMaterialSolicitud(
+                    solicitudActual.idSolicitud,
+                    {
+                        idDetalle,
+                        cantidad,
+                    }
+                );
+
+            setSolicitudActual(
+                respuesta.solicitud
+            );
+
+            setCantidadesSurtir({});
+
+
+            setMensajeExito(
+                respuesta.mensaje
+            );
+
+            onSolicitudActualizada(
+                respuesta.solicitud,
+                respuesta.mensaje
+            );
+        } catch (errorSurtido) {
+            console.error(
+                "Error al registrar surtido:",
+                errorSurtido
+            );
+
+            if (
+                axios.isAxiosError(
+                    errorSurtido
+                )
+            ) {
+                const mensajeBackend =
+                    errorSurtido.response
+                        ?.data?.mensaje ??
+                    errorSurtido.response
+                        ?.data?.detail;
+
+                if (
+                    typeof mensajeBackend ===
+                    "string"
+                ) {
+                    setError(
+                        mensajeBackend
+                    );
+
+                    return;
+                }
+            }
+
+            setError(
+                "No se pudo registrar la cantidad surtida."
+            );
+        } finally {
+            setDetalleProcesando(null);
+        }
     };
 
     const cerrarModal = () => {
-        if (actualizando) {
+        if (
+            actualizando ||
+            detalleProcesando !== null ||
+            detalleEliminando !== null
+        ) {
             return;
         }
 
         onCerrar();
     };
-
     return (
         <div style={overlayStyle}>
             <section style={modalStyle}>
@@ -226,7 +475,11 @@ export function SolicitudDetalleModal({
                     <button
                         type="button"
                         onClick={cerrarModal}
-                        disabled={actualizando}
+                        disabled={
+                            actualizando ||
+                            detalleProcesando !== null ||
+                            detalleEliminando !== null
+                        }
                         style={closeButtonStyle}
                         aria-label="Cerrar detalle"
                     >
@@ -407,11 +660,27 @@ export function SolicitudDetalleModal({
                                 <th style={thStyle}>
                                     Pendiente
                                 </th>
+                                <th style={thStyle}>
+                                    Estado
+                                </th>
+
+
+                                <th style={thStyle}>
+                                    Registrar surtido
+                                </th>
+                                <th
+                                    style={{
+                                        ...thStyle,
+                                        textAlign: "right",
+                                    }}
+                                >
+                                    Acción
+                                </th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {solicitudActual.materiales.map(
+                            {materialesOrdenados.map(
                                 (material) => {
                                     const pendiente =
                                         material.cantidadSolicitada -
@@ -452,6 +721,132 @@ export function SolicitudDetalleModal({
                                             <td style={tdStyle}>
                                                 {pendiente}
                                             </td>
+                                            <td style={tdStyle}>
+                                                <span
+                                                    style={
+                                                        material.cantidadSurtida === 0
+                                                            ? materialPendingStyle
+                                                            : pendiente > 0
+                                                                ? materialPartialStyle
+                                                                : materialCompletedStyle
+                                                    }
+                                                >
+                                                    {material.cantidadSurtida === 0
+                                                        ? "Pendiente"
+                                                        : pendiente > 0
+                                                            ? "Parcial"
+                                                            : "Surtido"}
+                                                </span>
+                                            </td>
+                                            <td style={tdStyle}>
+                                                {pendiente > 0 &&
+                                                    solicitudActual.idEstado !== 6 &&
+                                                    solicitudActual.idEstado !== 7 &&
+                                                    solicitudActual.idEstado !== 8 ? (
+                                                    <div style={supplyControlsStyle}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            step="1"
+                                                            max={pendiente}
+                                                            value={
+                                                                cantidadesSurtir[
+                                                                material.idDetalle
+                                                                ] ?? ""
+                                                            }
+                                                            onChange={(event) => {
+                                                                const valor =
+                                                                    event.target.value;
+
+                                                                setCantidadesSurtir(
+                                                                    (cantidadesActuales) => ({
+                                                                        ...cantidadesActuales,
+                                                                        [material.idDetalle]:
+                                                                            valor,
+                                                                    })
+                                                                );
+
+                                                                setError("");
+                                                            }}
+                                                            disabled={
+                                                                detalleProcesando !== null
+                                                            }
+                                                            placeholder={`Máx. ${pendiente}`}
+                                                            style={supplyInputStyle}
+                                                        />
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                registrarSurtido(
+                                                                    material.idDetalle
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                detalleProcesando !== null
+                                                            }
+                                                            style={{
+                                                                ...supplyButtonStyle,
+                                                                opacity:
+                                                                    detalleProcesando !== null
+                                                                        ? 0.65
+                                                                        : 1,
+                                                            }}
+                                                        >
+                                                            {detalleProcesando ===
+                                                                material.idDetalle
+                                                                ? "Registrando..."
+                                                                : "Registrar"}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span style={completedStyle}>
+                                                        Completado
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td
+                                                style={{
+                                                    ...tdStyle,
+                                                    textAlign: "right",
+                                                }}
+                                            >
+                                                {material.cantidadSurtida === 0 ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            eliminarMaterial(
+                                                                material.idDetalle,
+                                                                material.numeroParteMaterial
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            detalleProcesando !== null ||
+                                                            detalleEliminando !== null ||
+                                                            actualizando
+                                                        }
+                                                        style={{
+                                                            ...deleteMaterialButtonStyle,
+
+                                                            opacity:
+                                                                detalleProcesando !== null ||
+                                                                    detalleEliminando !== null ||
+                                                                    actualizando
+                                                                    ? 0.65
+                                                                    : 1,
+                                                        }}
+                                                    >
+                                                        {detalleEliminando ===
+                                                            material.idDetalle
+                                                            ? "Eliminando..."
+                                                            : "Eliminar"}
+                                                    </button>
+                                                ) : (
+                                                    <span style={notDeletableStyle}>
+                                                        Con surtido
+                                                    </span>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 }
@@ -464,7 +859,11 @@ export function SolicitudDetalleModal({
                     <button
                         type="button"
                         onClick={cerrarModal}
-                        disabled={actualizando}
+                        disabled={
+                            actualizando ||
+                            detalleProcesando !== null ||
+                            detalleEliminando !== null
+                        }
                         style={primaryButtonStyle}
                     >
                         Cerrar
@@ -731,4 +1130,90 @@ const primaryButtonStyle = {
     color: "#ffffff",
     fontWeight: "700",
     cursor: "pointer",
+};
+
+
+const supplyControlsStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    minWidth: "235px",
+};
+
+const supplyInputStyle = {
+    width: "105px",
+    minHeight: "37px",
+    boxSizing: "border-box" as const,
+    padding: "7px 9px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "7px",
+    color: "#102957",
+    fontSize: "13px",
+};
+
+const supplyButtonStyle = {
+    minHeight: "37px",
+    padding: "7px 11px",
+    border: "none",
+    borderRadius: "7px",
+    background: "#1d4ed8",
+    color: "#ffffff",
+    fontSize: "12px",
+    fontWeight: "700",
+    cursor: "pointer",
+    whiteSpace: "nowrap" as const,
+};
+
+const completedStyle = {
+    display: "inline-block",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "#dcfce7",
+    color: "#166534",
+    fontSize: "12px",
+    fontWeight: "700",
+};
+const deleteMaterialButtonStyle = {
+    minHeight: "37px",
+    padding: "7px 11px",
+    border: "1px solid #fecaca",
+    borderRadius: "7px",
+    background: "#fef2f2",
+    color: "#b91c1c",
+    fontSize: "12px",
+    fontWeight: "700",
+    whiteSpace: "nowrap" as const,
+    cursor: "pointer",
+};
+
+const notDeletableStyle = {
+    display: "inline-block",
+    padding: "6px 9px",
+    borderRadius: "999px",
+    background: "#f1f5f9",
+    color: "#64748b",
+    fontSize: "11px",
+    fontWeight: "700",
+}; const materialPendingStyle = {
+    display: "inline-block",
+    minWidth: "72px",
+    padding: "6px 9px",
+    borderRadius: "999px",
+    background: "#ffedd5",
+    color: "#c2410c",
+    fontSize: "11px",
+    fontWeight: "800",
+    textAlign: "center" as const,
+};
+
+const materialPartialStyle = {
+    ...materialPendingStyle,
+    background: "#fef3c7",
+    color: "#92400e",
+};
+
+const materialCompletedStyle = {
+    ...materialPendingStyle,
+    background: "#dcfce7",
+    color: "#166534",
 };

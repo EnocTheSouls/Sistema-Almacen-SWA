@@ -176,7 +176,7 @@ export function NuevaSolicitudModal({
           (familia) =>
             familia.activo &&
             familia.idProyecto ===
-              idProyecto
+            idProyecto
         ),
       [
         familias,
@@ -191,7 +191,7 @@ export function NuevaSolicitudModal({
           (estacion) =>
             estacion.activo &&
             estacion.idFamilia ===
-              idFamilia
+            idFamilia
         ),
       [
         estaciones,
@@ -307,13 +307,8 @@ export function NuevaSolicitudModal({
           descripcion:
             material.descripcion,
 
-          cantidad:
-            material.stdPack &&
-            material.stdPack > 0
-              ? String(
-                  material.stdPack
-                )
-              : "1",
+          // La cantidad debe capturarla el solicitante.
+          cantidad: ""
         },
       ]
     );
@@ -331,11 +326,11 @@ export function NuevaSolicitudModal({
         materialesActuales.map(
           (material) =>
             material.idMaterial ===
-            idMaterial
+              idMaterial
               ? {
-                  ...material,
-                  cantidad,
-                }
+                ...material,
+                cantidad,
+              }
               : material
         )
     );
@@ -436,19 +431,19 @@ export function NuevaSolicitudModal({
             );
 
           return (
-            !Number.isFinite(
+            !Number.isInteger(
               cantidad
             ) ||
             cantidad <= 0
           );
+
         }
       );
 
     if (cantidadInvalida) {
       setError(
-        "Todas las cantidades deben ser mayores que cero."
+        "Todas las cantidades solicitadas deben ser números enteros mayores que cero."
       );
-
       return;
     }
 
@@ -696,7 +691,7 @@ export function NuevaSolicitudModal({
 
             {idProyecto > 0 &&
               familiasDisponibles.length ===
-                0 && (
+              0 && (
                 <div style={warningStyle}>
                   El proyecto no tiene familias
                   activas.
@@ -705,7 +700,7 @@ export function NuevaSolicitudModal({
 
             {idFamilia > 0 &&
               estacionesDisponibles.length ===
-                0 && (
+              0 && (
                 <div style={warningStyle}>
                   La familia no tiene estaciones
                   activas.
@@ -752,7 +747,7 @@ export function NuevaSolicitudModal({
 
               {busquedaMaterial.trim() &&
                 materialesEncontrados.length >
-                  0 && (
+                0 && (
                   <div style={resultsStyle}>
                     {materialesEncontrados.map(
                       (material) => (
@@ -801,7 +796,7 @@ export function NuevaSolicitudModal({
 
               {busquedaMaterial.trim() &&
                 materialesEncontrados.length ===
-                  0 && (
+                0 && (
                   <div style={noResultsStyle}>
                     No se encontraron materiales
                     activos.
@@ -828,7 +823,7 @@ export function NuevaSolicitudModal({
                       </th>
 
                       <th style={thStyle}>
-                        Cantidad
+                        Cantidad solicitada *
                       </th>
 
                       <th
@@ -867,11 +862,9 @@ export function NuevaSolicitudModal({
                           <td style={tdStyle}>
                             <input
                               type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={
-                                material.cantidad
-                              }
+                              min="1"
+                              step="1"
+                              value={material.cantidad}
                               onChange={(event) =>
                                 cambiarCantidad(
                                   material.idMaterial,
@@ -879,9 +872,9 @@ export function NuevaSolicitudModal({
                                 )
                               }
                               disabled={enviando}
-                              style={
-                                quantityInputStyle
-                              }
+                              placeholder="Cantidad requerida"
+                              required
+                              style={quantityInputStyle}
                             />
                           </td>
 
@@ -941,7 +934,7 @@ export function NuevaSolicitudModal({
                   ...primaryButtonStyle,
                   opacity:
                     enviando ||
-                    materiales.length === 0
+                      materiales.length === 0
                       ? 0.65
                       : 1,
                 }}

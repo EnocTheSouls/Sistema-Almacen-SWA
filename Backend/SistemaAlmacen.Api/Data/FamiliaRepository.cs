@@ -99,6 +99,79 @@ public sealed class FamiliaRepository
 
         return MapearFamilia(reader);
     }
+    // Busca una familia utilizando el nombre recibido del 5MF.
+    public async Task<Familia?> ObtenerParaFiveMfAsync(
+        string nombreFamilia)
+    {
+        var nombreLimpio =
+            nombreFamilia
+                .Trim()
+                .ToUpperInvariant();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        // Primero busca una equivalencia configurada.
+        // Si no existe, intenta coincidencia exacta.
+        command.CommandText = """
+        SELECT
+            f.id_familia,
+            f.id_proyecto,
+            p.nombre AS nombre_proyecto,
+            f.nombre,
+            f.descripcion,
+            f.activo
+        FROM familias AS f
+        INNER JOIN proyectos AS p
+            ON p.id_proyecto = f.id_proyecto
+        LEFT JOIN equivalencia_familia_5mf AS ef
+            ON ef.id_familia = f.id_familia
+           AND ef.activo = TRUE
+        WHERE
+            UPPER(
+                TRIM(
+                    ef.nombre_familia_5mf
+                )
+            ) = @nombreFamilia
+            OR
+            UPPER(
+                TRIM(
+                    f.nombre
+                )
+            ) = @nombreFamilia
+        ORDER BY
+            CASE
+                WHEN UPPER(
+                    TRIM(
+                        ef.nombre_familia_5mf
+                    )
+                ) = @nombreFamilia
+                THEN 1
+                ELSE 2
+            END
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@nombreFamilia",
+            nombreLimpio
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return MapearFamilia(reader);
+    }
 
     // Crea una familia asociada a un proyecto.
     public async Task<Familia?> CrearAsync(

@@ -853,33 +853,18 @@ public sealed class SolicitudRepository
                 )
         };
     }
-    // Surte un material, descuenta inventario y actualiza la solicitud.
+    // Registra la cantidad surtida sin controlar inventario.
     public async Task<ResultadoSurtidoSolicitud>
         SurtirDetalleAsync(
             long idSolicitud,
             long idDetalle,
-            int idUbicacion,
-            decimal cantidad,
-            int idUsuario,
-            string? referencia,
-            string? comentarios)
+            decimal cantidad)
     {
-        var referenciaLimpia =
-            string.IsNullOrWhiteSpace(referencia)
-                ? null
-                : referencia.Trim();
-
-        var comentariosLimpios =
-            string.IsNullOrWhiteSpace(comentarios)
-                ? null
-                : comentarios.Trim();
-
         await using var connection =
             _connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
-        // Todas las operaciones se confirman o cancelan juntas.
         await using var transaction =
             await connection.BeginTransactionAsync();
 
@@ -887,11 +872,13 @@ public sealed class SolicitudRepository
         {
             int idEstadoActual;
 
-            // Bloquea la solicitud mientras se procesa.
-            await using (var solicitudCommand =
-                connection.CreateCommand())
+            await using (
+                var solicitudCommand =
+                    connection.CreateCommand()
+            )
             {
-                solicitudCommand.Transaction = transaction;
+                solicitudCommand.Transaction =
+                    transaction;
 
                 solicitudCommand.CommandText = """
                 SELECT id_estado
@@ -900,23 +887,28 @@ public sealed class SolicitudRepository
                 FOR UPDATE;
                 """;
 
-                solicitudCommand.Parameters.AddWithValue(
-                    "@idSolicitud",
-                    idSolicitud
-                );
+                solicitudCommand.Parameters
+                    .AddWithValue(
+                        "@idSolicitud",
+                        idSolicitud
+                    );
 
                 var resultado =
-                    await solicitudCommand.ExecuteScalarAsync();
+                    await solicitudCommand
+                        .ExecuteScalarAsync();
 
-                if (resultado is null ||
-                    resultado is DBNull)
+                if (
+                    resultado is null ||
+                    resultado is DBNull
+                )
                 {
                     await transaction.RollbackAsync();
 
                     return new ResultadoSurtidoSolicitud
                     {
                         Exitoso = false,
-                        Codigo = "SOLICITUD_NO_EXISTE",
+                        Codigo =
+                            "SOLICITUD_NO_EXISTE",
                         Mensaje =
                             "No existe la solicitud indicada."
                     };
@@ -926,37 +918,38 @@ public sealed class SolicitudRepository
                     Convert.ToInt32(resultado);
             }
 
-            // Permite iniciar el surtido directamente desde Pendiente.
-            if (idEstadoActual != 1 &&
+            if (
+                idEstadoActual != 1 &&
                 idEstadoActual != 3 &&
                 idEstadoActual != 4 &&
-                idEstadoActual != 5)
+                idEstadoActual != 5
+            )
             {
                 await transaction.RollbackAsync();
 
                 return new ResultadoSurtidoSolicitud
                 {
                     Exitoso = false,
-                    Codigo = "ESTADO_NO_PERMITIDO",
+                    Codigo =
+                        "ESTADO_NO_PERMITIDO",
                     Mensaje =
-                        "La solicitud debe estar Pendiente, En surtido, Parcial o Faltante."
+                        "La solicitud no permite registrar surtido en su estado actual."
                 };
             }
 
-
-            int idMaterial;
             decimal cantidadSolicitada;
             decimal cantidadSurtida;
 
-            // Obtiene y bloquea el detalle específico.
-            await using (var detalleCommand =
-                connection.CreateCommand())
+            await using (
+                var detalleCommand =
+                    connection.CreateCommand()
+            )
             {
-                detalleCommand.Transaction = transaction;
+                detalleCommand.Transaction =
+                    transaction;
 
                 detalleCommand.CommandText = """
                 SELECT
-                    id_material,
                     cantidad_solicitada,
                     cantidad_surtida
                 FROM solicitud_detalle
@@ -965,18 +958,21 @@ public sealed class SolicitudRepository
                 FOR UPDATE;
                 """;
 
-                detalleCommand.Parameters.AddWithValue(
-                    "@idDetalle",
-                    idDetalle
-                );
+                detalleCommand.Parameters
+                    .AddWithValue(
+                        "@idDetalle",
+                        idDetalle
+                    );
 
-                detalleCommand.Parameters.AddWithValue(
-                    "@idSolicitud",
-                    idSolicitud
-                );
+                detalleCommand.Parameters
+                    .AddWithValue(
+                        "@idSolicitud",
+                        idSolicitud
+                    );
 
                 await using var reader =
-                    await detalleCommand.ExecuteReaderAsync();
+                    await detalleCommand
+                        .ExecuteReaderAsync();
 
                 if (!await reader.ReadAsync())
                 {
@@ -986,14 +982,12 @@ public sealed class SolicitudRepository
                     return new ResultadoSurtidoSolicitud
                     {
                         Exitoso = false,
-                        Codigo = "DETALLE_NO_EXISTE",
+                        Codigo =
+                            "DETALLE_NO_EXISTE",
                         Mensaje =
-                            "El detalle no pertenece a la solicitud indicada."
+                            "El material no pertenece a la solicitud indicada."
                     };
                 }
-
-                idMaterial =
-                    reader.GetInt32("id_material");
 
                 cantidadSolicitada =
                     reader.GetDecimal(
@@ -1006,19 +1000,38 @@ public sealed class SolicitudRepository
                     );
             }
 
-            var cantidadPendiente =
-                cantidadSolicitada - cantidadSurtida;
-
-            if (cantidad <= 0)
+            if (
+                cantidad <= 0 ||
+                cantidad != decimal.Truncate(cantidad)
+            )
             {
                 await transaction.RollbackAsync();
 
                 return new ResultadoSurtidoSolicitud
                 {
                     Exitoso = false,
-                    Codigo = "CANTIDAD_INVALIDA",
+                    Codigo =
+                        "CANTIDAD_INVALIDA",
                     Mensaje =
-                        "La cantidad a surtir debe ser mayor que cero."
+                        "La cantidad surtida debe ser un número entero mayor que cero."
+                };
+            }
+
+            var cantidadPendiente =
+                cantidadSolicitada -
+                cantidadSurtida;
+
+            if (cantidadPendiente <= 0)
+            {
+                await transaction.RollbackAsync();
+
+                return new ResultadoSurtidoSolicitud
+                {
+                    Exitoso = false,
+                    Codigo =
+                        "DETALLE_COMPLETADO",
+                    Mensaje =
+                        "El material ya fue surtido completamente."
                 };
             }
 
@@ -1032,114 +1045,14 @@ public sealed class SolicitudRepository
                     Codigo =
                         "CANTIDAD_EXCEDE_PENDIENTE",
                     Mensaje =
-                        $"La cantidad pendiente del material es {cantidadPendiente}."
+                        $"La cantidad pendiente es {cantidadPendiente}."
                 };
             }
 
-            long idInventario;
-            decimal disponible;
-
-            // Bloquea el inventario del material y ubicación.
-            await using (var inventarioCommand =
-                connection.CreateCommand())
-            {
-                inventarioCommand.Transaction = transaction;
-
-                inventarioCommand.CommandText = """
-                SELECT
-                    id_inventario,
-                    disponible
-                FROM inventario
-                WHERE id_material = @idMaterial
-                  AND id_ubicacion = @idUbicacion
-                FOR UPDATE;
-                """;
-
-                inventarioCommand.Parameters.AddWithValue(
-                    "@idMaterial",
-                    idMaterial
-                );
-
-                inventarioCommand.Parameters.AddWithValue(
-                    "@idUbicacion",
-                    idUbicacion
-                );
-
-                await using var reader =
-                    await inventarioCommand
-                        .ExecuteReaderAsync();
-
-                if (!await reader.ReadAsync())
-                {
-                    await reader.CloseAsync();
-                    await transaction.RollbackAsync();
-
-                    return new ResultadoSurtidoSolicitud
-                    {
-                        Exitoso = false,
-                        Codigo =
-                            "INVENTARIO_NO_EXISTE",
-                        Mensaje =
-                            "El material no tiene inventario en la ubicación indicada."
-                    };
-                }
-
-                idInventario =
-                    reader.GetInt64("id_inventario");
-
-                disponible =
-                    reader.GetDecimal("disponible");
-            }
-
-            if (disponible < cantidad)
-            {
-                await transaction.RollbackAsync();
-
-                return new ResultadoSurtidoSolicitud
-                {
-                    Exitoso = false,
-                    Codigo =
-                        "INVENTARIO_INSUFICIENTE",
-                    Mensaje =
-                        $"Disponible: {disponible}. Cantidad solicitada para surtir: {cantidad}."
-                };
-            }
-
-            // Descuenta la cantidad del inventario disponible.
-            await using (var actualizarInventarioCommand =
-                connection.CreateCommand())
-            {
-                actualizarInventarioCommand.Transaction =
-                    transaction;
-
-                actualizarInventarioCommand.CommandText = """
-                UPDATE inventario
-                SET
-                    disponible = disponible - @cantidad,
-                    ultima_actualizacion =
-                        CURRENT_TIMESTAMP
-                WHERE id_inventario = @idInventario;
-                """;
-
-                actualizarInventarioCommand.Parameters
-                    .AddWithValue(
-                        "@cantidad",
-                        cantidad
-                    );
-
-                actualizarInventarioCommand.Parameters
-                    .AddWithValue(
-                        "@idInventario",
-                        idInventario
-                    );
-
-                await actualizarInventarioCommand
-                    .ExecuteNonQueryAsync();
-            }
-
-            // Incrementa la cantidad surtida del detalle.
-            await using (var actualizarDetalleCommand =
-                connection.CreateCommand())
+            await using (
+                var actualizarDetalleCommand =
+                    connection.CreateCommand()
+            )
             {
                 actualizarDetalleCommand.Transaction =
                     transaction;
@@ -1148,7 +1061,8 @@ public sealed class SolicitudRepository
                 UPDATE solicitud_detalle
                 SET cantidad_surtida =
                     cantidad_surtida + @cantidad
-                WHERE id_detalle = @idDetalle;
+                WHERE id_detalle = @idDetalle
+                  AND id_solicitud = @idSolicitud;
                 """;
 
                 actualizarDetalleCommand.Parameters
@@ -1163,121 +1077,62 @@ public sealed class SolicitudRepository
                         idDetalle
                     );
 
+                actualizarDetalleCommand.Parameters
+                    .AddWithValue(
+                        "@idSolicitud",
+                        idSolicitud
+                    );
+
                 await actualizarDetalleCommand
                     .ExecuteNonQueryAsync();
-            }
-
-            // Registra el movimiento de surtido.
-            await using (var movimientoCommand =
-                connection.CreateCommand())
-            {
-                movimientoCommand.Transaction = transaction;
-
-                movimientoCommand.CommandText = """
-                INSERT INTO movimiento_inventario (
-                    id_solicitud,
-                    id_arnes,
-                    fecha_hora,
-                    id_material,
-                    cantidad,
-                    tipo_movimiento,
-                    id_ubicacion_origen,
-                    id_ubicacion_destino,
-                    id_usuario,
-                    referencia,
-                    comentarios
-                )
-                VALUES (
-                    @idSolicitud,
-                    NULL,
-                    CURRENT_TIMESTAMP,
-                    @idMaterial,
-                    @cantidad,
-                    'Surtido',
-                    @idUbicacion,
-                    NULL,
-                    @idUsuario,
-                    @referencia,
-                    @comentarios
-                );
-                """;
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@idSolicitud",
-                    idSolicitud
-                );
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@idMaterial",
-                    idMaterial
-                );
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@cantidad",
-                    cantidad
-                );
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@idUbicacion",
-                    idUbicacion
-                );
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@idUsuario",
-                    idUsuario
-                );
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@referencia",
-                    referenciaLimpia is null
-                        ? DBNull.Value
-                        : referenciaLimpia
-                );
-
-                movimientoCommand.Parameters.AddWithValue(
-                    "@comentarios",
-                    comentariosLimpios is null
-                        ? DBNull.Value
-                        : comentariosLimpios
-                );
-
-                await movimientoCommand.ExecuteNonQueryAsync();
             }
 
             decimal totalSolicitado;
             decimal totalSurtido;
 
-            // Calcula el avance total de la solicitud.
-            await using (var totalesCommand =
-                connection.CreateCommand())
+            await using (
+                var totalesCommand =
+                    connection.CreateCommand()
+            )
             {
-                totalesCommand.Transaction = transaction;
+                totalesCommand.Transaction =
+                    transaction;
 
                 totalesCommand.CommandText = """
                 SELECT
-                    SUM(cantidad_solicitada)
-                        AS total_solicitado,
-                    SUM(cantidad_surtida)
-                        AS total_surtido
+                    COALESCE(
+                        SUM(cantidad_solicitada),
+                        0
+                    ) AS total_solicitado,
+                    COALESCE(
+                        SUM(cantidad_surtida),
+                        0
+                    ) AS total_surtido
                 FROM solicitud_detalle
                 WHERE id_solicitud = @idSolicitud;
                 """;
 
-                totalesCommand.Parameters.AddWithValue(
-                    "@idSolicitud",
-                    idSolicitud
-                );
+                totalesCommand.Parameters
+                    .AddWithValue(
+                        "@idSolicitud",
+                        idSolicitud
+                    );
 
                 await using var reader =
-                    await totalesCommand.ExecuteReaderAsync();
+                    await totalesCommand
+                        .ExecuteReaderAsync();
 
                 await reader.ReadAsync();
 
                 totalSolicitado =
-                    reader.GetDecimal("total_solicitado");
+                    reader.GetDecimal(
+                        "total_solicitado"
+                    );
 
                 totalSurtido =
-                    reader.GetDecimal("total_surtido");
+                    reader.GetDecimal(
+                        "total_surtido"
+                    );
             }
 
             var nombreNuevoEstado =
@@ -1287,11 +1142,13 @@ public sealed class SolicitudRepository
 
             int idNuevoEstado;
 
-            // Obtiene el identificador del estado automático.
-            await using (var estadoCommand =
-                connection.CreateCommand())
+            await using (
+                var estadoCommand =
+                    connection.CreateCommand()
+            )
             {
-                estadoCommand.Transaction = transaction;
+                estadoCommand.Transaction =
+                    transaction;
 
                 estadoCommand.CommandText = """
                 SELECT id_estado
@@ -1301,16 +1158,20 @@ public sealed class SolicitudRepository
                 LIMIT 1;
                 """;
 
-                estadoCommand.Parameters.AddWithValue(
-                    "@nombreEstado",
-                    nombreNuevoEstado
-                );
+                estadoCommand.Parameters
+                    .AddWithValue(
+                        "@nombreEstado",
+                        nombreNuevoEstado
+                    );
 
                 var resultado =
-                    await estadoCommand.ExecuteScalarAsync();
+                    await estadoCommand
+                        .ExecuteScalarAsync();
 
-                if (resultado is null ||
-                    resultado is DBNull)
+                if (
+                    resultado is null ||
+                    resultado is DBNull
+                )
                 {
                     throw new InvalidOperationException(
                         $"No existe el estado activo {nombreNuevoEstado}."
@@ -1321,9 +1182,10 @@ public sealed class SolicitudRepository
                     Convert.ToInt32(resultado);
             }
 
-            // Actualiza el estado general de la solicitud.
-            await using (var actualizarSolicitudCommand =
-                connection.CreateCommand())
+            await using (
+                var actualizarSolicitudCommand =
+                    connection.CreateCommand()
+            )
             {
                 actualizarSolicitudCommand.Transaction =
                     transaction;
@@ -1360,10 +1222,12 @@ public sealed class SolicitudRepository
             return new ResultadoSurtidoSolicitud
             {
                 Exitoso = true,
-                Codigo = "SURTIDO_CORRECTO",
+                Codigo =
+                    "SURTIDO_CORRECTO",
                 Mensaje =
-                    "El material se surtió correctamente.",
-                Solicitud = solicitudActualizada
+                    "La cantidad surtida se registró correctamente.",
+                Solicitud =
+                    solicitudActualizada
             };
         }
         catch
@@ -1372,10 +1236,159 @@ public sealed class SolicitudRepository
             throw;
         }
     }
+    // Elimina un material no surtido de una solicitud.
+    public async Task<(bool Exitoso, string Codigo, string Mensaje, Solicitud? Solicitud)>
+        EliminarDetalleAsync(
+            long idSolicitud,
+            long idDetalle)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
 
+        await connection.OpenAsync();
 
+        await using var transaction =
+            await connection.BeginTransactionAsync();
 
+        try
+        {
+            await using var detalleCommand =
+                connection.CreateCommand();
 
+            detalleCommand.Transaction =
+                transaction;
+
+            detalleCommand.CommandText = """
+            SELECT cantidad_surtida
+            FROM solicitud_detalle
+            WHERE id_solicitud = @idSolicitud
+              AND id_detalle = @idDetalle
+            FOR UPDATE;
+            """;
+
+            detalleCommand.Parameters.AddWithValue(
+                "@idSolicitud",
+                idSolicitud
+            );
+
+            detalleCommand.Parameters.AddWithValue(
+                "@idDetalle",
+                idDetalle
+            );
+
+            var cantidadSurtidaResultado =
+                await detalleCommand.ExecuteScalarAsync();
+
+            if (
+                cantidadSurtidaResultado is null ||
+                cantidadSurtidaResultado is DBNull
+            )
+            {
+                await transaction.RollbackAsync();
+
+                return (
+                    false,
+                    "DETALLE_NO_EXISTE",
+                    "El material no pertenece a la solicitud.",
+                    null
+                );
+            }
+
+            var cantidadSurtida =
+                Convert.ToDecimal(
+                    cantidadSurtidaResultado
+                );
+
+            if (cantidadSurtida > 0)
+            {
+                await transaction.RollbackAsync();
+
+                return (
+                    false,
+                    "MATERIAL_SURTIDO",
+                    "No se puede eliminar un material que ya tiene cantidad surtida.",
+                    null
+                );
+            }
+
+            await using var contarCommand =
+                connection.CreateCommand();
+
+            contarCommand.Transaction =
+                transaction;
+
+            contarCommand.CommandText = """
+            SELECT COUNT(*)
+            FROM solicitud_detalle
+            WHERE id_solicitud = @idSolicitud;
+            """;
+
+            contarCommand.Parameters.AddWithValue(
+                "@idSolicitud",
+                idSolicitud
+            );
+
+            var totalMateriales =
+                Convert.ToInt32(
+                    await contarCommand.ExecuteScalarAsync()
+                );
+
+            if (totalMateriales <= 1)
+            {
+                await transaction.RollbackAsync();
+
+                return (
+                    false,
+                    "ULTIMO_MATERIAL",
+                    "No puedes eliminar el último material. Cancela la solicitud completa.",
+                    null
+                );
+            }
+
+            await using var eliminarCommand =
+                connection.CreateCommand();
+
+            eliminarCommand.Transaction =
+                transaction;
+
+            eliminarCommand.CommandText = """
+            DELETE FROM solicitud_detalle
+            WHERE id_solicitud = @idSolicitud
+              AND id_detalle = @idDetalle;
+            """;
+
+            eliminarCommand.Parameters.AddWithValue(
+                "@idSolicitud",
+                idSolicitud
+            );
+
+            eliminarCommand.Parameters.AddWithValue(
+                "@idDetalle",
+                idDetalle
+            );
+
+            await eliminarCommand.ExecuteNonQueryAsync();
+
+            await transaction.CommitAsync();
+
+            var solicitudActualizada =
+                await ObtenerPorIdAsync(
+                    idSolicitud
+                );
+
+            return (
+                true,
+                "MATERIAL_ELIMINADO",
+                "El material fue eliminado de la solicitud.",
+                solicitudActualizada
+            );
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
 
     // Obtiene los materiales incluidos en una solicitud.
     private async Task<List<SolicitudDetalle>>

@@ -450,12 +450,18 @@ public static class SolicitudEndpoints
                     });
                 }
 
-                if (detalle.CantidadSolicitada <= 0)
+                if (
+    detalle.CantidadSolicitada <= 0 ||
+    detalle.CantidadSolicitada !=
+    decimal.Truncate(
+        detalle.CantidadSolicitada
+    )
+)
                 {
                     return Results.BadRequest(new
                     {
                         mensaje =
-                            $"La cantidad solicitada del material {detalle.IdMaterial} debe ser mayor que cero."
+                            $"La cantidad solicitada del material {detalle.IdMaterial} debe ser un número entero mayor que cero."
                     });
                 }
 
@@ -687,7 +693,6 @@ public static class SolicitudEndpoints
             async (
                 long idSolicitud,
                 SurtirSolicitudDetalleDto dto,
-                ClaimsPrincipal principal,
                 SolicitudRepository solicitudRepository) =>
         {
             // Valida el identificador del detalle.
@@ -700,23 +705,18 @@ public static class SolicitudEndpoints
                 });
             }
 
-            // Valida la ubicación de origen.
-            if (dto.IdUbicacion <= 0)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La ubicación de origen es obligatoria."
-                });
-            }
 
-            // Valida la cantidad que será surtida.
-            if (dto.Cantidad <= 0)
+            // Valida que la cantidad surtida sea entera y mayor que cero.
+            if (
+                dto.Cantidad <= 0 ||
+                dto.Cantidad !=
+                decimal.Truncate(dto.Cantidad)
+            )
             {
                 return Results.BadRequest(new
                 {
                     mensaje =
-                        "La cantidad a surtir debe ser mayor que cero."
+                        "La cantidad a surtir debe ser un número entero mayor que cero."
                 });
             }
 
@@ -740,30 +740,14 @@ public static class SolicitudEndpoints
                 });
             }
 
-            // Obtiene el usuario desde el token JWT.
-            var idUsuarioTexto =
-                principal.FindFirstValue(
-                    ClaimTypes.NameIdentifier
-                );
-
-            if (!int.TryParse(
-                idUsuarioTexto,
-                out var idUsuario))
-            {
-                return Results.Unauthorized();
-            }
 
             var resultado =
-                await solicitudRepository.SurtirDetalleAsync(
-                    idSolicitud,
-                    dto.IdDetalle,
-                    dto.IdUbicacion,
-                    dto.Cantidad,
-                    idUsuario,
-                    dto.Referencia,
-                    dto.Comentarios
-                );
-
+        await solicitudRepository
+            .SurtirDetalleAsync(
+                idSolicitud,
+                dto.IdDetalle,
+                dto.Cantidad
+            );
             // Devuelve 404 cuando no existe la solicitud.
             if (resultado.Codigo ==
                 "SOLICITUD_NO_EXISTE")
@@ -786,31 +770,9 @@ public static class SolicitudEndpoints
                 });
             }
 
-            // Devuelve 404 cuando no existe inventario.
-            if (resultado.Codigo ==
-                "INVENTARIO_NO_EXISTE")
-            {
-                return Results.NotFound(new
-                {
-                    codigo = resultado.Codigo,
-                    mensaje = resultado.Mensaje
-                });
-            }
-
             // Devuelve 409 cuando el estado no permite surtir.
             if (resultado.Codigo ==
                 "ESTADO_NO_PERMITIDO")
-            {
-                return Results.Conflict(new
-                {
-                    codigo = resultado.Codigo,
-                    mensaje = resultado.Mensaje
-                });
-            }
-
-            // Devuelve 409 cuando falta inventario.
-            if (resultado.Codigo ==
-                "INVENTARIO_INSUFICIENTE")
             {
                 return Results.Conflict(new
                 {
@@ -861,6 +823,115 @@ public static class SolicitudEndpoints
             });
         })
         .WithName("SurtirDetalleSolicitud")
+        .RequireAuthorization(policy =>
+            policy.RequireRole(
+                "Administrador",
+                "Supervisor",
+                "Materialista"
+            ));
+        // Elimina un material individual no surtido.
+        grupo.MapDelete(
+            "/{idSolicitud:long}/materiales/{idDetalle:long}",
+            async (
+                long idSolicitud,
+                long idDetalle,
+                SolicitudRepository solicitudRepository) =>
+            {
+                if (
+                    idSolicitud <= 0 ||
+                    idDetalle <= 0
+                )
+                {
+                    return Results.BadRequest(new
+                    {
+                        mensaje =
+                            "La solicitud o el material no son válidos."
+                    });
+                }
+
+                var resultado =
+                    await solicitudRepository
+                        .EliminarDetalleAsync(
+                            idSolicitud,
+                            idDetalle
+                        );
+
+                if (
+                    resultado.Codigo ==
+                    "DETALLE_NO_EXISTE"
+                )
+                {
+                    return Results.NotFound(new
+                    {
+                        codigo =
+                            resultado.Codigo,
+
+                        mensaje =
+                            resultado.Mensaje
+                    });
+                }
+
+                if (
+                    resultado.Codigo ==
+                    "MATERIAL_SURTIDO"
+                )
+                {
+                    return Results.BadRequest(new
+                    {
+                        codigo =
+                            resultado.Codigo,
+
+                        mensaje =
+                            resultado.Mensaje
+                    });
+                }
+
+                if (
+                    resultado.Codigo ==
+                    "ULTIMO_MATERIAL"
+                )
+                {
+                    return Results.BadRequest(new
+                    {
+                        codigo =
+                            resultado.Codigo,
+
+                        mensaje =
+                            resultado.Mensaje
+                    });
+                }
+
+                if (!resultado.Exitoso)
+                {
+                    return Results.Problem(
+                        title:
+                            "No se eliminó el material",
+
+                        detail:
+                            resultado.Mensaje,
+
+                        statusCode:
+                            StatusCodes
+                                .Status500InternalServerError
+                    );
+                }
+
+                return Results.Ok(new
+                {
+                    codigo =
+                        resultado.Codigo,
+
+                    mensaje =
+                        resultado.Mensaje,
+
+                    solicitud =
+                        resultado.Solicitud
+                });
+            }
+        )
+        .WithName(
+            "EliminarMaterialSolicitud"
+        )
         .RequireAuthorization(policy =>
             policy.RequireRole(
                 "Administrador",

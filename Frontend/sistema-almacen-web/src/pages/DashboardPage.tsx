@@ -212,28 +212,71 @@ export function DashboardPage() {
     configuracion.actualizacionAutomatica,
     configuracion.segundosActualizacion,
   ]);
-
-  // Muestra las solicitudes pendientes más antiguas primero.
   const solicitudesPendientes =
     useMemo(() => {
+      const prioridadEstado = (
+        estado: string
+      ) => {
+        const estadoNormalizado =
+          estado
+            .trim()
+            .toLowerCase();
+
+        if (
+          estadoNormalizado ===
+          "pendiente"
+        ) {
+          return 1;
+        }
+
+        if (
+          estadoNormalizado ===
+          "parcial"
+        ) {
+          return 2;
+        }
+
+        return 3;
+      };
+
       return solicitudes
-        .filter(
-          (solicitud) =>
+        .filter((solicitud) => {
+          const estado =
             solicitud.nombreEstado
-              .toLowerCase() ===
-            "pendiente"
-        )
+              .trim()
+              .toLowerCase();
+
+          return (
+            estado === "pendiente" ||
+            estado === "parcial"
+          );
+        })
         .sort(
           (
             solicitudA,
             solicitudB
-          ) =>
-            new Date(
-              solicitudA.fechaSolicitud
-            ).getTime() -
-            new Date(
-              solicitudB.fechaSolicitud
-            ).getTime()
+          ) => {
+            const diferenciaEstado =
+              prioridadEstado(
+                solicitudA.nombreEstado
+              ) -
+              prioridadEstado(
+                solicitudB.nombreEstado
+              );
+
+            if (diferenciaEstado !== 0) {
+              return diferenciaEstado;
+            }
+
+            return (
+              new Date(
+                solicitudA.fechaSolicitud
+              ).getTime() -
+              new Date(
+                solicitudB.fechaSolicitud
+              ).getTime()
+            );
+          }
         )
         .slice(
           0,
@@ -243,6 +286,8 @@ export function DashboardPage() {
       solicitudes,
       configuracion.solicitudesVisibles,
     ]);
+
+
 
   const solicitudesSurtidas =
     useMemo(() => {
@@ -420,8 +465,8 @@ export function DashboardPage() {
                 <KpiCard
                   titulo="Pendientes"
                   cantidad={
-                    dashboard?.pendientes ??
-                    solicitudesPendientes.length
+                    (dashboard?.pendientes ?? 0) +
+                    (dashboard?.parciales ?? 0)
                   }
                   color="#ffffff"
                   fondo="#ea580c"
@@ -483,8 +528,8 @@ export function DashboardPage() {
                       pendingCounterStyle
                     }
                   >
-                    {dashboard?.pendientes ??
-                      solicitudesPendientes.length}{" "}
+                    {(dashboard?.pendientes ?? 0) +
+                      (dashboard?.parciales ?? 0)}{" "}
                     pendientes
                   </div>
                 </div>
@@ -505,11 +550,7 @@ export function DashboardPage() {
                       style={tableStyle}
                     >
                       <thead>
-                        <tr
-                          style={
-                            tableHeaderStyle
-                          }
-                        >
+                        <tr style={tableHeaderStyle}>
                           <th style={thStyle}>
                             Solicitud
                           </th>
@@ -531,18 +572,21 @@ export function DashboardPage() {
                           </th>
 
                           <th style={thStyle}>
-                            Materiales
+                            Material
                           </th>
 
                           <th style={thStyle}>
-                            Solicitante
+                            Cantidad pendiente
+                          </th>
+
+                          <th style={thStyle}>
+                            Estado
                           </th>
 
                           <th
                             style={{
                               ...thStyle,
-                              textAlign:
-                                "right",
+                              textAlign: "right",
                             }}
                           >
                             Acción
@@ -564,6 +608,55 @@ export function DashboardPage() {
                                 minutos,
                                 configuracion
                               );
+                            // Materiales que todavía tienen cantidad pendiente.
+                            const materialesPendientes =
+                              [...(solicitud.materiales ?? [])]
+                                .filter(
+                                  (material) =>
+                                    material.cantidadSurtida <
+                                    material.cantidadSolicitada
+                                )
+                                .sort(
+                                  (
+                                    materialA,
+                                    materialB
+                                  ) => {
+                                    const prioridadA =
+                                      materialA.cantidadSurtida === 0
+                                        ? 1
+                                        : 2;
+
+                                    const prioridadB =
+                                      materialB.cantidadSurtida === 0
+                                        ? 1
+                                        : 2;
+
+                                    return prioridadA - prioridadB;
+                                  }
+                                );
+
+                            // Primero muestra un material sin surtir.
+                            // Después muestra uno parcialmente surtido.
+                            const materialPrincipal =
+                              materialesPendientes[0];
+
+                            const cantidadPendiente =
+                              materialPrincipal
+                                ? Math.max(
+                                  0,
+                                  materialPrincipal
+                                    .cantidadSolicitada -
+                                  materialPrincipal
+                                    .cantidadSurtida
+                                )
+                                : 0;
+
+                            const materialesAdicionales =
+                              Math.max(
+                                0,
+                                materialesPendientes.length - 1
+                              );
+
 
                             return (
                               <tr
@@ -610,39 +703,84 @@ export function DashboardPage() {
                                 </td>
 
                                 <td style={tdStyle}>
-                                  {
-                                    solicitud.nombreProyecto
-                                  }
+                                  <div
+                                    style={shortTextStyle}
+                                    title={solicitud.nombreProyecto}
+                                  >
+                                    {solicitud.nombreProyecto}
+                                  </div>
                                 </td>
 
                                 <td style={tdStyle}>
-                                  {
-                                    solicitud.nombreFamilia
-                                  }
+                                  <div
+                                    style={familyTextStyle}
+                                    title={solicitud.nombreFamilia}
+                                  >
+                                    {solicitud.nombreFamilia}
+                                  </div>
+                                </td>
+                                <td style={tdStyle}>
+                                  <div
+                                    style={stationTextStyle}
+                                    title={solicitud.nombreEstacion}
+                                  >
+                                    <strong>
+                                      {solicitud.nombreEstacion}
+                                    </strong>
+                                  </div>
                                 </td>
 
+                                <td style={tdStyle}>
+                                  <div style={materialCellStyle}>
+                                    <strong
+                                      title={
+                                        materialPrincipal
+                                          ?.numeroParteMaterial ??
+                                        "Sin material"
+                                      }
+                                    >
+                                      {materialPrincipal
+                                        ?.numeroParteMaterial ??
+                                        "N/A"}
+                                    </strong>
+
+                                    <span
+                                      style={materialDescriptionStyle}
+                                      title={
+                                        materialPrincipal
+                                          ?.descripcionMaterial ??
+                                        "Sin descripción"
+                                      }
+                                    >
+                                      {materialPrincipal
+                                        ?.descripcionMaterial ??
+                                        "Sin descripción"}
+                                    </span>
+                                    {materialesAdicionales > 0 && (
+                                      <span style={additionalBadgeStyle}>
+                                        +{materialesAdicionales} pendientes
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
                                 <td style={tdStyle}>
                                   <strong>
-                                    {
-                                      solicitud.nombreEstacion
-                                    }
+                                    {cantidadPendiente}
                                   </strong>
                                 </td>
-
                                 <td style={tdStyle}>
-                                  {
-                                    solicitud.materiales
-                                      ?.length ?? 0
-                                  }
+                                  <span
+                                    style={
+                                      solicitud.nombreEstado
+                                        .trim()
+                                        .toLowerCase() === "parcial"
+                                        ? partialStatusStyle
+                                        : pendingStatusStyle
+                                    }
+                                  >
+                                    {solicitud.nombreEstado}
+                                  </span>
                                 </td>
-
-                                <td style={tdStyle}>
-                                  {
-                                    solicitud
-                                      .nombreUsuarioSolicitud
-                                  }
-                                </td>
-
                                 <td
                                   style={{
                                     ...tdStyle,
@@ -1120,4 +1258,68 @@ const errorStyle = {
   borderRadius: "9px",
   background: "#fef2f2",
   color: "#991b1b",
+};
+
+const shortTextStyle = {
+  maxWidth: "105px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+const familyTextStyle = {
+  maxWidth: "160px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+
+const additionalBadgeStyle = {
+  display: "inline-block",
+  marginTop: "4px",
+  padding: "3px 7px",
+  borderRadius: "999px",
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  fontSize: "11px",
+  fontWeight: "800",
+};
+const stationTextStyle = {
+  maxWidth: "90px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+const materialCellStyle = {
+  minWidth: "190px",
+  maxWidth: "260px",
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: "3px",
+};
+
+const materialDescriptionStyle = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  color: "#64748b",
+  fontSize: "12px",
+}; const pendingStatusStyle = {
+  display: "inline-block",
+  minWidth: "72px",
+  padding: "6px 10px",
+  borderRadius: "999px",
+  background: "#ffedd5",
+  color: "#c2410c",
+  fontSize: "12px",
+  fontWeight: "800",
+  textAlign: "center" as const,
+};
+
+const partialStatusStyle = {
+  ...pendingStatusStyle,
+  background: "#fef3c7",
+  color: "#92400e",
 };
