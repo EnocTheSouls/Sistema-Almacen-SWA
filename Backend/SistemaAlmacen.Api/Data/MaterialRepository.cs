@@ -271,6 +271,136 @@ public sealed class MaterialRepository
             stdPack
         );
     }
+    // Crea o actualiza un material del BOM de RIVIAN.
+    public async Task<Material?>
+   ObtenerOCrearDesdeBomAutomaticoAsync(
+            string numeroParteMaterial,
+            string descripcion,
+            string? genericCode,
+            decimal? stdPack)
+    {
+        var numeroParteLimpio =
+            numeroParteMaterial
+                .Trim()
+                .ToUpperInvariant();
+
+        var descripcionLimpia =
+            descripcion.Trim();
+
+        var genericCodeLimpio =
+            string.IsNullOrWhiteSpace(
+                genericCode
+            )
+                ? "C"
+                : genericCode
+                    .Trim()
+                    .ToUpperInvariant();
+
+        // Evita valores no permitidos.
+        if (
+            !new[]
+            {
+            "C",
+            "P",
+            "S",
+            "W",
+            }.Contains(genericCodeLimpio)
+        )
+        {
+            genericCodeLimpio = "C";
+        }
+
+        var materialExistente =
+            await ObtenerPorNumeroParteAsync(
+                numeroParteLimpio
+            );
+
+        if (materialExistente is not null)
+        {
+            await using var connection =
+                _connectionFactory.CreateConnection();
+
+            await connection.OpenAsync();
+
+            await using var command =
+                connection.CreateCommand();
+
+            command.CommandText = """
+            UPDATE materiales
+            SET
+                descripcion =
+                    @descripcion,
+
+                generic_code =
+                    @genericCode,
+
+                std_pack =
+                    COALESCE(
+                        @stdPack,
+                        std_pack
+                    ),
+
+                tipo_empaque =
+                    CASE
+                        WHEN @stdPack IS NOT NULL
+                             AND tipo_empaque IS NULL
+                        THEN 'BOLSA'
+                        ELSE tipo_empaque
+                    END,
+
+                unidad_medida =
+                    COALESCE(
+                        unidad_medida,
+                        'PZA'
+                    ),
+
+                activo = TRUE
+            WHERE id_material =
+                  @idMaterial;
+            """;
+
+            command.Parameters.AddWithValue(
+                "@idMaterial",
+                materialExistente.IdMaterial
+            );
+
+            command.Parameters.AddWithValue(
+                "@descripcion",
+                descripcionLimpia
+            );
+
+            command.Parameters.AddWithValue(
+                "@genericCode",
+                genericCodeLimpio
+            );
+
+            command.Parameters.AddWithValue(
+                "@stdPack",
+                stdPack.HasValue
+                    ? stdPack.Value
+                    : DBNull.Value
+            );
+
+            await command.ExecuteNonQueryAsync();
+
+            return await ObtenerPorIdAsync(
+                materialExistente.IdMaterial
+            );
+        }
+
+        return await CrearAsync(
+            numeroParteLimpio,
+            descripcionLimpia,
+            "PZA",
+            null,
+            null,
+            genericCodeLimpio,
+            stdPack.HasValue
+                ? "BOLSA"
+                : null,
+            stdPack
+        );
+    }
 
     // Crea un material y devuelve el registro creado.
     public async Task<Material?> CrearAsync(

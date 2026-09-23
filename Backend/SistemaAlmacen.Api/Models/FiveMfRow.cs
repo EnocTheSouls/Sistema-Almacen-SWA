@@ -27,11 +27,11 @@ public sealed class FiveMfRow
         set;
     } = "";
 
-    public string ProyectoRivian
+    public string? ClienteFiveMf
     {
         get;
         set;
-    } = "";
+    } 
 
     public DateOnly? FechaInicio
     {
@@ -56,4 +56,16 @@ public sealed class FiveMfRow
         get;
         set;
     }
+
+    public int? NumeroList
+    {
+        get;
+        set;
+    }
+
+    public string? Proyecto
+    {
+        get;
+        set;
+    } 
 }

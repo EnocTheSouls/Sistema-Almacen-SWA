@@ -17,6 +17,14 @@ import {
 } from "../services/dashboardService";
 
 import {
+  obtenerAlertasDiseno,
+} from "../services/alertaCambioDisenoService";
+
+import type {
+  AlertaCambioDiseno,
+} from "../types/alertaCambioDiseno";
+
+import {
   obtenerSolicitudes,
 } from "../services/solicitudService";
 
@@ -72,6 +80,21 @@ export function DashboardPage() {
     solicitudes,
     setSolicitudes,
   ] = useState<Solicitud[]>([]);
+
+  const [
+    alertasDiseno,
+    setAlertasDiseno,
+  ] = useState<AlertaCambioDiseno[]>([]);
+
+  const [
+    mostrarAlertasDiseno,
+    setMostrarAlertasDiseno,
+  ] = useState(false);
+
+  const [
+    paginaAlertas,
+    setPaginaAlertas,
+  ] = useState(1);
 
   const [
     solicitudSeleccionada,
@@ -132,10 +155,15 @@ export function DashboardPage() {
         const [
           dashboardData,
           solicitudesData,
+          alertasData,
         ] = await Promise.all([
           obtenerDashboard(),
           obtenerSolicitudes(),
+          obtenerAlertasDiseno(),
         ]);
+
+        setAlertasDiseno(alertasData);
+
 
         setDashboard(
           dashboardData
@@ -298,6 +326,36 @@ export function DashboardPage() {
           "surtida"
       ).length;
     }, [solicitudes]);
+
+  const alertasOrdenadas =
+    [...alertasDiseno].sort(
+      (a, b) =>
+        a.diasRestantes -
+        b.diasRestantes
+    );
+
+  const alertasResumen =
+    alertasOrdenadas.slice(0, 3);
+
+
+  const ALERTAS_POR_PAGINA = 15;
+
+  const totalPaginasAlertas =
+    Math.max(
+      1,
+      Math.ceil(
+        alertasDiseno.length /
+        ALERTAS_POR_PAGINA
+      )
+    );
+
+  const alertasPaginadas =
+    alertasOrdenadas.slice(
+      (paginaAlertas - 1) *
+      ALERTAS_POR_PAGINA,
+      paginaAlertas *
+      ALERTAS_POR_PAGINA
+    );
 
   const abrirDetalle = (
     solicitud: Solicitud
@@ -493,7 +551,6 @@ export function DashboardPage() {
                   descripcion="Solicitudes registradas"
                 />
               </div>
-
               <section
                 style={
                   pendingSectionStyle
@@ -835,10 +892,274 @@ export function DashboardPage() {
                   </button>
                 </div>
               </section>
+              <section
+                style={{
+                  ...pendingSectionStyle,
+                  marginTop: "20px",
+                  cursor: "pointer",
+                }}
+                onClick={() =>
+                  setMostrarAlertasDiseno(true)
+                }
+              >
+                <div style={pendingHeaderStyle}>
+                  <div>
+                    <h2 style={sectionTitleStyle}>
+                      Próximos Cambios de Diseño
+                    </h2>
+
+                    <p style={sectionDescriptionStyle}>
+                      Cambios detectados automáticamente
+                      desde el 5MF.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMostrarAlertasDiseno(true)
+                    }
+                    style={viewAllButtonStyle}
+                  >
+                    Ver todos
+                  </button>
+                </div>
+
+                {alertasDiseno.length === 0 ? (
+                  <div style={emptyStyle}>
+                    No hay cambios próximos.
+                  </div>
+                ) : (
+                  <div style={tableContainerStyle}>
+                    <table style={tableStyle}>
+                      <thead>
+                        <tr style={tableHeaderStyle}>
+                          <th style={thStyle}>
+                            Proyecto
+                          </th>
+
+                          <th style={thStyle}>
+                            Familia
+                          </th>
+
+                          <th style={thStyle}>
+                            Cambio
+                          </th>
+
+                          <th style={thStyle}>
+                            Fecha
+                          </th>
+
+                          <th style={thStyle}>
+                            Días
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {alertasResumen.map(
+                          (alerta) => (
+                            <tr
+                              key={
+                                alerta.arnesActual +
+                                alerta.disenoSiguiente
+                              }
+                            >
+                              <td style={tdStyle}>
+                                {alerta.proyecto}
+                              </td>
+
+                              <td style={tdStyle}>
+                                {alerta.familia}
+                              </td>
+
+                              <td style={tdStyle}>
+                                <strong>
+                                  {alerta.disenoActual}
+                                </strong>
+                                {" → "}
+                                <strong>
+                                  {alerta.disenoSiguiente}
+                                </strong>
+                              </td>
+
+                              <td style={tdStyle}>
+                                {alerta.fechaCambio}
+                              </td>
+
+                              <td style={tdStyle}>
+                                <span
+                                  style={{
+                                    padding:
+                                      "6px 10px",
+                                    borderRadius:
+                                      "999px",
+                                    background:
+                                      alerta.diasRestantes <= 7
+                                        ? "#fecaca"
+                                        : alerta.diasRestantes <= 14
+                                          ? "#fed7aa"
+                                          : "#dcfce7",
+
+                                    color:
+                                      alerta.diasRestantes <= 7
+                                        ? "#991b1b"
+                                        : alerta.diasRestantes <= 14
+                                          ? "#9a3412"
+                                          : "#166534",
+                                  }}
+                                >
+                                  {alerta.diasRestantes}
+                                  {" días"}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+
             </>
           )}
         </section>
       </div>
+      {mostrarAlertasDiseno && (
+        <div style={modalOverlayStyle}>
+          <section
+            style={{
+              ...modalStyle,
+              maxWidth: "1400px",
+            }}
+          >
+            <div style={modalHeaderStyle}>
+              <div>
+                <h2 style={modalTitleStyle}>
+                  Cambios de Diseño
+                </h2>
+
+                <p style={modalDescriptionStyle}>
+                  Todos los cambios detectados
+                  desde los archivos 5MF.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setMostrarAlertasDiseno(false)
+                }
+                style={closeButtonStyle}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={tableContainerStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr style={tableHeaderStyle}>
+                    <th style={thStyle}>Proyecto</th>
+                    <th style={thStyle}>Familia</th>
+                    <th style={thStyle}>Arnés</th>
+                    <th style={thStyle}>Diseño Actual</th>
+                    <th style={thStyle}>Diseño Nuevo</th>
+                    <th style={thStyle}>Fecha Cambio</th>
+                    <th style={thStyle}>Días</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {alertasPaginadas.map(
+                    (alerta) => (
+                      <tr
+                        key={
+                          alerta.arnesActual +
+                          alerta.disenoSiguiente
+                        }
+                      >
+                        <td style={tdStyle}>
+                          {alerta.proyecto}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {alerta.familia}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {alerta.arnesActual}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {alerta.disenoActual}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {alerta.disenoSiguiente}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {alerta.fechaCambio}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {alerta.diasRestantes}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={paginationStyle}>
+              <button
+                type="button"
+                onClick={() =>
+                  setPaginaAlertas(
+                    (p) =>
+                      Math.max(1, p - 1)
+                  )
+                }
+                disabled={
+                  paginaAlertas === 1
+                }
+                style={paginationButtonStyle}
+              >
+                Anterior
+              </button>
+
+              <span style={paginationInfoStyle}>
+                Página {paginaAlertas} de{" "}
+                {totalPaginasAlertas}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPaginaAlertas(
+                    (p) =>
+                      Math.min(
+                        totalPaginasAlertas,
+                        p + 1
+                      )
+                  )
+                }
+                disabled={
+                  paginaAlertas ===
+                  totalPaginasAlertas
+                }
+                style={paginationButtonStyle}
+              >
+                Siguiente
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {solicitudSeleccionada && (
         <SolicitudDetalleModal
@@ -1322,4 +1643,74 @@ const partialStatusStyle = {
   ...pendingStatusStyle,
   background: "#fef3c7",
   color: "#92400e",
+};
+
+
+const modalOverlayStyle = {
+  position: "fixed" as const,
+  inset: 0,
+  background:
+    "rgba(15,23,42,0.60)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 3000,
+};
+
+const modalStyle = {
+  width: "100%",
+  maxHeight: "90vh",
+  overflowY: "auto" as const,
+  background: "#ffffff",
+  borderRadius: "16px",
+  padding: "24px",
+};
+const modalHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "20px",
+};
+
+const modalTitleStyle = {
+  margin: 0,
+  color: "#102957",
+  fontSize: "24px",
+};
+
+const modalDescriptionStyle = {
+  marginTop: "6px",
+  color: "#64748b",
+};
+
+const closeButtonStyle = {
+  width: "40px",
+  height: "40px",
+  border: "none",
+  borderRadius: "8px",
+  background: "#e2e8f0",
+  cursor: "pointer",
+  fontSize: "24px",
+};
+
+const paginationStyle = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: "12px",
+  marginTop: "20px",
+};
+
+const paginationButtonStyle = {
+  minHeight: "40px",
+  padding: "8px 16px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "8px",
+  background: "#ffffff",
+  cursor: "pointer",
+};
+
+const paginationInfoStyle = {
+  fontWeight: "700",
+  color: "#475569",
 };

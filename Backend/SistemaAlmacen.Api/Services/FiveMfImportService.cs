@@ -52,11 +52,6 @@ public sealed class FiveMfImportService
                 StringComparer.OrdinalIgnoreCase
             );
 
-        var familiasSinCoincidencia =
-            new HashSet<string>(
-                StringComparer.OrdinalIgnoreCase
-            );
-
         var arnesesCreados =
             new HashSet<string>(
                 StringComparer.OrdinalIgnoreCase
@@ -113,6 +108,9 @@ public sealed class FiveMfImportService
             worksheet.LastRowUsed()
                 ?.RowNumber() ??
             filaEncabezados.RowNumber();
+        // Conserva el último List porque algunas filas
+        // del archivo lo dejan vacío.
+        int? ultimoNumeroList = null;
 
         for (
             var numeroFila =
@@ -131,11 +129,27 @@ public sealed class FiveMfImportService
                 continue;
             }
 
+            var numeroListFila =
+     ObtenerEnteroOpcional(
+         filaExcel,
+         columnas,
+         "LIST"
+     );
+
+            // Algunas filas heredan el List anterior.
+            if (numeroListFila.HasValue)
+            {
+                ultimoNumeroList =
+                    numeroListFila;
+            }
+
             var fila =
                 CrearFila(
                     filaExcel,
                     columnas,
-                    numeroFila
+                    numeroFila,
+                    ultimoNumeroList,
+                    nombreArchivo
                 );
 
             // Ignora filas completamente vacías.
@@ -168,65 +182,30 @@ public sealed class FiveMfImportService
                 ValidarFila(fila);
 
                 var familia =
-                    await _familiaRepository
-                        .ObtenerParaFiveMfAsync(
-                            fila.Familia
-                        );
+    await _familiaRepository
+        .ObtenerOCrearParaFiveMfAsync(
+            fila.Familia,
+            fila.Proyecto
+        );
 
                 if (familia is null)
                 {
-                    familiasSinCoincidencia.Add(
-                        fila.Familia
+                    throw new InvalidOperationException(
+                        $"No se pudo obtener o crear la familia \"{fila.Familia}\" en el proyecto {fila.Proyecto}."
                     );
-
-                    tieneAdvertencia = true;
-
-                    detalleValidacion =
-                        $"La familia \"{fila.Familia}\" no tiene coincidencia ni equivalencia configurada.";
-
-                    resultado
-                        .FilasConAdvertencia++;
-
-                    resultado.Advertencias.Add(
-                        new FiveMfImportWarning
-                        {
-                            NumeroFila =
-                                numeroFila,
-
-                            Familia =
-                                fila.Familia,
-
-                            NumeroArnes =
-                                fila.NumeroArnes,
-
-                            NivelDiseno =
-                                fila.NivelDiseno,
-
-                            Mensaje =
-                                detalleValidacion
-                        }
-                    );
-
-                    await _importacionRepository
-                        .GuardarStagingAsync(
-                            idImportacion,
-                            fila,
-                            null,
-                            null,
-                            false,
-                            true,
-                            detalleValidacion
-                        );
-
-                    continue;
                 }
 
                 idFamilia =
                     familia.IdFamilia;
 
+                // Cuenta la familia por proyecto para evitar
+                // mezclar nombres iguales.
                 familiasEncontradas.Add(
+                    $"{fila.Proyecto}|" +
                     fila.Familia
                 );
+
+
 
                 var claveArnes =
                     CrearClaveArnes(
@@ -362,8 +341,7 @@ public sealed class FiveMfImportService
         resultado.FamiliasEncontradas =
             familiasEncontradas.Count;
 
-        resultado.FamiliasSinCoincidencia =
-            familiasSinCoincidencia.Count;
+        resultado.FamiliasSinCoincidencia = 0;
 
         resultado.ArnesesCreados =
             arnesesCreados.Count;
@@ -374,16 +352,28 @@ public sealed class FiveMfImportService
         return resultado;
     }
 
+
     // Construye una fila del archivo 5MF.
     private static FiveMfRow CrearFila(
         IXLRow fila,
         Dictionary<string, int> columnas,
-        int numeroFila)
+        int numeroFila,
+        int? numeroList,
+        string nombreArchivo)
     {
         return new FiveMfRow
         {
             NumeroFila =
                 numeroFila,
+
+            NumeroList =
+                numeroList,
+
+            Proyecto =
+                DetectarProyecto(
+                    numeroList,
+                    nombreArchivo
+                ),
 
             Familia =
                 ObtenerTexto(
@@ -406,7 +396,7 @@ public sealed class FiveMfImportService
                     "DL"
                 ),
 
-            ProyectoRivian =
+            ClienteFiveMf =
                 ObtenerTexto(
                     fila,
                     columnas,
@@ -447,6 +437,19 @@ public sealed class FiveMfImportService
     private static void ValidarFila(
         FiveMfRow fila)
     {
+
+        if (
+    string.IsNullOrWhiteSpace(
+        fila.Proyecto
+    )
+)
+        {
+            throw new InvalidOperationException(
+                fila.NumeroList.HasValue
+                    ? $"El List {fila.NumeroList.Value} no tiene un proyecto configurado."
+                    : "No fue posible determinar el proyecto de la fila."
+            );
+        }
         if (
             string.IsNullOrWhiteSpace(
                 fila.Familia
@@ -551,17 +554,18 @@ public sealed class FiveMfImportService
             Dictionary<string, int> columnas)
     {
         var obligatorias =
-            new[]
-            {
-                "CODE",
-                "SUPLRPN",
-                "DL",
-                "CUST",
-                "ASSYSTART",
-                "ETADOOR",
-                "REQNO",
-                "SETS"
-            };
+    new[]
+    {
+        "LIST",
+        "CODE",
+        "SUPLRPN",
+        "DL",
+        "CUST",
+        "ASSYSTART",
+        "ETADOOR",
+        "REQNO",
+        "SETS"
+    };
 
         var faltantes =
             obligatorias
@@ -724,6 +728,120 @@ public sealed class FiveMfImportService
 
         return null;
     }
+
+
+    // Obtiene un número entero permitiendo celdas vacías.
+    private static int? ObtenerEnteroOpcional(
+        IXLRow fila,
+        Dictionary<string, int> columnas,
+        string nombreColumna)
+    {
+        var celda =
+            fila.Cell(
+                columnas[nombreColumna]
+            );
+
+        if (celda.IsEmpty())
+        {
+            return null;
+        }
+
+        if (
+            celda.TryGetValue<int>(
+                out var numeroEntero
+            )
+        )
+        {
+            return numeroEntero;
+        }
+
+        if (
+            celda.TryGetValue<decimal>(
+                out var numeroDecimal
+            )
+        )
+        {
+            return Convert.ToInt32(
+                numeroDecimal
+            );
+        }
+
+        var texto =
+            celda.GetString()
+                .Trim();
+
+        if (
+            int.TryParse(
+                texto,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out numeroEntero
+            )
+        )
+        {
+            return numeroEntero;
+        }
+
+        return null;
+    }
+
+    // Determina el proyecto de cada fila del 5MF.
+    private static string? DetectarProyecto(
+        int? numeroList,
+        string nombreArchivo)
+    {
+        // RIVIAN se carga desde un archivo independiente.
+        if (
+            nombreArchivo.Contains(
+                "RIVIAN",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return "RIV";
+        }
+
+        if (!numeroList.HasValue)
+        {
+            return null;
+        }
+
+        var list =
+            numeroList.Value;
+
+        // KM corresponde exclusivamente al List 1102.
+        if (list == 1102)
+        {
+            return "KM";
+        }
+
+        if (
+            list >= 600 &&
+            list <= 699
+        )
+        {
+            return "WL";
+        }
+
+        if (
+            list >= 800 &&
+            list <= 899
+        )
+        {
+            return "DT";
+        }
+
+        if (
+            list >= 900 &&
+            list <= 999
+        )
+        {
+            return "WS";
+        }
+
+        return null;
+    }
+
 
     // Construye la llave lógica de un diseño de arnés.
     private static string CrearClaveArnes(

@@ -101,12 +101,22 @@ public sealed class FamiliaRepository
     }
     // Busca una familia utilizando el nombre recibido del 5MF.
     public async Task<Familia?> ObtenerParaFiveMfAsync(
-        string nombreFamilia)
+        string nombreFamilia,
+        string? nombreProyecto)
     {
         var nombreLimpio =
             nombreFamilia
                 .Trim()
                 .ToUpperInvariant();
+
+        var proyectoLimpio =
+            string.IsNullOrWhiteSpace(
+                nombreProyecto
+            )
+                ? null
+                : nombreProyecto
+                    .Trim()
+                    .ToUpperInvariant();
 
         await using var connection =
             _connectionFactory.CreateConnection();
@@ -116,10 +126,11 @@ public sealed class FamiliaRepository
         await using var command =
             connection.CreateCommand();
 
-        // Primero busca una equivalencia configurada.
-        // Si no existe, intenta coincidencia exacta.
+        // Busca equivalencia o coincidencia exacta.
+        // Si se detectó proyecto, limita la búsqueda
+        // a las familias de ese proyecto.
         command.CommandText = """
-        SELECT
+        SELECT 
             f.id_familia,
             f.id_proyecto,
             p.nombre AS nombre_proyecto,
@@ -128,22 +139,37 @@ public sealed class FamiliaRepository
             f.activo
         FROM familias AS f
         INNER JOIN proyectos AS p
-            ON p.id_proyecto = f.id_proyecto
+            ON p.id_proyecto =
+               f.id_proyecto
         LEFT JOIN equivalencia_familia_5mf AS ef
-            ON ef.id_familia = f.id_familia
+            ON ef.id_familia =
+               f.id_familia
            AND ef.activo = TRUE
         WHERE
-            UPPER(
-                TRIM(
-                    ef.nombre_familia_5mf
-                )
-            ) = @nombreFamilia
-            OR
-            UPPER(
-                TRIM(
-                    f.nombre
-                )
-            ) = @nombreFamilia
+            (
+                UPPER(
+                    TRIM(
+                        ef.nombre_familia_5mf
+                    )
+                ) = @nombreFamilia
+                OR
+                UPPER(
+                    TRIM(
+                        f.nombre
+                    )
+                ) = @nombreFamilia
+            )
+            AND
+            (
+                @nombreProyecto IS NULL
+                OR
+                UPPER(
+                    TRIM(
+                        p.nombre
+                    )
+                ) = @nombreProyecto
+            )
+            AND f.activo = TRUE
         ORDER BY
             CASE
                 WHEN UPPER(
@@ -153,13 +179,21 @@ public sealed class FamiliaRepository
                 ) = @nombreFamilia
                 THEN 1
                 ELSE 2
-            END
+            END,
+            f.id_familia
         LIMIT 1;
         """;
 
         command.Parameters.AddWithValue(
             "@nombreFamilia",
             nombreLimpio
+        );
+
+        command.Parameters.AddWithValue(
+            "@nombreProyecto",
+            proyectoLimpio is null
+                ? DBNull.Value
+                : proyectoLimpio
         );
 
         await using var reader =
@@ -172,6 +206,97 @@ public sealed class FamiliaRepository
 
         return MapearFamilia(reader);
     }
+
+    // Busca una familia del 5MF o la crea
+    // dentro del proyecto detectado.
+    public async Task<Familia?>
+        ObtenerOCrearParaFiveMfAsync(
+            string nombreFamilia,
+            string? nombreProyecto)
+    {
+        if (
+            string.IsNullOrWhiteSpace(
+                nombreProyecto
+            )
+        )
+        {
+            throw new InvalidOperationException(
+                "No fue posible determinar el proyecto del 5MF."
+            );
+        }
+
+        var nombreFamiliaLimpio =
+            nombreFamilia
+                .Trim()
+                .ToUpperInvariant();
+
+        var nombreProyectoLimpio =
+            nombreProyecto
+                .Trim()
+                .ToUpperInvariant();
+
+        // Primero busca una familia o equivalencia existente.
+        var familiaExistente =
+            await ObtenerParaFiveMfAsync(
+                nombreFamiliaLimpio,
+                nombreProyectoLimpio
+            );
+
+        if (familiaExistente is not null)
+        {
+            return familiaExistente;
+        }
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        // Localiza el proyecto por su nombre.
+        command.CommandText = """
+        SELECT id_proyecto
+        FROM proyectos
+        WHERE UPPER(
+            TRIM(nombre)
+        ) = @nombreProyecto
+          AND activo = TRUE
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@nombreProyecto",
+            nombreProyectoLimpio
+        );
+
+        var idProyectoResultado =
+            await command.ExecuteScalarAsync();
+
+        if (
+            idProyectoResultado is null ||
+            idProyectoResultado is DBNull
+        )
+        {
+            throw new InvalidOperationException(
+                $"El proyecto {nombreProyectoLimpio} no existe o está inactivo."
+            );
+        }
+
+        var idProyecto =
+            Convert.ToInt32(
+                idProyectoResultado
+            );
+
+        // Crea la familia usando Code como nombre.
+        return await CrearAsync(
+            idProyecto,
+            nombreFamiliaLimpio,
+            "Familia creada automáticamente desde el archivo 5MF."
+        );
+    }
+
 
     // Crea una familia asociada a un proyecto.
     public async Task<Familia?> CrearAsync(

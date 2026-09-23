@@ -490,4 +490,90 @@ public sealed class ArnesRepository
         // Indica si el arnés fue actualizado.
         return filasActualizadas > 0;
     }
+
+    // Obtiene los arneses activos agrupables por proyecto
+    // para generar las listas de carga de PICS.
+    public async Task<List<PicsProductRow>>
+        ObtenerProductosParaPicsAsync()
+    {
+        var productos =
+            new List<PicsProductRow>();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT DISTINCT
+            UPPER(
+                TRIM(
+                    p.nombre
+                )
+            ) AS proyecto,
+
+            UPPER(
+                TRIM(
+                    a.numero_parte_arnes
+                )
+            ) AS product_number,
+
+            UPPER(
+                TRIM(
+                    a.nivel_diseno
+                )
+            ) AS product_design
+        FROM arneses AS a
+        INNER JOIN familias AS f
+            ON f.id_familia =
+               a.id_familia
+        INNER JOIN proyectos AS p
+            ON p.id_proyecto =
+               f.id_proyecto
+        WHERE a.activo = TRUE
+          AND f.activo = TRUE
+          AND p.activo = TRUE
+          AND TRIM(
+              a.numero_parte_arnes
+          ) <> ''
+          AND TRIM(
+              a.nivel_diseno
+          ) <> ''
+        ORDER BY
+            proyecto,
+            product_number,
+            product_design;
+        """;
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            productos.Add(
+                new PicsProductRow
+                {
+                    Proyecto =
+                        reader.GetString(
+                            "proyecto"
+                        ),
+
+                    ProductNumber =
+                        reader.GetString(
+                            "product_number"
+                        ),
+
+                    ProductDesign =
+                        reader.GetString(
+                            "product_design"
+                        )
+                }
+            );
+        }
+
+        return productos;
+    }
 }

@@ -307,7 +307,7 @@ public sealed class ImportacionFiveMfRepository
                 familia_archivo,
                 numero_arnes,
                 nivel_diseno,
-                proyecto_rivian,
+                cliente_5mf,
                 fecha_inicio,
                 fecha_final,
                 numero_requisicion,
@@ -365,10 +365,10 @@ public sealed class ImportacionFiveMfRepository
                         "nivel_diseno"
                     ),
 
-                proyectoRivian =
+                clienteFiveMf =
                     ObtenerStringOpcional(
                         reader,
-                        "proyecto_rivian"
+                        "cliente_5mf"
                     ),
 
                 fechaInicio =
@@ -453,7 +453,7 @@ public sealed class ImportacionFiveMfRepository
             familia_archivo,
             numero_arnes,
             nivel_diseno,
-            proyecto_rivian,
+            cliente_5mf,
             fecha_inicio,
             fecha_final,
             numero_requisicion,
@@ -470,7 +470,7 @@ public sealed class ImportacionFiveMfRepository
             @familia,
             @numeroArnes,
             @nivelDiseno,
-            @proyectoRivian,
+            @clienteFiveMf,
             @fechaInicio,
             @fechaFinal,
             @numeroRequisicion,
@@ -509,8 +509,8 @@ public sealed class ImportacionFiveMfRepository
         );
 
         command.Parameters.AddWithValue(
-            "@proyectoRivian",
-            ValorODbNull(fila.ProyectoRivian)
+            "@clienteFiveMf",
+            ValorODbNull(fila.ClienteFiveMf)
         );
 
         command.Parameters.AddWithValue(
@@ -607,7 +607,7 @@ public sealed class ImportacionFiveMfRepository
         INSERT INTO plan_semanal_arnes (
             id_importacion_5mf,
             id_arnes,
-            proyecto_rivian,
+            cliente_5mf,
             fecha_inicio,
             fecha_final,
             numero_requisicion,
@@ -617,7 +617,7 @@ public sealed class ImportacionFiveMfRepository
         VALUES (
             @idImportacion,
             @idArnes,
-            @proyectoRivian,
+            @clienteFiveMf,
             @fechaInicio,
             @fechaFinal,
             @numeroRequisicion,
@@ -646,9 +646,9 @@ public sealed class ImportacionFiveMfRepository
         );
 
         command.Parameters.AddWithValue(
-            "@proyectoRivian",
+            "@clienteFiveMf",
             ValorODbNull(
-                fila.ProyectoRivian
+                fila.ClienteFiveMf
             )
         );
 
