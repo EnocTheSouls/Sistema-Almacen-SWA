@@ -8,8 +8,8 @@ using DocumentFormat.OpenXml;
 
 namespace SistemaAlmacen.Api.Services;
 
-// Genera las listas de arneses para cargar en PICS.
-public sealed class PicsExportService
+// Genera las listas de arneses para cargar en IPS.
+public sealed class IpsExportService
 {
     private readonly ArnesRepository
         _arnesRepository;
@@ -17,7 +17,7 @@ public sealed class PicsExportService
     private readonly IWebHostEnvironment
         _environment;
 
-    public PicsExportService(
+    public IpsExportService(
         ArnesRepository arnesRepository,
         IWebHostEnvironment environment)
     {
@@ -35,12 +35,12 @@ public sealed class PicsExportService
     {
         var productos =
             await _arnesRepository
-                .ObtenerProductosParaPicsAsync();
+                .ObtenerProductosParaIpsAsync();
 
         if (productos.Count == 0)
         {
             throw new InvalidOperationException(
-                "No existen arneses activos para generar las listas PICS."
+                "No existen arneses activos para generar las listas Ips."
             );
         }
 
@@ -125,15 +125,13 @@ public sealed class PicsExportService
                     productosProyecto
                 );
 
-                var archivoExcel =
-                    GenerarExcelProyecto(
-                        rutaPlantilla,
-                        proyecto,
+                var archivoCsv =
+                    GenerarCsvProyecto(
                         productosProyecto
-                    );
+                );
 
                 var nombreArchivo =
-                    $"BOM_LIST_{proyecto}_UPLOAD.xlsx";
+                    $"BOM_LIST_{proyecto}.csv";
 
                 var entradaZip =
                     zip.CreateEntry(
@@ -145,151 +143,42 @@ public sealed class PicsExportService
                     entradaZip.Open();
 
                 await entradaStream.WriteAsync(
-                    archivoExcel
+                    archivoCsv
                 );
             }
         }
 
         return zipStream.ToArray();
     }
-    private static byte[] GenerarExcelProyecto(
-    string rutaPlantilla,
-    string proyecto,
-    List<PicsProductRow> productos)
+
+    private static byte[] GenerarCsvProyecto(
+    List<IpsProductRow> productos)
     {
-        var rutaTemporal =
-            Path.Combine(
-                Path.GetTempPath(),
-                $"{Guid.NewGuid()}.xlsx"
-            );
+        var lineas =
+            new List<string>
+            {
+            "Product Number,Product Design"
+            };
 
-        File.Copy(
-            rutaPlantilla,
-            rutaTemporal,
-            true
-        );
-
-        using (
-            var document =
-                SpreadsheetDocument.Open(
-                    rutaTemporal,
-                    true
-                )
-        )
+        foreach (var producto in productos)
         {
-            var workbookPart =
-                document.WorkbookPart!;
-
-            var sheet =
-                workbookPart.Workbook
-                    .Descendants<Sheet>()
-                    .FirstOrDefault(
-                        s =>
-                            s.Name?.Value ==
-                            "PRODUCTS"
-                    );
-
-            if (sheet is null)
-            {
-                throw new InvalidOperationException(
-                    "La plantilla no contiene la hoja PRODUCTS."
-                );
-            }
-
-            var worksheetPart =
-                (WorksheetPart)
-                workbookPart.GetPartById(
-                    sheet.Id!
-                );
-
-            var sheetData =
-                worksheetPart.Worksheet
-                    .GetFirstChild<SheetData>();
-
-            var fila2 =
-                sheetData!.Elements<Row>()
-                .First(r => r.RowIndex == 2);
-
-            var celdasFila2 =
-                fila2.Elements<Cell>().ToList();
-
-            Console.WriteLine(
-                $"Fila2 celdas: {celdasFila2.Count}"
+            lineas.Add(
+                $"{producto.ProductNumber.Trim().ToUpperInvariant()},{producto.ProductDesign.Trim().ToUpperInvariant()}"
             );
-
-            foreach (var celda in celdasFila2)
-            {
-                Console.WriteLine(
-                    $"Celda: {celda.CellReference}"
-                );
-            }
-
-
-
-
-
-            uint fila = 2;
-
-            foreach (var producto in productos)
-            {
-                var row =
-     sheetData!
-         .Elements<Row>()
-         .FirstOrDefault(
-             r =>
-                 r.RowIndex?.Value == fila
-         );
-
-                if (row == null)
-                {
-                    break;
-                }
-
-                var celdas =
-                    row.Elements<Cell>()
-                        .ToList();
-
-                if (celdas.Count >= 2)
-                {
-                    celdas[0].CellValue =
-                        new CellValue(
-                            producto.ProductNumber
-                                .Trim()
-                                .ToUpperInvariant()
-         );
-
-                    celdas[1].CellValue =
-                        new CellValue(
-                            producto.ProductDesign
-                                .Trim()
-                                .ToUpperInvariant()
-                        );
-                }
-                fila++;
-            }
-
-
-
-            worksheetPart.Worksheet.Save();
-
-
         }
 
-        var bytes =
-            File.ReadAllBytes(
-                rutaTemporal
-            );
-
-        File.Delete(
-            rutaTemporal
+        return System.Text.Encoding.UTF8.GetBytes(
+            string.Join(
+                Environment.NewLine,
+                lineas
+            )
         );
-
-        return bytes;
     }
-    // Valida los límites establecidos por PICS.
+
+    // Valida los límites establecidos por IPS.
     private static void ValidarProductos(
         string proyecto,
-        List<PicsProductRow> productos)
+        List<IpsProductRow> productos)
     {
         foreach (
             var producto in productos

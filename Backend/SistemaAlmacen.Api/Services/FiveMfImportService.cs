@@ -398,7 +398,7 @@ public sealed class FiveMfImportService
 
             ClienteFiveMf =
                 ObtenerTexto(
-                    fila,
+                    fila, 
                     columnas,
                     "CUST"
                 ),

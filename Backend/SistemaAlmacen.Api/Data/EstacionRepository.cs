@@ -156,25 +156,100 @@ public sealed class EstacionRepository
         return estaciones;
     }
 
-    // Busca una estación de la familia o la crea desde el BOM.
-    public async Task<Estacion?> ObtenerOCrearAsync(
-        int idFamilia,
-        string nombre)
+    // Busca una estación por familia y nombre.
+    public async Task<Estacion?>
+        ObtenerPorFamiliaYNombreAsync(
+            int idFamilia,
+            string nombre)
     {
         var nombreLimpio =
             nombre
                 .Trim()
                 .ToUpperInvariant();
 
-        if (string.IsNullOrWhiteSpace(
-            nombreLimpio
-        ))
+        if (
+            string.IsNullOrWhiteSpace(
+                nombreLimpio
+            )
+        )
         {
             return null;
         }
 
         await using var connection =
-            _connectionFactory.CreateConnection();
+            _connectionFactory
+                .CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            e.id_estacion,
+            e.id_familia,
+            f.nombre AS nombre_familia,
+            f.id_proyecto,
+            p.nombre AS nombre_proyecto,
+            e.nombre,
+            e.activo
+        FROM estaciones AS e
+        INNER JOIN familias AS f
+            ON f.id_familia = e.id_familia
+        INNER JOIN proyectos AS p
+            ON p.id_proyecto = f.id_proyecto
+        WHERE e.id_familia = @idFamilia
+          AND UPPER(TRIM(e.nombre)) = @nombre
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idFamilia",
+            idFamilia
+        );
+
+        command.Parameters.AddWithValue(
+            "@nombre",
+            nombreLimpio
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return MapearEstacion(reader);
+    }
+
+
+    // Busca una estación de la familia o la crea
+    // desde el archivo oficial de estaciones.
+    public async Task<Estacion?>
+        ObtenerOCrearAsync(
+            int idFamilia,
+            string nombre)
+    {
+        var nombreLimpio =
+            nombre
+                .Trim()
+                .ToUpperInvariant();
+
+        if (
+            string.IsNullOrWhiteSpace(
+                nombreLimpio
+            )
+        )
+        {
+            return null;
+        }
+
+        await using var connection =
+            _connectionFactory
+                .CreateConnection();
 
         await connection.OpenAsync();
 
@@ -186,7 +261,7 @@ public sealed class EstacionRepository
             id_estacion
         FROM estaciones
         WHERE id_familia = @idFamilia
-          AND UPPER(nombre) = @nombre
+          AND UPPER(TRIM(nombre)) = @nombre
         LIMIT 1;
         """;
 
@@ -208,8 +283,31 @@ public sealed class EstacionRepository
             resultado is not DBNull
         )
         {
+            var idEstacion =
+                Convert.ToInt32(
+                    resultado
+                );
+
+            await using var activarCommand =
+                connection.CreateCommand();
+
+            activarCommand.CommandText = """
+            UPDATE estaciones
+            SET activo = TRUE
+            WHERE id_estacion = @idEstacion;
+            """;
+
+            activarCommand.Parameters
+                .AddWithValue(
+                    "@idEstacion",
+                    idEstacion
+                );
+
+            await activarCommand
+                .ExecuteNonQueryAsync();
+
             return await ObtenerPorIdAsync(
-                Convert.ToInt32(resultado)
+                idEstacion
             );
         }
 
@@ -218,6 +316,8 @@ public sealed class EstacionRepository
             nombreLimpio
         );
     }
+
+
 
     // Crea una estación y devuelve el registro creado.
     public async Task<Estacion?> CrearAsync(
@@ -363,11 +463,14 @@ public sealed class EstacionRepository
         return filasAfectadas > 0;
     }
     // Comprueba si la estación tiene solicitudes relacionadas.
-    public async Task<bool> TieneRelacionesAsync(
-        int idEstacion)
+    // Comprueba si la estación tiene relaciones.
+    public async Task<bool>
+        TieneRelacionesAsync(
+            int idEstacion)
     {
         await using var connection =
-            _connectionFactory.CreateConnection();
+            _connectionFactory
+                .CreateConnection();
 
         await connection.OpenAsync();
 
@@ -375,12 +478,24 @@ public sealed class EstacionRepository
             connection.CreateCommand();
 
         command.CommandText = """
-            SELECT EXISTS (
-                SELECT 1
-                FROM solicitudes
-                WHERE id_estacion = @idEstacion
-            );
-            """;
+        SELECT EXISTS (
+            SELECT 1
+            FROM solicitudes
+            WHERE id_estacion = @idEstacion
+
+            UNION ALL
+
+            SELECT 1
+            FROM bom_detalle
+            WHERE id_estacion = @idEstacion
+
+            UNION ALL
+
+            SELECT 1
+            FROM saldo_material_estacion
+            WHERE id_estacion = @idEstacion
+        );
+        """;
 
         command.Parameters.AddWithValue(
             "@idEstacion",
@@ -390,8 +505,10 @@ public sealed class EstacionRepository
         var resultado =
             await command.ExecuteScalarAsync();
 
-        if (resultado is null ||
-            resultado is DBNull)
+        if (
+            resultado is null ||
+            resultado is DBNull
+        )
         {
             return false;
         }

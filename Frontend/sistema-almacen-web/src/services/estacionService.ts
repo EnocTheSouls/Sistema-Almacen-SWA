@@ -11,6 +11,33 @@ export interface ActualizarEstacionRequest {
   nombre: string;
   activo: boolean;
 }
+export interface ErrorImportacionEstacion {
+  numeroFila: number;
+  mensaje: string;
+}
+
+export interface AdvertenciaImportacionEstacion {
+  numeroFila: number;
+  mensaje: string;
+}
+
+export interface ResultadoImportacionEstacion {
+  nombreArchivo: string;
+  totalFilas: number;
+  filasCorrectas: number;
+  filasConError: number;
+  filasConAdvertencia: number;
+  estacionesCreadas: number;
+  estacionesExistentes: number;
+  asignacionesRealizadas: number;
+  errores: ErrorImportacionEstacion[];
+  advertencias: AdvertenciaImportacionEstacion[];
+}
+
+export interface RespuestaImportacionEstacion {
+  mensaje: string;
+  resultado: ResultadoImportacionEstacion;
+}
 
 // Obtiene todas las estaciones.
 export async function obtenerEstaciones(): Promise<Estacion[]> {
@@ -87,4 +114,29 @@ export async function eliminarEstacion(
     `/estaciones/${idEstacion}`
   );
 }
-``
+
+// Importa estaciones oficiales para una familia.
+export async function importarEstaciones(
+  idFamilia: number,
+  archivo: File
+): Promise<RespuestaImportacionEstacion> {
+  const formData =
+    new FormData();
+
+  formData.append(
+    "archivo",
+    archivo
+  );
+
+  const respuesta =
+    await apiClient.post<
+      RespuestaImportacionEstacion
+    >(
+      `/estaciones/importar/${idFamilia}`,
+      formData
+    );
+
+  return respuesta.data;
+}
+
+

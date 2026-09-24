@@ -37,7 +37,12 @@ import {
   cambiarEstadoEstacion,
   crearEstacion,
   eliminarEstacion,
+  importarEstaciones,
   obtenerEstaciones,
+} from "../services/estacionService";
+
+import type {
+  ResultadoImportacionEstacion,
 } from "../services/estacionService";
 
 import {
@@ -67,9 +72,27 @@ type FiltroEstado =
   | "activos"
   | "inactivos";
 
+const REGISTROS_POR_PAGINA = 10;
+
 export function EstructuraPage() {
   const [tabActiva, setTabActiva] =
     useState<TabActiva>("proyectos");
+
+
+  const [
+    paginaProyectos,
+    setPaginaProyectos,
+  ] = useState(1);
+
+  const [
+    paginaFamilias,
+    setPaginaFamilias,
+  ] = useState(1);
+
+  const [
+    paginaEstaciones,
+    setPaginaEstaciones,
+  ] = useState(1);
 
 
   // Texto general para buscar en la pestaña activa.
@@ -117,6 +140,39 @@ export function EstructuraPage() {
 
   const [estaciones, setEstaciones] =
     useState<Estacion[]>([]);
+
+
+
+  const [
+    mostrarImportacionEstaciones,
+    setMostrarImportacionEstaciones,
+  ] = useState(false);
+
+  const [
+    familiaImportacion,
+    setFamiliaImportacion,
+  ] = useState<Familia | null>(
+    null
+  );
+
+  const [
+    archivoEstaciones,
+    setArchivoEstaciones,
+  ] = useState<File | null>(
+    null
+  );
+
+  const [
+    importandoEstaciones,
+    setImportandoEstaciones,
+  ] = useState(false);
+
+  const [
+    resultadoImportacionEstaciones,
+    setResultadoImportacionEstaciones,
+  ] = useState<
+    ResultadoImportacionEstacion | null
+  >(null);
 
   const [
     mostrarFormularioEstacion,
@@ -266,6 +322,17 @@ export function EstructuraPage() {
     cargarEstructura();
   }, []);
 
+  useEffect(() => {
+    setPaginaProyectos(1);
+    setPaginaFamilias(1);
+    setPaginaEstaciones(1);
+  }, [
+    textoFiltro,
+    filtroEstado,
+    filtroProyecto,
+    filtroFamilia,
+  ]);
+
   // Normaliza texto para búsquedas sin distinguir mayúsculas.
   const normalizarTexto = (
     valor: string | null | undefined
@@ -398,59 +465,133 @@ export function EstructuraPage() {
     ]);
 
   const estacionesFiltradas =
-  useMemo(() => {
-    const texto =
-      normalizarTexto(
-        textoFiltro
-      );
+    useMemo(() => {
+      const texto =
+        normalizarTexto(
+          textoFiltro
+        );
 
-    return estaciones
-      .filter(
-        (estacion) => {
-          const coincideTexto =
-            !texto ||
-            normalizarTexto(
-              estacion.nombre
-            ).includes(texto) ||
-            normalizarTexto(
-              estacion.nombreProyecto
-            ).includes(texto) ||
-            normalizarTexto(
-              estacion.nombreFamilia
-            ).includes(texto);
+      return estaciones
+        .filter(
+          (estacion) => {
+            const coincideTexto =
+              !texto ||
+              normalizarTexto(
+                estacion.nombre
+              ).includes(texto) ||
+              normalizarTexto(
+                estacion.nombreProyecto
+              ).includes(texto) ||
+              normalizarTexto(
+                estacion.nombreFamilia
+              ).includes(texto);
 
-          const coincideProyecto =
-            filtroProyecto <= 0 ||
-            estacion.idProyecto ===
+            const coincideProyecto =
+              filtroProyecto <= 0 ||
+              estacion.idProyecto ===
               filtroProyecto;
 
-          const coincideFamilia =
-            filtroFamilia <= 0 ||
-            estacion.idFamilia ===
+            const coincideFamilia =
+              filtroFamilia <= 0 ||
+              estacion.idFamilia ===
               filtroFamilia;
 
-          return (
-            coincideTexto &&
-            coincideProyecto &&
-            coincideFamilia &&
-            coincideConEstado(
-              estacion.activo
-            )
-          );
-        }
+            return (
+              coincideTexto &&
+              coincideProyecto &&
+              coincideFamilia &&
+              coincideConEstado(
+                estacion.activo
+              )
+            );
+          }
+        )
+        .sort(
+          (estacionA, estacionB) =>
+            estacionA.idEstacion -
+            estacionB.idEstacion
+        );
+    }, [
+      estaciones,
+      textoFiltro,
+      filtroProyecto,
+      filtroFamilia,
+      filtroEstado,
+    ]);
+
+
+  const totalPaginasProyectos =
+    Math.max(
+      1,
+      Math.ceil(
+        proyectosFiltrados.length /
+        REGISTROS_POR_PAGINA
       )
-      .sort(
-        (estacionA, estacionB) =>
-          estacionA.idEstacion -
-          estacionB.idEstacion
+    );
+
+  const totalPaginasFamilias =
+    Math.max(
+      1,
+      Math.ceil(
+        familiasFiltradas.length /
+        REGISTROS_POR_PAGINA
+      )
+    );
+
+  const totalPaginasEstaciones =
+    Math.max(
+      1,
+      Math.ceil(
+        estacionesFiltradas.length /
+        REGISTROS_POR_PAGINA
+      )
+    );
+
+  const proyectosPaginados =
+    useMemo(() => {
+      const inicio =
+        (paginaProyectos - 1) *
+        REGISTROS_POR_PAGINA;
+
+      return proyectosFiltrados.slice(
+        inicio,
+        inicio + REGISTROS_POR_PAGINA
       );
-  }, [
-    estaciones,
-    textoFiltro,
-    filtroProyecto,
-    filtroFamilia,
-    filtroEstado,
-  ]);
+    }, [
+      proyectosFiltrados,
+      paginaProyectos,
+    ]);
+
+  const familiasPaginadas =
+    useMemo(() => {
+      const inicio =
+        (paginaFamilias - 1) *
+        REGISTROS_POR_PAGINA;
+
+      return familiasFiltradas.slice(
+        inicio,
+        inicio + REGISTROS_POR_PAGINA
+      );
+    }, [
+      familiasFiltradas,
+      paginaFamilias,
+    ]);
+
+  const estacionesPaginadas =
+    useMemo(() => {
+      const inicio =
+        (paginaEstaciones - 1) *
+        REGISTROS_POR_PAGINA;
+
+      return estacionesFiltradas.slice(
+        inicio,
+        inicio + REGISTROS_POR_PAGINA
+      );
+    }, [
+      estacionesFiltradas,
+      paginaEstaciones,
+    ]);
+
 
 
   // Reinicia todos los filtros.
@@ -797,6 +938,107 @@ export function EstructuraPage() {
         setGuardando(false);
       }
     };
+
+
+  const abrirImportacionEstaciones = (
+    familia: Familia
+  ) => {
+    limpiarMensajes();
+
+    setFamiliaImportacion(
+      familia
+    );
+
+    setArchivoEstaciones(null);
+
+    setResultadoImportacionEstaciones(
+      null
+    );
+
+    setMostrarImportacionEstaciones(
+      true
+    );
+  };
+
+  const cerrarImportacionEstaciones = () => {
+    if (importandoEstaciones) {
+      return;
+    }
+
+    setMostrarImportacionEstaciones(
+      false
+    );
+
+    setFamiliaImportacion(null);
+    setArchivoEstaciones(null);
+
+    setResultadoImportacionEstaciones(
+      null
+    );
+
+    setErrorFormulario("");
+  };
+
+  const ejecutarImportacionEstaciones =
+    async (
+      event: FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+
+      if (!familiaImportacion) {
+        setErrorFormulario(
+          "No se seleccionó una familia."
+        );
+
+        return;
+      }
+
+      if (!archivoEstaciones) {
+        setErrorFormulario(
+          "Selecciona el archivo de estaciones."
+        );
+
+        return;
+      }
+
+      try {
+        setImportandoEstaciones(true);
+        setErrorFormulario("");
+
+        setResultadoImportacionEstaciones(
+          null
+        );
+
+        const respuesta =
+          await importarEstaciones(
+            familiaImportacion.idFamilia,
+            archivoEstaciones
+          );
+
+        setResultadoImportacionEstaciones(
+          respuesta.resultado
+        );
+
+        setMensajeExito(
+          respuesta.mensaje
+        );
+
+        const estacionesActualizadas =
+          await obtenerEstaciones();
+
+        setEstaciones(
+          estacionesActualizadas
+        );
+      } catch (error) {
+        mostrarErrorBackend(
+          error,
+          "No se pudo importar el archivo de estaciones."
+        );
+      } finally {
+        setImportandoEstaciones(false);
+      }
+    };
+
 
   const abrirNuevaEstacion = () => {
     limpiarMensajes();
@@ -1382,6 +1624,7 @@ export function EstructuraPage() {
             !mostrarFormularioProyecto &&
             !mostrarFormularioFamilia &&
             !mostrarFormularioEstacion &&
+            !mostrarImportacionEstaciones &&
             !mostrarConfirmacionEliminar &&
             !mostrarConfirmacionEliminarFamilia &&
             !mostrarConfirmacionEliminarEstacion && (
@@ -1501,19 +1744,18 @@ export function EstructuraPage() {
                       Todos los proyectos
                     </option>
 
-                    {proyectos.map(
-                      (proyecto) => (
-                        <option
-                          key={
-                            proyecto.idProyecto
-                          }
-                          value={
-                            proyecto.idProyecto
-                          }
-                        >
-                          {proyecto.nombre}
-                        </option>
-                      )
+                    {proyectos.map((proyecto, indice) => (
+                      <option
+                        key={
+                          proyecto.idProyecto
+                        }
+                        value={
+                          proyecto.idProyecto
+                        }
+                      >
+                        {proyecto.nombre}
+                      </option>
+                    )
                     )}
                   </select>
                 </div>
@@ -1631,7 +1873,7 @@ export function EstructuraPage() {
             tabActiva === "proyectos" && (
               <ProyectosTable
                 proyectos={
-                  proyectosFiltrados
+                  proyectosPaginados
                 }
                 guardando={guardando}
                 onEditar={
@@ -1643,6 +1885,12 @@ export function EstructuraPage() {
                 onCambiarEstado={
                   cambiarEstadoProyecto
                 }
+
+                numeroInicial={
+                  (paginaProyectos - 1) *
+                  REGISTROS_POR_PAGINA +
+                  1
+                }
               />
             )}
 
@@ -1652,7 +1900,7 @@ export function EstructuraPage() {
 
               <FamiliasTable
                 familias={
-                  familiasFiltradas
+                  familiasPaginadas
                 }
                 guardando={guardando}
                 onEditar={
@@ -1664,8 +1912,15 @@ export function EstructuraPage() {
                 onCambiarEstado={
                   cambiarEstadoFamilia
                 }
+                onImportarEstaciones={
+                  abrirImportacionEstaciones
+                }
+                numeroInicial={
+                  (paginaFamilias - 1) *
+                  REGISTROS_POR_PAGINA +
+                  1
+                }
               />
-
 
             )}
           {!cargando &&
@@ -1673,7 +1928,7 @@ export function EstructuraPage() {
             tabActiva === "estaciones" && (
               <EstacionesTable
                 estaciones={
-                  estacionesFiltradas
+                  estacionesPaginadas
                 }
                 guardando={guardando}
                 onEditar={
@@ -1687,6 +1942,50 @@ export function EstructuraPage() {
                 }
               />
 
+            )}
+          {tabActiva === "proyectos" &&
+            totalPaginasProyectos > 1 && (
+              <Paginacion
+                paginaActual={
+                  paginaProyectos
+                }
+                totalPaginas={
+                  totalPaginasProyectos
+                }
+                onCambiar={
+                  setPaginaProyectos
+                }
+              />
+            )}
+
+          {tabActiva === "familias" &&
+            totalPaginasFamilias > 1 && (
+              <Paginacion
+                paginaActual={
+                  paginaFamilias
+                }
+                totalPaginas={
+                  totalPaginasFamilias
+                }
+                onCambiar={
+                  setPaginaFamilias
+                }
+              />
+            )}
+
+          {tabActiva === "estaciones" &&
+            totalPaginasEstaciones > 1 && (
+              <Paginacion
+                paginaActual={
+                  paginaEstaciones
+                }
+                totalPaginas={
+                  totalPaginasEstaciones
+                }
+                onCambiar={
+                  setPaginaEstaciones
+                }
+              />
             )}
 
         </section>
@@ -1830,6 +2129,199 @@ export function EstructuraPage() {
           }
         />
       )}
+
+      {mostrarImportacionEstaciones &&
+        familiaImportacion && (
+          <div style={modalOverlayStyle}>
+            <section style={modalStyle}>
+              <h2 style={modalTitleStyle}>
+                Importar estaciones
+              </h2>
+
+              <p style={modalDescriptionStyle}>
+                Familia:{" "}
+                <strong>
+                  {familiaImportacion.nombre}
+                </strong>
+
+                <br />
+
+                Proyecto:{" "}
+                <strong>
+                  {
+                    familiaImportacion
+                      .nombreProyecto
+                  }
+                </strong>
+              </p>
+
+              <form
+                onSubmit={
+                  ejecutarImportacionEstaciones
+                }
+              >
+                <div style={formGroupStyle}>
+                  <label
+                    htmlFor="archivoEstaciones"
+                    style={labelStyle}
+                  >
+                    Archivo Excel *
+                  </label>
+
+                  <input
+                    id="archivoEstaciones"
+                    type="file"
+                    accept=".xlsx"
+                    disabled={
+                      importandoEstaciones
+                    }
+                    onChange={(event) => {
+                      const archivo =
+                        event.target.files?.[0] ??
+                        null;
+
+                      setArchivoEstaciones(
+                        archivo
+                      );
+
+                      setResultadoImportacionEstaciones(
+                        null
+                      );
+
+                      setErrorFormulario("");
+                    }}
+                    style={inputStyle}
+                  />
+
+                  <small style={helpTextStyle}>
+                    Debe incluir Product Number,
+                    diseño, Material Number,
+                    Estacion y opcionalmente
+                    Std pack.
+                  </small>
+                </div>
+
+                {archivoEstaciones && (
+                  <div style={selectedFileStyle}>
+                    Archivo seleccionado:{" "}
+                    <strong>
+                      {archivoEstaciones.name}
+                    </strong>
+                  </div>
+                )}
+
+                {errorFormulario && (
+                  <div style={errorStyle}>
+                    {errorFormulario}
+                  </div>
+                )}
+
+                {resultadoImportacionEstaciones && (
+                  <div style={importResultStyle}>
+                    <strong>
+                      Resultado de la importación
+                    </strong>
+
+                    <div style={importSummaryStyle}>
+                      <span>
+                        Total:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .totalFilas
+                        }
+                      </span>
+
+                      <span>
+                        Correctas:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .filasCorrectas
+                        }
+                      </span>
+
+                      <span>
+                        Estaciones creadas:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .estacionesCreadas
+                        }
+                      </span>
+
+                      <span>
+                        Estaciones existentes:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .estacionesExistentes
+                        }
+                      </span>
+
+                      <span>
+                        Asignaciones:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .asignacionesRealizadas
+                        }
+                      </span>
+
+                      <span>
+                        Advertencias:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .filasConAdvertencia
+                        }
+                      </span>
+
+                      <span>
+                        Errores:{" "}
+                        {
+                          resultadoImportacionEstaciones
+                            .filasConError
+                        }
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div style={modalActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={
+                      cerrarImportacionEstaciones
+                    }
+                    disabled={
+                      importandoEstaciones
+                    }
+                    style={secondaryButtonStyle}
+                  >
+                    Cerrar
+                  </button>
+
+                  {!resultadoImportacionEstaciones && (
+                    <button
+                      type="submit"
+                      disabled={
+                        importandoEstaciones ||
+                        !archivoEstaciones
+                      }
+                      style={{
+                        ...primaryButtonStyle,
+                        opacity:
+                          importandoEstaciones ||
+                            !archivoEstaciones
+                            ? 0.65
+                            : 1,
+                      }}
+                    >
+                      {importandoEstaciones
+                        ? "Importando..."
+                        : "Importar estaciones"}
+                    </button>
+                  )}
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
 
       {mostrarFormularioEstacion && (
         <EstacionFormModal
@@ -2086,16 +2578,19 @@ export function EstructuraPage() {
     </Layout>
   );
 }
-
 interface ProyectosTableProps {
   proyectos: Proyecto[];
   guardando: boolean;
+  numeroInicial: number;
+
   onEditar: (
     proyecto: Proyecto
   ) => void;
+
   onEliminar: (
     proyecto: Proyecto
   ) => void;
+
   onCambiarEstado: (
     proyecto: Proyecto
   ) => void;
@@ -2104,6 +2599,7 @@ interface ProyectosTableProps {
 function ProyectosTable({
   proyectos,
   guardando,
+  numeroInicial,
   onEditar,
   onEliminar,
   onCambiarEstado,
@@ -2144,8 +2640,8 @@ function ProyectosTable({
         <tbody>
           {proyectos.map((proyecto) => (
             <tr key={proyecto.idProyecto}>
-              <td style={tdStyle}>
-                {proyecto.idProyecto}
+              <td style={numberCellStyle}>
+                {numeroInicial + indice}
               </td>
 
               <td style={tdStyle}>
@@ -2182,16 +2678,17 @@ function ProyectosTable({
                     : "Inactivo"}
                 </button>
               </td>
-
               <td style={actionsCellStyle}>
                 <button
                   type="button"
                   title="Editar proyecto"
-                  aria-label={`Editar ${proyecto.nombre} `}
-                  disabled={guardando}
-                  onClick={() =>
-                    onEditar(proyecto)
+                  aria-label={
+                    `Editar ${proyecto.nombre}`
                   }
+                  disabled={guardando}
+                  onClick={() => {
+                    onEditar(proyecto);
+                  }}
                   style={editIconButtonStyle}
                 >
                   <PencilIcon />
@@ -2200,11 +2697,13 @@ function ProyectosTable({
                 <button
                   type="button"
                   title="Eliminar proyecto"
-                  aria-label={`Eliminar ${proyecto.nombre} `}
-                  disabled={guardando}
-                  onClick={() =>
-                    onEliminar(proyecto)
+                  aria-label={
+                    `Eliminar ${proyecto.nombre}`
                   }
+                  disabled={guardando}
+                  onClick={() => {
+                    onEliminar(proyecto);
+                  }}
                   style={deleteIconButtonStyle}
                 >
                   <CloseIcon />
@@ -2220,6 +2719,7 @@ function ProyectosTable({
 interface FamiliasTableProps {
   familias: Familia[];
   guardando: boolean;
+  numeroInicial: number;
 
   onEditar: (
     familia: Familia
@@ -2232,14 +2732,20 @@ interface FamiliasTableProps {
   onCambiarEstado: (
     familia: Familia
   ) => void;
-}
 
+  onImportarEstaciones: (
+    familia: Familia
+  ) => void;
+
+}
 function FamiliasTable({
   familias,
   guardando,
+  numeroInicial,
   onEditar,
   onEliminar,
   onCambiarEstado,
+  onImportarEstaciones,
 }: FamiliasTableProps) {
   if (familias.length === 0) {
     return (
@@ -2255,9 +2761,11 @@ function FamiliasTable({
       <table style={tableStyle}>
         <thead>
           <tr style={tableHeaderRowStyle}>
-            <th style={thStyle}>
-              ID
+            <th style={numberHeaderStyle}>
+              N.º
             </th>
+
+
 
             <th style={thStyle}>
               Proyecto
@@ -2288,10 +2796,10 @@ function FamiliasTable({
         </thead>
 
         <tbody>
-          {familias.map((familia) => (
+          {familias.map((familia, indice) => (
             <tr key={familia.idFamilia}>
-              <td style={tdStyle}>
-                {familia.idFamilia}
+              <td style={numberCellStyle}>
+                {numeroInicial + indice}
               </td>
 
               <td style={tdStyle}>
@@ -2336,12 +2844,29 @@ function FamiliasTable({
               <td style={actionsCellStyle}>
                 <button
                   type="button"
-                  title="Editar familia"
-                  aria-label={`Editar ${familia.nombre} `}
-                  disabled={guardando}
-                  onClick={() =>
-                    onEditar(familia)
+                  title="Importar estaciones"
+                  disabled={
+                    guardando ||
+                    !familia.activo
                   }
+                  onClick={() => {
+                    onImportarEstaciones(
+                      familia
+                    );
+                  }}
+                  style={importStationButtonStyle}
+                >
+                  Importar estaciones
+                </button>
+
+                <button
+                  type="button"
+                  title="Editar familia"
+                  aria-label={`Editar ${familia.nombre}`}
+                  disabled={guardando}
+                  onClick={() => {
+                    onEditar(familia);
+                  }}
                   style={editIconButtonStyle}
                 >
                   <PencilIcon />
@@ -2350,11 +2875,11 @@ function FamiliasTable({
                 <button
                   type="button"
                   title="Eliminar familia"
-                  aria-label={`Eliminar ${familia.nombre} `}
+                  aria-label={`Eliminar ${familia.nombre}`}
                   disabled={guardando}
-                  onClick={() =>
-                    onEliminar(familia)
-                  }
+                  onClick={() => {
+                    onEliminar(familia);
+                  }}
                   style={deleteIconButtonStyle}
                 >
                   <CloseIcon />
@@ -2405,7 +2930,7 @@ function EstacionesTable({
       <table style={tableStyle}>
         <thead>
           <tr style={tableHeaderRowStyle}>
-            <th style={thStyle}>ID</th>
+            <th style={numberHeaderStyle}>N.º</th>
 
             <th style={thStyle}>
               Proyecto
@@ -2511,6 +3036,80 @@ function EstacionesTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+interface PaginacionProps {
+  paginaActual: number;
+  totalPaginas: number;
+
+  onCambiar: (
+    pagina: number
+  ) => void;
+}
+
+function Paginacion({
+  paginaActual,
+  totalPaginas,
+  onCambiar,
+}: PaginacionProps) {
+  return (
+    <div style={paginationStyle}>
+      <button
+        type="button"
+        disabled={
+          paginaActual === 1
+        }
+        onClick={() => {
+          onCambiar(
+            Math.max(
+              1,
+              paginaActual - 1
+            )
+          );
+        }}
+        style={{
+          ...secondaryButtonStyle,
+          opacity:
+            paginaActual === 1
+              ? 0.5
+              : 1,
+        }}
+      >
+        Anterior
+      </button>
+
+      <span style={paginationTextStyle}>
+        Página {paginaActual} de{" "}
+        {totalPaginas}
+      </span>
+
+      <button
+        type="button"
+        disabled={
+          paginaActual ===
+          totalPaginas
+        }
+        onClick={() => {
+          onCambiar(
+            Math.min(
+              totalPaginas,
+              paginaActual + 1
+            )
+          );
+        }}
+        style={{
+          ...secondaryButtonStyle,
+          opacity:
+            paginaActual ===
+              totalPaginas
+              ? 0.5
+              : 1,
+        }}
+      >
+        Siguiente
+      </button>
     </div>
   );
 }
@@ -2898,4 +3497,60 @@ const textareaStyle = {
 const helpTextStyle = {
   color: "#64748b",
   fontSize: "12px",
+};
+
+const importStationButtonStyle = {
+  minHeight: "34px",
+  marginRight: "7px",
+  padding: "7px 10px",
+  border: "1px solid #99f6e4",
+  borderRadius: "8px",
+  background: "#f0fdfa",
+  color: "#0f766e",
+  fontSize: "12px",
+  fontWeight: "700",
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
+};
+
+const selectedFileStyle = {
+  marginBottom: "16px",
+  padding: "12px",
+  border: "1px solid #bfdbfe",
+  borderRadius: "9px",
+  background: "#eff6ff",
+  color: "#1e40af",
+  fontSize: "13px",
+};
+
+const importResultStyle = {
+  marginTop: "16px",
+  padding: "14px",
+  border: "1px solid #bbf7d0",
+  borderRadius: "9px",
+  background: "#f0fdf4",
+  color: "#166534",
+};
+
+const importSummaryStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(2, minmax(0, 1fr))",
+  gap: "8px 14px",
+  marginTop: "12px",
+  fontSize: "13px",
+};
+
+const paginationStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "14px",
+  marginTop: "18px",
+};
+
+const paginationTextStyle = {
+  color: "#475569",
+  fontSize: "13px",
+  fontWeight: "700",
 };

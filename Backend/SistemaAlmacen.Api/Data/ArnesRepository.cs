@@ -492,12 +492,12 @@ public sealed class ArnesRepository
     }
 
     // Obtiene los arneses activos agrupables por proyecto
-    // para generar las listas de carga de PICS.
-    public async Task<List<PicsProductRow>>
-        ObtenerProductosParaPicsAsync()
+    // para generar las listas de carga de IPS.
+    public async Task<List<IpsProductRow>>
+        ObtenerProductosParaIpsAsync()
     {
         var productos =
-            new List<PicsProductRow>();
+            new List<IpsProductRow>();
 
         await using var connection =
             _connectionFactory.CreateConnection();
@@ -554,7 +554,7 @@ public sealed class ArnesRepository
         while (await reader.ReadAsync())
         {
             productos.Add(
-                new PicsProductRow
+                new IpsProductRow
                 {
                     Proyecto =
                         reader.GetString(
@@ -575,5 +575,88 @@ public sealed class ArnesRepository
         }
 
         return productos;
+    }
+
+
+
+
+    public async Task<Arnes?>
+    ObtenerUnicoPorNumeroAsync(
+        string numeroArnes)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            id_arnes,
+            id_familia,
+            numero_parte_arnes,
+            nivel_diseno,
+            activo
+        FROM arneses
+        WHERE UPPER(
+            TRIM(numero_parte_arnes)
+        ) = @numeroArnes
+          AND activo = TRUE
+        ORDER BY id_arnes;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@numeroArnes",
+            numeroArnes
+                .Trim()
+                .ToUpperInvariant()
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        var encontrados =
+            new List<Arnes>();
+
+        while (await reader.ReadAsync())
+        {
+            encontrados.Add(
+                new Arnes
+                {
+                    IdArnes =
+                        reader.GetInt32(
+                            "id_arnes"
+                        ),
+
+                    IdFamilia =
+                        reader.GetInt32(
+                            "id_familia"
+                        ),
+
+                    NumeroParteArnes =
+                        reader.GetString(
+                            "numero_parte_arnes"
+                        ),
+
+                    NivelDiseno =
+                        reader.GetString(
+                            "nivel_diseno"
+                        ),
+
+                    Activo =
+                        reader.GetBoolean(
+                            "activo"
+                        )
+                }
+            );
+        }
+
+        // Si no existe o tiene varios diseños,
+        // no se puede decidir automáticamente.
+        return encontrados.Count == 1
+            ? encontrados[0]
+            : null;
     }
 }

@@ -171,10 +171,17 @@ public sealed class BomRepository
                     VALUES(cantidad_requerida),
 
                 localizacion_bom =
-                    VALUES(localizacion_bom),
-
+                    COALESCE(
+                    
+                VALUES(localizacion_bom),
+                    localizacion_bom),
+                    
                 std_pack_bom =
-                    VALUES(std_pack_bom),
+                    COALESCE(
+                        VALUES(std_pack_bom),
+                        std_pack_bom
+                    ),   
+
 
                 tiene_advertencia =
                     VALUES(tiene_advertencia),
@@ -222,5 +229,176 @@ public sealed class BomRepository
         );
 
         await command.ExecuteNonQueryAsync();
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    // Localiza el detalle BOM por arnés y material.
+    public async Task<long?>
+        ObtenerIdDetalleAsync(
+            int idArnes,
+            int idMaterial)
+    {
+        await using var connection =
+            _connectionFactory
+                .CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT
+                bd.id_detalle
+            FROM bom_detalle AS bd
+            INNER JOIN bom AS b
+                ON b.id_bom = bd.id_bom
+            WHERE b.id_arnes = @idArnes
+              AND bd.id_material = @idMaterial
+            ORDER BY
+                b.fecha_importacion DESC,
+                bd.id_detalle DESC
+            LIMIT 1;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idArnes",
+            idArnes
+        );
+
+        command.Parameters.AddWithValue(
+            "@idMaterial",
+            idMaterial
+        );
+
+        var resultado =
+            await command
+                .ExecuteScalarAsync();
+
+        if (
+            resultado is null ||
+            resultado is DBNull
+        )
+        {
+            return null;
+        }
+
+        return Convert.ToInt64(
+            resultado
+        );
+    }
+
+    // Asigna la estación oficial al detalle BOM.
+    public async Task<bool>
+        AsignarEstacionAsync(
+            long idDetalle,
+            int idEstacion,
+            string nombreEstacion,
+            decimal? stdPack)
+    {
+        var nombreLimpio =
+            nombreEstacion
+                .Trim()
+                .ToUpperInvariant();
+
+        await using var connection =
+            _connectionFactory
+                .CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            UPDATE bom_detalle
+            SET
+                id_estacion =
+                    @idEstacion,
+
+                localizacion_bom =
+                    @nombreEstacion,
+
+                std_pack_bom =
+                    COALESCE(
+                        @stdPack,
+                        std_pack_bom
+                    )
+            WHERE id_detalle =
+                  @idDetalle;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idDetalle",
+            idDetalle
+        );
+
+        command.Parameters.AddWithValue(
+            "@idEstacion",
+            idEstacion
+        );
+
+        command.Parameters.AddWithValue(
+            "@nombreEstacion",
+            nombreLimpio
+        );
+
+        command.Parameters.AddWithValue(
+            "@stdPack",
+            stdPack.HasValue
+                ? stdPack.Value
+                : DBNull.Value
+        );
+
+        var filasAfectadas =
+            await command
+                .ExecuteNonQueryAsync();
+
+        return filasAfectadas > 0;
+    }
+
+    // Cuenta los materiales asignados a una estación.
+    public async Task<int>
+        ContarMaterialesPorEstacionAsync(
+            int idEstacion)
+    {
+        await using var connection =
+            _connectionFactory
+                .CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT
+                COUNT(DISTINCT id_material)
+            FROM bom_detalle
+            WHERE id_estacion = @idEstacion;
+            """;
+
+        command.Parameters.AddWithValue(
+            "@idEstacion",
+            idEstacion
+        );
+
+        var resultado =
+            await command
+                .ExecuteScalarAsync();
+
+        if (
+            resultado is null ||
+            resultado is DBNull
+        )
+        {
+            return 0;
+        }
+
+        return Convert.ToInt32(
+            resultado
+        );
     }
 }
+

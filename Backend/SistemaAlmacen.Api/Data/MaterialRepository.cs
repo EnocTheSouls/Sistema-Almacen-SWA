@@ -97,12 +97,16 @@ public sealed class MaterialRepository
         return MapearMaterial(reader);
     }
 
-    // Obtiene un material por número de parte.
-    public async Task<Material?> ObtenerPorNumeroParteAsync(
-        string numeroParteMaterial)
+    // Obtiene un material por número de parte,
+    // ignorando mayúsculas y espacios repetidos.
+    public async Task<Material?>
+        ObtenerPorNumeroParteAsync(
+            string numeroParteMaterial)
     {
         var numeroParteLimpio =
-            numeroParteMaterial.Trim().ToUpperInvariant();
+    NormalizarNumeroParte(
+        numeroParteMaterial
+    );
 
         await using var connection =
             _connectionFactory.CreateConnection();
@@ -113,21 +117,28 @@ public sealed class MaterialRepository
             connection.CreateCommand();
 
         command.CommandText = """
-            SELECT
-                id_material,
-                numero_parte_material,
-                descripcion,
-                unidad_medida,
-                codigo_barras,
-                serial_kits,
-                generic_code,
-                tipo_empaque,
-                std_pack,
-                activo
-            FROM materiales
-            WHERE numero_parte_material = @numeroParteMaterial
-            LIMIT 1;
-            """;
+        SELECT
+            id_material,
+            numero_parte_material,
+            descripcion,
+            unidad_medida,
+            codigo_barras,
+            serial_kits,
+            generic_code,
+            tipo_empaque,
+            std_pack,
+            activo
+        FROM materiales
+        WHERE REGEXP_REPLACE(
+            UPPER(
+                TRIM(numero_parte_material)
+            ),
+            '[[:space:]]+',
+            ' '
+        ) = @numeroParteMaterial
+        ORDER BY id_material
+        LIMIT 1;
+        """;
 
         command.Parameters.AddWithValue(
             "@numeroParteMaterial",
@@ -142,9 +153,9 @@ public sealed class MaterialRepository
             return null;
         }
 
-
         return MapearMaterial(reader);
     }
+
 
 
     // Busca un material por número de parte o código de barras.
@@ -195,12 +206,14 @@ public sealed class MaterialRepository
 
         return MapearMaterial(reader);
     }
-
-    // Crea o actualiza un material encontrado en el BOM.
-    public async Task<Material?> ObtenerOCrearDesdeBomAsync(
-        string numeroParteMaterial,
-        string descripcion,
-        decimal? stdPack)
+    // Obtiene un material existente sin modificarlo.
+    // Solo crea el material cuando todavía no existe.
+    public async Task<Material?>
+        ObtenerOCrearDesdeBomAsync(
+            string numeroParteMaterial,
+            string descripcion,
+            string genericCode,
+            decimal? stdPack)
     {
         var numeroParteLimpio =
             numeroParteMaterial
@@ -208,69 +221,81 @@ public sealed class MaterialRepository
                 .ToUpperInvariant();
 
         var descripcionLimpia =
-            descripcion.Trim();
+            descripcion
+                .Trim();
+
+        var genericCodeLimpio =
+            genericCode
+                .Trim()
+                .ToUpperInvariant();
 
         var materialExistente =
             await ObtenerPorNumeroParteAsync(
                 numeroParteLimpio
             );
 
+
         if (materialExistente is not null)
         {
-            await using var connection =
-                _connectionFactory.CreateConnection();
+            // Conserva todos los datos existentes.
+            // Solo corrige el Generic Code usando el BOM.
+            if (
+                !materialExistente.GenericCode.Equals(
+                    genericCodeLimpio,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                await using var connection =
+                    _connectionFactory.CreateConnection();
 
-            await connection.OpenAsync();
+                await connection.OpenAsync();
 
-            await using var command =
-                connection.CreateCommand();
+                await using var command =
+                    connection.CreateCommand();
 
-            command.CommandText = """
+                command.CommandText = """
             UPDATE materiales
-            SET
-                descripcion = @descripcion,
-                std_pack = @stdPack,
-                activo = TRUE
+            SET generic_code = @genericCode
             WHERE id_material = @idMaterial;
             """;
 
-            command.Parameters.AddWithValue(
-                "@idMaterial",
-                materialExistente.IdMaterial
-            );
+                command.Parameters.AddWithValue(
+                    "@genericCode",
+                    genericCodeLimpio
+                );
 
-            command.Parameters.AddWithValue(
-                "@descripcion",
-                descripcionLimpia
-            );
+                command.Parameters.AddWithValue(
+                    "@idMaterial",
+                    materialExistente.IdMaterial
+                );
 
-            command.Parameters.AddWithValue(
-                "@stdPack",
-                stdPack.HasValue
-                    ? stdPack.Value
-                    : DBNull.Value
-            );
+                await command.ExecuteNonQueryAsync();
 
-            await command.ExecuteNonQueryAsync();
+                return await ObtenerPorIdAsync(
+                    materialExistente.IdMaterial
+                );
+            }
 
-            return await ObtenerPorIdAsync(
-                materialExistente.IdMaterial
-            );
+            return materialExistente;
         }
 
+
+        // Solo crea materiales inexistentes.
         return await CrearAsync(
             numeroParteLimpio,
             descripcionLimpia,
             "PZA",
             null,
             null,
-            "C",
+            genericCodeLimpio,
             stdPack.HasValue
                 ? "BOLSA"
                 : null,
             stdPack
         );
     }
+
     // Crea o actualiza un material del BOM de RIVIAN.
     public async Task<Material?>
    ObtenerOCrearDesdeBomAutomaticoAsync(
@@ -674,6 +699,23 @@ public sealed class MaterialRepository
             await command.ExecuteNonQueryAsync();
 
         return filas > 0;
+    }
+
+    // Normaliza mayúsculas y espacios internos.
+    private static string NormalizarNumeroParte(
+        string numeroParteMaterial)
+    {
+        return string.Join(
+            " ",
+            numeroParteMaterial
+                .Trim()
+                .ToUpperInvariant()
+                .Split(
+                    (char[]?)null,
+                    StringSplitOptions
+                        .RemoveEmptyEntries
+                )
+        );
     }
 
     // Convierte una fila de MySQL en un material.

@@ -152,7 +152,11 @@ export function Sidebar() {
           ? "42px"
           : "260px",
 
-        minHeight: "100vh",
+        position: "sticky",
+        top: 0,
+        height: "100vh",
+        maxHeight: "100vh",
+        alignSelf: "flex-start",
         flexShrink: 0,
         display: "flex",
 
@@ -507,7 +511,7 @@ export function Sidebar() {
                   }}
                 >
                   {currentUser?.role ?? "SIN ROL"}
-                  
+
                 </div>
 
               </div>

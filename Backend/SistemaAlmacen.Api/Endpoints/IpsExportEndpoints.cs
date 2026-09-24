@@ -2,16 +2,16 @@ using SistemaAlmacen.Api.Services;
 
 namespace SistemaAlmacen.Api.Endpoints;
 
-// Expone la descarga de listas para PICS.
-public static class PicsExportEndpoints
+// Expone la descarga de listas para IPS.
+public static class IpsExportEndpoints
 {
     public static IEndpointRouteBuilder
-        MapPicsExportEndpoints(
+        MapIpsExportEndpoints(
             this IEndpointRouteBuilder app)
     {
         var grupo =
             app.MapGroup(
-                "/api/pics"
+                "/api/ips"
             );
 
         grupo.MapGet(
@@ -25,7 +25,7 @@ public static class PicsExportEndpoints
     // Genera un ZIP con un Excel por proyecto.
     private static async Task<IResult>
         ExportarListasAsync(
-            PicsExportService exportService)
+            IpsExportService exportService)
     {
         try
         {
@@ -39,7 +39,7 @@ public static class PicsExportEndpoints
                 );
 
             var nombreArchivo =
-                $"LISTAS_PICS_{fecha}.zip";
+                $"LISTAS_IPS_{fecha}.zip";
 
             return Results.File(
                 archivoZip,
@@ -51,7 +51,7 @@ public static class PicsExportEndpoints
         {
             return Results.Problem(
                 title:
-                    "No se encontró la plantilla PICS.",
+                    "No se encontró la plantilla IPS.",
                 detail:
                     ex.Message,
                 statusCode:
@@ -72,7 +72,7 @@ public static class PicsExportEndpoints
         catch (Exception ex)
 {
     Console.WriteLine(
-        "ERROR AL GENERAR LISTAS PICS:"
+        "ERROR AL GENERAR LISTAS IPS:"
     );
 
     Console.WriteLine(
@@ -81,7 +81,7 @@ public static class PicsExportEndpoints
 
     return Results.Problem(
         title:
-            "No fue posible generar las listas PICS.",
+            "No fue posible generar las listas IPS.",
         detail:
             ex.Message,
         statusCode:

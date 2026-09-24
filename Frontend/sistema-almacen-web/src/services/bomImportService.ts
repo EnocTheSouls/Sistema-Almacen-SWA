@@ -29,12 +29,9 @@ export interface RespuestaImportacionBom {
 
 export interface ImportarBomRequest {
   archivo: File;
-  idFamilia: number;
-  nivelDiseno: string;
-  version: string;
 }
 
-// Envía el archivo Excel al Backend.
+
 export async function importarBom(
   datos: ImportarBomRequest
 ): Promise<RespuestaImportacionBom> {
@@ -44,21 +41,6 @@ export async function importarBom(
   formulario.append(
     "archivo",
     datos.archivo
-  );
-
-  formulario.append(
-    "idFamilia",
-    String(datos.idFamilia)
-  );
-
-  formulario.append(
-    "nivelDiseno",
-    datos.nivelDiseno.trim()
-  );
-
-  formulario.append(
-    "version",
-    datos.version.trim()
   );
 
   const respuesta =

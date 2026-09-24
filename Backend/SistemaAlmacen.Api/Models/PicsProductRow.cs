@@ -1,7 +1,7 @@
 namespace SistemaAlmacen.Api.Models;
 
 // Representa un arnés que será enviado a PICS.
-public sealed class PicsProductRow
+public sealed class IpsProductRow
 {
     public string Proyecto
     {

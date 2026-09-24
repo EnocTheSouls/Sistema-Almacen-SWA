@@ -20,7 +20,9 @@ public static class BomImportEndpoints
                         )
                 );
 
-        // Importa un archivo Excel con información BOM.
+
+
+        // Importa automáticamente un archivo Excel BOM.
         grupo.MapPost(
             "/importar",
             async (
@@ -80,57 +82,6 @@ public static class BomImportEndpoints
                     });
                 }
 
-                if (
-                    !int.TryParse(
-                        formulario["idFamilia"],
-                        out var idFamilia
-                    ) ||
-                    idFamilia <= 0
-                )
-                {
-                    return Results.BadRequest(new
-                    {
-                        mensaje =
-                            "Debes seleccionar una familia válida."
-                    });
-                }
-
-                var nivelDiseno =
-                    formulario["nivelDiseno"]
-                        .ToString()
-                        .Trim();
-
-                if (
-                    string.IsNullOrWhiteSpace(
-                        nivelDiseno
-                    )
-                )
-                {
-                    return Results.BadRequest(new
-                    {
-                        mensaje =
-                            "El nivel de diseño es obligatorio."
-                    });
-                }
-
-                var version =
-                    formulario["version"]
-                        .ToString()
-                        .Trim();
-
-                if (
-                    string.IsNullOrWhiteSpace(
-                        version
-                    )
-                )
-                {
-                    return Results.BadRequest(new
-                    {
-                        mensaje =
-                            "La versión del BOM es obligatoria."
-                    });
-                }
-
                 var idUsuarioTexto =
                     context.User.FindFirstValue(
                         ClaimTypes.NameIdentifier
@@ -166,15 +117,10 @@ public static class BomImportEndpoints
                             .ImportarAsync(
                                 contenido,
                                 archivo.FileName,
-                                idFamilia,
-                                nivelDiseno,
-                                version,
                                 idImportacion,
                                 idUsuario
                             );
 
-                    // Guarda permanentemente
-                    // los errores y advertencias.
                     await importacionRepository
                         .GuardarDetallesAsync(
                             idImportacion,
@@ -190,25 +136,13 @@ public static class BomImportEndpoints
                                 ? "Completado con advertencias"
                                 : "Completado";
 
-                    string mensajeResultado;
-
-                    if (resultado.FilasConError > 0)
-                    {
-                        mensajeResultado =
-                            "Algunas filas no pudieron importarse.";
-                    }
-                    else if (
-                        resultado.FilasConAdvertencia > 0
-                    )
-                    {
-                        mensajeResultado =
-                            "La importación finalizó con advertencias.";
-                    }
-                    else
-                    {
-                        mensajeResultado =
-                            "Importación finalizada correctamente.";
-                    }
+                    var mensajeResultado =
+                        resultado.FilasConError > 0
+                            ? "Algunas filas no pudieron importarse."
+                            : resultado
+                                    .FilasConAdvertencia > 0
+                                ? "La importación finalizó con advertencias."
+                                : "Importación finalizada correctamente.";
 
                     await importacionRepository
                         .ActualizarResultadoAsync(
@@ -237,7 +171,6 @@ public static class BomImportEndpoints
                                 ex.Message
                             );
 
-                        // Guarda también el error general.
                         await importacionRepository
                             .GuardarDetalleAsync(
                                 idImportacion,
@@ -258,6 +191,8 @@ public static class BomImportEndpoints
             }
         )
         .WithName("ImportarBom");
+
+
 
         // Obtiene el historial general de importaciones.
         grupo.MapGet(

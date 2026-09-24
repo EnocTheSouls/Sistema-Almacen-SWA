@@ -23,9 +23,6 @@ import {
   eliminarMaterial,
   obtenerMateriales,
 } from "../services/materialService";
-import {
-  obtenerFamilias,
-} from "../services/familiaService";
 
 import {
   importarBom,
@@ -42,10 +39,6 @@ import {
 import type {
   ResultadoImportacionFiveMf,
 } from "../services/fiveMfImportService";
-
-import type {
-  Familia,
-} from "../types/familia";
 
 import type {
   ActualizarMaterialRequest,
@@ -82,7 +75,7 @@ const crearFormularioVacio =
   });
 
 
-const MATERIALES_POR_PAGINA = 30;
+const MATERIALES_POR_PAGINA = 10;
 
 export function MaterialesPage() {
   const [
@@ -132,10 +125,7 @@ export function MaterialesPage() {
     setMostrarFormulario,
   ] = useState(false);
 
-  const [
-    familias,
-    setFamilias,
-  ] = useState<Familia[]>([]);
+
 
   const [
     mostrarImportacionBom,
@@ -151,26 +141,6 @@ export function MaterialesPage() {
     archivoBom,
     setArchivoBom,
   ] = useState<File | null>(null);
-
-  const [
-    idFamiliaBom,
-    setIdFamiliaBom,
-  ] = useState(0);
-
-  const [
-    busquedaFamiliaBom,
-    setBusquedaFamiliaBom,
-  ] = useState("");
-
-  const [
-    nivelDisenoBom,
-    setNivelDisenoBom,
-  ] = useState("");
-
-  const [
-    versionBom,
-    setVersionBom,
-  ] = useState("");
 
   const [
     resultadoImportacion,
@@ -259,46 +229,13 @@ export function MaterialesPage() {
         "Error al cargar materiales:",
         error
       );
-
-      setErrorCarga(
-        obtenerMensajeError(
-          error,
-          "No se pudo cargar el catálogo de materiales."
-        )
-      );
     } finally {
       setCargando(false);
     }
   };
-
   useEffect(() => {
-    const cargarDatos = async () => {
-      await cargarMateriales();
-
-      if (!esAdministrador) {
-        return;
-      }
-
-      try {
-        const resultadoFamilias =
-          await obtenerFamilias();
-
-        setFamilias(
-          resultadoFamilias.filter(
-            (familia) =>
-              familia.activo
-          )
-        );
-      } catch (error) {
-        console.error(
-          "Error al cargar familias:",
-          error
-        );
-      }
-    };
-
-    cargarDatos();
-  }, [esAdministrador]);
+    cargarMateriales();
+  }, []);
 
   useEffect(() => {
     setPaginaActual(1);
@@ -464,38 +401,6 @@ export function MaterialesPage() {
       MATERIALES_POR_PAGINA,
       materialesFiltrados.length
     );
-
-  const familiasBomFiltradas =
-    useMemo(() => {
-      const texto =
-        busquedaFamiliaBom
-          .trim()
-          .toLocaleLowerCase(
-            "es-MX"
-          );
-
-      if (!texto) {
-        return familias;
-      }
-
-      return familias.filter(
-        (familia) =>
-          familia.nombreProyecto
-            .toLocaleLowerCase(
-              "es-MX"
-            )
-            .includes(texto) ||
-          familia.nombre
-            .toLocaleLowerCase(
-              "es-MX"
-            )
-            .includes(texto)
-      );
-    }, [
-      familias,
-      busquedaFamiliaBom,
-    ]);
-
   const abrirNuevoMaterial = () => {
     setMaterialEnEdicion(null);
 
@@ -983,17 +888,22 @@ export function MaterialesPage() {
     };
 
 
-  // Descarga las listas PICS separadas por proyecto.
-  const descargarListasPics = async () => {
+  // Descarga las listas IPS separadas por proyecto.
+  const descargarListasIps = async () => {
     try {
-      setErrorFormulario("");
+      setErrorCarga("");
+      setMensajeExito("");
 
       const token =
         localStorage.getItem("token");
 
+      console.log(
+        "Solicitando generación de listas IPS..."
+      );
+
       const response =
         await fetch(
-          "http://localhost:5042/api/pics/exportar-listas",
+          "http://localhost:5042/api/ips/exportar-listas",
           {
             method: "GET",
             headers: token
@@ -1005,18 +915,39 @@ export function MaterialesPage() {
           }
         );
 
+      console.log(
+        "Respuesta IPS:",
+        response.status
+      );
+
       if (!response.ok) {
         const contenido =
           await response.text();
 
         throw new Error(
           contenido ||
-          "No fue posible generar las listas PICS."
+          `No fue posible generar las listas IPS. Código ${response.status}.`
         );
       }
 
       const archivo =
         await response.blob();
+
+      console.log(
+        "Tipo de archivo IPS:",
+        archivo.type
+      );
+
+      console.log(
+        "Tamaño del archivo IPS:",
+        archivo.size
+      );
+
+      if (archivo.size === 0) {
+        throw new Error(
+          "El archivo ZIP generado está vacío."
+        );
+      }
 
       const url =
         window.URL.createObjectURL(
@@ -1027,59 +958,70 @@ export function MaterialesPage() {
         document.createElement("a");
 
       enlace.href = url;
-
       enlace.download =
-        `LISTAS_PICS_${new Date()
+        `LISTAS_IPS_${new Date()
           .toISOString()
           .slice(0, 10)
         }.zip`;
+
+      enlace.style.display = "none";
 
       document.body.appendChild(
         enlace
       );
 
       enlace.click();
-      enlace.remove();
 
-      window.URL.revokeObjectURL(
-        url
+      setTimeout(() => {
+        enlace.remove();
+
+        window.URL.revokeObjectURL(
+          url
+        );
+      }, 1000);
+
+      setMensajeExito(
+        "Las listas IPS se generaron correctamente."
       );
     } catch (error) {
-      setErrorFormulario(
+      console.error(
+        "Error al generar listas IPS:",
+        error
+      );
+
+      setErrorCarga(
         error instanceof Error
           ? error.message
-          : "No fue posible generar las listas PICS."
+          : "No fue posible generar las listas IPS."
       );
     }
   };
 
-  
+
+
+
+
+
+
   const abrirImportacionBom = () => {
     setArchivoBom(null);
-    setIdFamiliaBom(0);
-    setNivelDisenoBom("");
-    setVersionBom("");
     setResultadoImportacion(null);
     setErrorFormulario("");
     setMensajeExito("");
     setMostrarImportacionBom(true);
-    setBusquedaFamiliaBom("");
   };
 
   const cerrarImportacionBom = () => {
-    setBusquedaFamiliaBom("");
     if (importandoBom) {
       return;
     }
 
     setMostrarImportacionBom(false);
     setArchivoBom(null);
-    setIdFamiliaBom(0);
-    setNivelDisenoBom("");
-    setVersionBom("");
     setResultadoImportacion(null);
     setErrorFormulario("");
   };
+
 
   const ejecutarImportacionBom = async (
     event: FormEvent<HTMLFormElement>
@@ -1094,30 +1036,6 @@ export function MaterialesPage() {
       return;
     }
 
-    if (idFamiliaBom <= 0) {
-      setErrorFormulario(
-        "Selecciona una familia."
-      );
-
-      return;
-    }
-
-    if (!nivelDisenoBom.trim()) {
-      setErrorFormulario(
-        "Captura el nivel de diseño."
-      );
-
-      return;
-    }
-
-    if (!versionBom.trim()) {
-      setErrorFormulario(
-        "Captura la versión del BOM."
-      );
-
-      return;
-    }
-
     try {
       setImportandoBom(true);
       setErrorFormulario("");
@@ -1126,19 +1044,10 @@ export function MaterialesPage() {
       const respuesta =
         await importarBom({
           archivo: archivoBom,
-          idFamilia: idFamiliaBom,
-          nivelDiseno:
-            nivelDisenoBom.trim(),
-          version:
-            versionBom.trim(),
         });
 
       setResultadoImportacion(
         respuesta.resultado
-      );
-
-      setMensajeExito(
-        `El archivo "${respuesta.resultado.nombreArchivo}" fue procesado.`
       );
 
       await cargarMateriales();
@@ -1182,10 +1091,10 @@ export function MaterialesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={descargarListasPics}
+                    onClick={descargarListasIps}
                     style={importButtonStyle}
                   >
-                    Generar listas PICS
+                    Generar listas IPS
                   </button>
 
                   <button
@@ -1352,8 +1261,14 @@ export function MaterialesPage() {
               <table style={tableStyle}>
                 <thead>
                   <tr style={tableHeaderStyle}>
-                    <th style={thStyle}>
-                      ID
+                    <th
+                      style={{
+                        textAlign: "center",
+                        width: "60px",
+                        minWidth: "60px",
+                      }}
+                    >
+                      N.º
                     </th>
 
                     <th style={thStyle}>
@@ -1399,124 +1314,126 @@ export function MaterialesPage() {
                 </thead>
 
                 <tbody>
-                  {materialesPaginados.map(
-                    (material) => (
-                      <tr
-                        key={
-                          material.idMaterial
-                        }
+                  {materialesPaginados.map((material, indice) => (
+                    <tr key={material.idMaterial}>
+                      <td
+                        style={{
+                          textAlign: "center",
+                          width: "60px",
+                          minWidth: "60px",
+                          fontVariantNumeric: "tabular-nums",
+                        }}
                       >
-                        <td style={tdStyle}>
+                        {(paginaActual - 1) * MATERIALES_POR_PAGINA +
+                          indice +
+                          1}
+                      </td>
+
+                      <td style={tdStyle}>
+                        <strong>
                           {
-                            material.idMaterial
+                            material.numeroParteMaterial
                           }
-                        </td>
+                        </strong>
+                      </td>
 
-                        <td style={tdStyle}>
-                          <strong>
-                            {
-                              material.numeroParteMaterial
-                            }
-                          </strong>
-                        </td>
+                      <td style={tdStyle}>
+                        {
+                          material.descripcion
+                        }
+                      </td>
 
-                        <td style={tdStyle}>
+                      <td style={tdStyle}>
+                        <span
+                          style={
+                            genericCodeStyle
+                          }
+                        >
                           {
-                            material.descripcion
+                            material.genericCode
                           }
-                        </td>
+                        </span>
+                      </td>
 
-                        <td style={tdStyle}>
-                          <span
-                            style={
-                              genericCodeStyle
-                            }
-                          >
-                            {
-                              material.genericCode
-                            }
-                          </span>
-                        </td>
+                      <td style={tdStyle}>
+                        {material.unidadMedida ??
+                          "N/A"}
+                      </td>
 
-                        <td style={tdStyle}>
-                          {material.unidadMedida ??
-                            "N/A"}
-                        </td>
+                      <td style={tdStyle}>
+                        {material.tipoEmpaque ??
+                          "N/A"}
+                      </td>
 
-                        <td style={tdStyle}>
-                          {material.tipoEmpaque ??
-                            "N/A"}
-                        </td>
+                      <td style={tdStyle}>
+                        {material.stdPack ??
+                          "N/A"}
+                      </td>
 
-                        <td style={tdStyle}>
-                          {material.stdPack ??
-                            "N/A"}
-                        </td>
+                      <td style={tdStyle}>
+                        <button
+                          type="button"
+                          disabled={
+                            !esAdministrador
+                          }
+                          onClick={() => {
+                            manejarCambioEstado(
+                              material
+                            );
+                          }}
+                          style={
+                            material.activo
+                              ? activeStatusStyle
+                              : inactiveStatusStyle
+                          }
+                        >
+                          {material.activo
+                            ? "Activo"
+                            : "Inactivo"}
+                        </button>
+                      </td>
 
-                        <td style={tdStyle}>
+                      {esAdministrador && (
+                        <td
+                          style={{
+                            ...tdStyle,
+                            textAlign:
+                              "right",
+                            whiteSpace:
+                              "nowrap",
+                          }}
+                        >
                           <button
                             type="button"
-                            disabled={
-                              !esAdministrador
-                            }
                             onClick={() => {
-                              manejarCambioEstado(
+                              abrirEdicionMaterial(
                                 material
                               );
                             }}
                             style={
-                              material.activo
-                                ? activeStatusStyle
-                                : inactiveStatusStyle
+                              editButtonStyle
                             }
                           >
-                            {material.activo
-                              ? "Activo"
-                              : "Inactivo"}
+                            Modificar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              solicitarEliminacion(
+                                material
+                              );
+                            }}
+                            style={
+                              deleteButtonStyle
+                            }
+                          >
+                            Eliminar
                           </button>
                         </td>
-
-                        {esAdministrador && (
-                          <td
-                            style={{
-                              ...tdStyle,
-                              textAlign:
-                                "right",
-                              whiteSpace:
-                                "nowrap",
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                abrirEdicionMaterial(
-                                  material
-                                );
-                              }}
-                              style={
-                                editButtonStyle
-                              }
-                            >
-                              Modificar
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                solicitarEliminacion(
-                                  material
-                                );
-                              }}
-                              style={
-                                deleteButtonStyle
-                              }
-                            >
-                              Eliminar
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    )
+                      )}
+                    </tr>
+                  )
                   )}
                 </tbody>
               </table>
@@ -2008,330 +1925,6 @@ export function MaterialesPage() {
                     Importar 5MF
                   </h2>
 
-                  <p
-                    style={
-                      modalDescriptionStyle
-                    }
-                  >
-                    Carga el archivo 5MF para
-                    registrar familias, arneses,
-                    diseños reales y planes
-                    semanales.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={
-                    cerrarImportacionFiveMf
-                  }
-                  disabled={importandoFiveMf}
-                  aria-label="Cerrar"
-                  style={closeButtonStyle}
-                >
-                  ×
-                </button>
-              </div>
-
-              <form
-                onSubmit={
-                  ejecutarImportacionFiveMf
-                }
-              >
-                <div style={formGridStyle}>
-                  <div
-                    style={
-                      formGroupFullStyle
-                    }
-                  >
-                    <label
-                      htmlFor="archivoFiveMf"
-                      style={labelStyle}
-                    >
-                      Archivo 5MF *
-                    </label>
-
-                    <input
-                      id="archivoFiveMf"
-                      type="file"
-                      accept=".xlsx"
-                      onChange={(event) => {
-                        const archivo =
-                          event.target.files?.[0] ??
-                          null;
-
-                        setArchivoFiveMf(
-                          archivo
-                        );
-
-                        setResultadoFiveMf(
-                          null
-                        );
-
-                        setErrorFormulario("");
-                      }}
-                      disabled={
-                        importandoFiveMf
-                      }
-                      style={inputStyle}
-                    />
-
-                    <small
-                      style={helpTextStyle}
-                    >
-                      Selecciona el archivo
-                      5MF.xlsx.
-                    </small>
-                  </div>
-                </div>
-
-                {archivoFiveMf && (
-                  <div
-                    style={
-                      selectedFileStyle
-                    }
-                  >
-                    Archivo seleccionado:{" "}
-                    <strong>
-                      {archivoFiveMf.name}
-                    </strong>
-                  </div>
-                )}
-
-                {errorFormulario && (
-                  <div style={errorStyle}>
-                    {errorFormulario}
-                  </div>
-                )}
-
-                {resultadoFiveMf && (
-                  <div
-                    style={
-                      importResultStyle
-                    }
-                  >
-                    <h3
-                      style={
-                        importResultTitleStyle
-                      }
-                    >
-                      Resultado del 5MF
-                    </h3>
-
-                    <div
-                      style={
-                        importSummaryStyle
-                      }
-                    >
-                      <span>
-                        Total:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .totalFilas
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Correctas:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .filasCorrectas
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Advertencias:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .filasConAdvertencia
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Errores:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .filasConError
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Familias encontradas:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .familiasEncontradas
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Familias sin coincidencia:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .familiasSinCoincidencia
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Arneses creados:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .arnesesCreados
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Arneses existentes:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .arnesesExistentes
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Planes guardados:{" "}
-                        <strong>
-                          {
-                            resultadoFiveMf
-                              .planesSemanalesGuardados
-                          }
-                        </strong>
-                      </span>
-                    </div>
-
-                    {resultadoFiveMf.errores
-                      .length > 0 && (
-                        <div
-                          style={
-                            importErrorsStyle
-                          }
-                        >
-                          {resultadoFiveMf.errores.map(
-                            (error) => (
-                              <p
-                                key={
-                                  `${error.numeroFila}-` +
-                                  error.mensaje
-                                }
-                                style={
-                                  importMessageStyle
-                                }
-                              >
-                                Fila{" "}
-                                {error.numeroFila}:{" "}
-                                {error.mensaje}
-                              </p>
-                            )
-                          )}
-                        </div>
-                      )}
-
-                    {resultadoFiveMf
-                      .advertencias.length >
-                      0 && (
-                        <div
-                          style={
-                            importWarningsStyle
-                          }
-                        >
-                          {resultadoFiveMf
-                            .advertencias.map(
-                              (advertencia) => (
-                                <p
-                                  key={
-                                    `${advertencia.numeroFila}-` +
-                                    advertencia.mensaje
-                                  }
-                                  style={
-                                    importMessageStyle
-                                  }
-                                >
-                                  Fila{" "}
-                                  {
-                                    advertencia.numeroFila
-                                  }
-                                  :{" "}
-                                  {
-                                    advertencia.mensaje
-                                  }
-                                </p>
-                              )
-                            )}
-                        </div>
-                      )}
-                  </div>
-                )}
-
-                <div
-                  style={
-                    modalActionsStyle
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={
-                      cerrarImportacionFiveMf
-                    }
-                    disabled={
-                      importandoFiveMf
-                    }
-                    style={
-                      secondaryButtonStyle
-                    }
-                  >
-                    Cerrar
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={
-                      importandoFiveMf ||
-                      !archivoFiveMf
-                    }
-                    style={{
-                      ...primaryButtonStyle,
-
-                      opacity:
-                        importandoFiveMf ||
-                          !archivoFiveMf
-                          ? 0.65
-                          : 1,
-                    }}
-                  >
-                    {importandoFiveMf
-                      ? "Importando..."
-                      : "Importar 5MF"}
-                  </button>
-                </div>
-              </form>
-            </section>
-          </div>
-        )}
-      {mostrarImportacionFiveMf &&
-        esAdministrador && (
-          <div style={modalOverlayStyle}>
-            <section style={modalStyle}>
-              <div style={modalHeaderStyle}>
-                <div>
-                  <h2 style={modalTitleStyle}>
-                    Importar 5MF
-                  </h2>
-
                   <p style={modalDescriptionStyle}>
                     Selecciona el archivo 5MF.
                   </p>
@@ -2509,7 +2102,7 @@ export function MaterialesPage() {
                   </h2>
 
                   <p style={modalDescriptionStyle}>
-                    Selecciona la familia y carga el archivo Excel.
+                    Carga el archivo BOM.
                   </p>
                 </div>
 
@@ -2523,124 +2116,8 @@ export function MaterialesPage() {
                   ×
                 </button>
               </div>
-
               <form onSubmit={ejecutarImportacionBom}>
                 <div style={formGridStyle}>
-                  <div style={formGroupFullStyle}>
-                    <label
-                      htmlFor="buscarFamiliaBom"
-                      style={labelStyle}
-                    >
-                      Buscar proyecto o familia
-                    </label>
-
-                    <input
-                      id="buscarFamiliaBom"
-                      type="text"
-                      value={busquedaFamiliaBom}
-                      onChange={(event) => {
-                        setBusquedaFamiliaBom(
-                          event.target.value
-                        );
-
-                        setIdFamiliaBom(0);
-                      }}
-                      disabled={importandoBom}
-                      placeholder="Escribe el nombre del proyecto o familia"
-                      autoComplete="off"
-                      style={inputStyle}
-                    />
-
-                    <label
-                      htmlFor="familiaBom"
-                      style={labelStyle}
-                    >
-                      Familia *
-                    </label>
-
-                    <select
-                      id="familiaBom"
-                      value={idFamiliaBom}
-                      onChange={(event) => {
-                        setIdFamiliaBom(
-                          Number(event.target.value)
-                        );
-                      }}
-                      disabled={importandoBom}
-                      style={inputStyle}
-                    >
-                      <option value={0}>
-                        Seleccionar familia
-                      </option>
-
-                      {familiasBomFiltradas.map(
-                        (familia) => (
-                          <option
-                            key={familia.idFamilia}
-                            value={familia.idFamilia}
-                          >
-                            {familia.nombreProyecto}
-                            {" - "}
-                            {familia.nombre}
-                          </option>
-                        )
-                      )}
-                    </select>
-
-                    {busquedaFamiliaBom &&
-                      familiasBomFiltradas.length === 0 && (
-                        <small style={searchEmptyStyle}>
-                          No se encontraron proyectos o familias.
-                        </small>
-                      )}
-                  </div>
-
-                  <div style={formGroupStyle}>
-                    <label
-                      htmlFor="nivelDisenoBom"
-                      style={labelStyle}
-                    >
-                      Nivel de diseño *
-                    </label>
-
-                    <input
-                      id="nivelDisenoBom"
-                      type="text"
-                      value={nivelDisenoBom}
-                      onChange={(event) => {
-                        setNivelDisenoBom(
-                          event.target.value
-                        );
-                      }}
-                      disabled={importandoBom}
-                      placeholder="Ejemplo: A"
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div style={formGroupStyle}>
-                    <label
-                      htmlFor="versionBom"
-                      style={labelStyle}
-                    >
-                      Versión BOM *
-                    </label>
-
-                    <input
-                      id="versionBom"
-                      type="text"
-                      value={versionBom}
-                      onChange={(event) => {
-                        setVersionBom(
-                          event.target.value
-                        );
-                      }}
-                      disabled={importandoBom}
-                      placeholder="Ejemplo: V1"
-                      style={inputStyle}
-                    />
-                  </div>
-
                   <div style={formGroupFullStyle}>
                     <label
                       htmlFor="archivoBom"
@@ -2692,7 +2169,6 @@ export function MaterialesPage() {
                     {errorFormulario}
                   </div>
                 )}
-
                 {resultadoImportacion && (
                   <div style={importResultStyle}>
                     <h3 style={importResultTitleStyle}>
@@ -2703,20 +2179,14 @@ export function MaterialesPage() {
                       <span>
                         Total:{" "}
                         <strong>
-                          {
-                            resultadoImportacion
-                              .totalFilas
-                          }
+                          {resultadoImportacion.totalFilas}
                         </strong>
                       </span>
 
                       <span>
                         Correctas:{" "}
                         <strong>
-                          {
-                            resultadoImportacion
-                              .filasCorrectas
-                          }
+                          {resultadoImportacion.filasCorrectas}
                         </strong>
                       </span>
 
@@ -2733,47 +2203,107 @@ export function MaterialesPage() {
                       <span>
                         Errores:{" "}
                         <strong>
-                          {
-                            resultadoImportacion
-                              .filasConError
-                          }
+                          {resultadoImportacion.filasConError}
                         </strong>
                       </span>
                     </div>
 
-                    {resultadoImportacion.errores
-                      .length > 0 && (
-                        <div style={importErrorsStyle}>
-                          {resultadoImportacion.errores.map(
-                            (error) => (
-                              <p
-                                key={`${error.numeroFila}-${error.mensaje}`}
-                                style={importMessageStyle}
-                              >
-                                Fila {error.numeroFila}:{" "}
-                                {error.mensaje}
-                              </p>
-                            )
-                          )}
-                        </div>
-                      )}
+                    {resultadoImportacion.errores.length > 0 && (
+                      <details style={importDetailsErrorStyle}>
+                        <summary style={importDetailsSummaryStyle}>
+                          Ver errores (
+                          {resultadoImportacion.errores.length}
+                          )
+                        </summary>
 
-                    {resultadoImportacion.advertencias
-                      .length > 0 && (
-                        <div style={importWarningsStyle}>
-                          {resultadoImportacion.advertencias.map(
-                            (advertencia) => (
-                              <p
-                                key={`${advertencia.numeroFila}-${advertencia.mensaje}`}
-                                style={importMessageStyle}
-                              >
-                                Fila{" "}
-                                {advertencia.numeroFila}:{" "}
-                                {advertencia.mensaje}
-                              </p>
-                            )
-                          )}
+                        <div style={importTableContainerStyle}>
+                          <table style={importTableStyle}>
+                            <thead>
+                              <tr>
+                                <th style={importTableHeaderStyle}>
+                                  Fila
+                                </th>
+
+                                <th style={importTableHeaderStyle}>
+                                  Error
+                                </th>
+                              </tr>
+                            </thead>
+
+                            <tbody>
+                              {resultadoImportacion.errores.map(
+                                (error, indice) => (
+                                  <tr
+                                    key={
+                                      `${error.numeroFila}-` +
+                                      `${indice}`
+                                    }
+                                  >
+                                    <td style={importTableCellStyle}>
+                                      {error.numeroFila}
+                                    </td>
+
+                                    <td style={importTableCellStyle}>
+                                      {error.mensaje}
+                                    </td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
                         </div>
+                      </details>
+                    )}
+
+                    {resultadoImportacion.advertencias.length >
+                      0 && (
+                        <details style={importDetailsWarningStyle}>
+                          <summary style={importDetailsSummaryStyle}>
+                            Ver advertencias (
+                            {
+                              resultadoImportacion
+                                .advertencias.length
+                            }
+                            )
+                          </summary>
+
+                          <div style={importTableContainerStyle}>
+                            <table style={importTableStyle}>
+                              <thead>
+                                <tr>
+                                  <th style={importTableHeaderStyle}>
+                                    Fila
+                                  </th>
+
+                                  <th style={importTableHeaderStyle}>
+                                    Advertencia
+                                  </th>
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {resultadoImportacion.advertencias.map(
+                                  (advertencia, indice) => (
+                                    <tr
+                                      key={
+                                        `${advertencia.numeroFila}-` +
+                                        `${indice}`
+                                      }
+                                    >
+                                      <td style={importTableCellStyle}>
+                                        {advertencia.numeroFila}
+                                      </td>
+
+                                      <td style={importTableCellStyle}>
+                                        {advertencia.mensaje}
+                                      </td>
+                                    </tr>
+                                  )
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </details>
                       )}
                   </div>
                 )}
@@ -2788,21 +2318,27 @@ export function MaterialesPage() {
                     Cerrar
                   </button>
 
-                  <button
-                    type="submit"
-                    disabled={importandoBom}
-                    style={{
-                      ...primaryButtonStyle,
-                      opacity:
-                        importandoBom
-                          ? 0.65
-                          : 1,
-                    }}
-                  >
-                    {importandoBom
-                      ? "Importando..."
-                      : "Importar BOM"}
-                  </button>
+                  {!resultadoImportacion && (
+                    <button
+                      type="submit"
+                      disabled={
+                        importandoBom ||
+                        !archivoBom
+                      }
+                      style={{
+                        ...primaryButtonStyle,
+                        opacity:
+                          importandoBom ||
+                            !archivoBom
+                            ? 0.65
+                            : 1,
+                      }}
+                    >
+                      {importandoBom
+                        ? "Importando..."
+                        : "Importar BOM"}
+                    </button>
+                  )}
                 </div>
               </form>
             </section>
@@ -3028,7 +2564,7 @@ const textareaStyle = {
 
 const helpTextStyle = {
   color: "#64748b",
-  fontSize: "12px",
+  fontSize: "12px"
 };
 
 const resultsHeaderStyle = {
@@ -3382,31 +2918,6 @@ const importSummaryStyle = {
   fontSize: "13px",
 };
 
-const importErrorsStyle = {
-  marginTop: "14px",
-  padding: "12px",
-  borderRadius: "8px",
-  background: "#fef2f2",
-  color: "#991b1b",
-};
-
-const importWarningsStyle = {
-  marginTop: "14px",
-  padding: "12px",
-  borderRadius: "8px",
-  background: "#fff7ed",
-  color: "#9a3412",
-};
-
-const importMessageStyle = {
-  margin: "4px 0",
-  fontSize: "12px",
-}; const searchEmptyStyle = {
-  color: "#b91c1c",
-  fontSize: "12px",
-  fontWeight: "600",
-};
-
 const paginationStyle = {
   display: "flex",
   alignItems: "center",
@@ -3431,4 +2942,56 @@ const paginationInfoStyle = {
   color: "#475569",
   fontSize: "13px",
   fontWeight: "700",
+}; const importDetailsErrorStyle = {
+  marginTop: "14px",
+  border: "1px solid #fecaca",
+  borderRadius: "9px",
+  background: "#fef2f2",
+  color: "#991b1b",
+};
+
+const importDetailsWarningStyle = {
+  marginTop: "14px",
+  border: "1px solid #fed7aa",
+  borderRadius: "9px",
+  background: "#fff7ed",
+  color: "#9a3412",
+};
+
+const importDetailsSummaryStyle = {
+  padding: "12px 14px",
+  fontSize: "13px",
+  fontWeight: "700",
+  cursor: "pointer",
+};
+
+const importTableContainerStyle = {
+  maxHeight: "260px",
+  overflowY: "auto" as const,
+  borderTop: "1px solid #e2e8f0",
+};
+
+const importTableStyle = {
+  width: "100%",
+  borderCollapse: "collapse" as const,
+  background: "#ffffff",
+};
+
+const importTableHeaderStyle = {
+  position: "sticky" as const,
+  top: 0,
+  padding: "9px 10px",
+  borderBottom: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  color: "#334155",
+  fontSize: "12px",
+  textAlign: "left" as const,
+};
+
+const importTableCellStyle = {
+  padding: "8px 10px",
+  borderBottom: "1px solid #e2e8f0",
+  color: "#475569",
+  fontSize: "12px",
+  verticalAlign: "top" as const,
 };

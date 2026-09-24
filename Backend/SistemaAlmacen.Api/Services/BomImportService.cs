@@ -4,7 +4,8 @@ using SistemaAlmacen.Api.Models;
 
 namespace SistemaAlmacen.Api.Services;
 
-// Lee el Excel y crea materiales, arneses y estaciones.
+// Lee el BOM, identifica arneses existentes
+// y crea materiales y relaciones BOM.
 public sealed class BomImportService
 {
     private readonly MaterialRepository
@@ -13,17 +14,13 @@ public sealed class BomImportService
     private readonly ArnesRepository
         _arnesRepository;
 
-    private readonly EstacionRepository
-        _estacionRepository;
-
     private readonly BomRepository
-    _bomRepository;
+        _bomRepository;
 
     public BomImportService(
-     MaterialRepository materialRepository,
-     ArnesRepository arnesRepository,
-     EstacionRepository estacionRepository,
-     BomRepository bomRepository)
+        MaterialRepository materialRepository,
+        ArnesRepository arnesRepository,
+        BomRepository bomRepository)
     {
         _materialRepository =
             materialRepository;
@@ -31,20 +28,16 @@ public sealed class BomImportService
         _arnesRepository =
             arnesRepository;
 
-        _estacionRepository =
-            estacionRepository;
-
         _bomRepository =
             bomRepository;
     }
+
+
     public async Task<BomImportResult> ImportarAsync(
-        Stream archivo,
-        string nombreArchivo,
-        int idFamilia,
-        string nivelDiseno,
-        string version,
-        long idImportacion,
-        int idUsuario)
+     Stream archivo,
+     string nombreArchivo,
+     long idImportacion,
+     int idUsuario)
 
 
     {
@@ -58,11 +51,24 @@ public sealed class BomImportService
         using var workbook =
             new XLWorkbook(archivo);
 
-var worksheet =
-    workbook.Worksheets.First();
+        var worksheet =
+      workbook.Worksheets
+          .FirstOrDefault(
+              hoja =>
+                  hoja.Name.Equals(
+                      "Bill of Material List (Multi)",
+                      StringComparison.OrdinalIgnoreCase
+                  )
+          );
 
-var filaEncabezados =
-    worksheet.FirstRowUsed();
+        if (worksheet is null)
+        {
+            throw new InvalidOperationException(
+                "El archivo no contiene la hoja Bill of Material List (Multi)."
+            );
+        }
+        var filaEncabezados =
+            worksheet.FirstRowUsed();
 
         if (filaEncabezados is null)
         {
@@ -76,170 +82,223 @@ var filaEncabezados =
                 filaEncabezados
             );
 
-ValidarColumnasObligatorias(
-    columnas
-);
-
-var ultimaFila =
-    worksheet.LastRowUsed()
-        ?.RowNumber() ?? 1;
-
-for (
-    var numeroFila = 2;
-    numeroFila <= ultimaFila;
-    numeroFila++
-)
-{
-    var fila =
-        worksheet.Row(
-            numeroFila
+        ValidarColumnasObligatorias(
+            columnas
         );
 
-    if (fila.IsEmpty())
-    {
-        continue;
-    }
+        var ultimaFila =
+            worksheet.LastRowUsed()
+                ?.RowNumber() ?? 1;
 
-    resultado.TotalFilas++;
-
-    try
-    {
-        var numeroArnes =
-            ObtenerTexto(
-                fila,
-                columnas,
-                "PRODUCTNUMBER"
-            );
-
-        var numeroMaterial =
-            ObtenerTexto(
-                fila,
-                columnas,
-                "MATERIALNUMBER"
-            );
-
-        var nombreMaterial =
-            ObtenerTexto(
-                fila,
-                columnas,
-                "MATERIALNAME"
-            );
-
-        var estacion =
-            ObtenerTexto(
-                fila,
-                columnas,
-                "ESTACION"
-            );
-
-        var bomQty =
-            ObtenerDecimal(
-                fila,
-                columnas,
-                "BOMQTY"
-            );
-
-        var stdPack =
-            ObtenerDecimalOpcional(
-                fila,
-                columnas,
-                "STDPACK"
-            );
-
-        if (
-            string.IsNullOrWhiteSpace(
-                numeroArnes
-            )
+        for (
+            var numeroFila = 2;
+            numeroFila <= ultimaFila;
+            numeroFila++
         )
         {
-            throw new InvalidOperationException(
-                "Product Number está vacío."
-            );
-        }
+            var fila =
+                worksheet.Row(
+                    numeroFila
+                );
 
-        if (
-            string.IsNullOrWhiteSpace(
-                numeroMaterial
-            )
-        )
-        {
-            throw new InvalidOperationException(
-                "Material Number está vacío."
-            );
-        }
+            if (fila.IsEmpty())
+            {
+                continue;
+            }
 
-        if (
-            string.IsNullOrWhiteSpace(
-                nombreMaterial
-            )
-        )
-        {
-            throw new InvalidOperationException(
-                "Material Name está vacío."
-            );
-        }
+            resultado.TotalFilas++;
 
-        if (bomQty <= 0)
-        {
-            throw new InvalidOperationException(
-                "BOM Qty debe ser mayor que cero."
-            );
-        }
+            try
+            {
+                var numeroArnes =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "PRODUCTNUMBER"
+                    );
 
-        if (
-            stdPack.HasValue &&
-            stdPack.Value <= 0
-        )
-        {
-            stdPack = null;
+                var custDsg1 =
+ObtenerTexto(
+    fila,
+    columnas,
+    "CUSTDSG1"
+)
+.Trim()
+.ToUpperInvariant();
 
-            resultado.Advertencias.Add(
-                new AdvertenciaImportacionBom
+                var custDsg2 =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "CUSTDSG2"
+                    )
+                    .Trim()
+                    .ToUpperInvariant();
+
+                var intDsg =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "INTDSG"
+                    )
+                    .Trim()
+                    .ToUpperInvariant();
+
+                var nivelDiseno =
+                    $"{custDsg1}{custDsg2}{intDsg}";
+
+
+
+                var numeroMaterial =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "MATERIALNUMBER"
+                    );
+
+                var nombreMaterial =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "MATERIALNAME"
+                    );
+
+                var genericCode =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "GENERICCODE"
+                    )
+                    .Trim()
+                    .ToUpperInvariant();
+
+                // La estación se asignará posteriormente
+                // con información proporcionada por la empresa.
+                string? estacion = null;
+
+                var bomQty =
+                    ObtenerDecimal(
+                        fila,
+                        columnas,
+                        "BOMQTY"
+                    );
+                decimal? stdPack = null;
+
+
+                if (
+                    string.IsNullOrWhiteSpace(
+                        numeroArnes
+                    )
+                )
                 {
-                    NumeroFila =
-                        numeroFila,
-
-                    Mensaje =
-                        "STD Pack no es válido. El material se importó sin STD Pack."
+                    throw new InvalidOperationException(
+                        "Product Number está vacío."
+                    );
                 }
-            );
 
-            resultado
-                .FilasConAdvertencia++;
-        }
+                if (
+                    string.IsNullOrWhiteSpace(
+                        numeroMaterial
+                    )
+                )
+                {
+                    throw new InvalidOperationException(
+                        "Material Number está vacío."
+                    );
+                }
 
-        var arnes =
-            await _arnesRepository
-                .ObtenerOCrearAsync(
-                    idFamilia,
-                    numeroArnes,
-                    nivelDiseno
-                );
+                if (
+    string.IsNullOrWhiteSpace(
+        nombreMaterial
+             )
+            )
+                {
+                    if (
+    genericCode.Equals(
+        "W",
+        StringComparison.OrdinalIgnoreCase
+    )
+)
+                    {
+                        nombreMaterial =
+                            numeroMaterial;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            "Material Name está vacío."
+                        );
+                    }
+                }
 
-        if (arnes is null)
-        {
-            throw new InvalidOperationException(
-                "No se pudo crear o localizar el arnés."
-            );
-        }
 
-        var material =
-            await _materialRepository
-                .ObtenerOCrearDesdeBomAsync(
-                    numeroMaterial,
-                    nombreMaterial,
-                    stdPack
-                );
 
-        if (material is null)
-        {
-            throw new InvalidOperationException(
-                "No se pudo crear o actualizar el material."
-            );
-        }
+                if (bomQty <= 0)
+                {
+                    throw new InvalidOperationException(
+                        "BOM Qty debe ser mayor que cero."
+                    );
+                }
 
-        
-        var idBom =
+                // Verifica que las tres partes del diseño existan.
+                if (
+                    string.IsNullOrWhiteSpace(
+                        custDsg1
+                    ) ||
+                    string.IsNullOrWhiteSpace(
+                        custDsg2
+                    ) ||
+                    string.IsNullOrWhiteSpace(
+                        intDsg
+                    )
+                )
+                {
+                    throw new InvalidOperationException(
+                        $"No fue posible formar el diseño del arnés {numeroArnes}."
+                    );
+                }
+
+                // Busca el arnés exacto por número y diseño.
+                var arnes =
+                    await _arnesRepository
+                        .ObtenerPorNumeroYDisenoAsync(
+                            numeroArnes,
+                            nivelDiseno
+                        );
+
+                if (arnes is null)
+                {
+                    throw new InvalidOperationException(
+                        $"El arnés {numeroArnes} con diseño {nivelDiseno} no existe en el 5MF."
+                    );
+                }
+
+
+                // La versión se obtiene automáticamente
+                // del nombre del archivo BOM.
+                var version =
+                    Path.GetFileNameWithoutExtension(
+                        nombreArchivo
+                    )
+                    .Trim()
+                    .ToUpperInvariant();
+
+                var material =
+       await _materialRepository
+           .ObtenerOCrearDesdeBomAsync(
+               numeroMaterial,
+               nombreMaterial,
+               genericCode,
+               stdPack
+           );
+
+                if (material is null)
+                {
+                    throw new InvalidOperationException(
+                        "No se pudo crear o localizar el material."
+                    );
+                }
+                var idBom =
     await _bomRepository
         .ObtenerOCrearAsync(
             idImportacion,
@@ -249,252 +308,161 @@ for (
             idUsuario
         );
 
-        await _bomRepository
-            .GuardarDetalleAsync(
-                idBom,
-                material.IdMaterial,
-                numeroFila,
-                bomQty,
-                estacion,
-                stdPack
-            );
-
-        if (
-            !string.IsNullOrWhiteSpace(
-                estacion
-            )
-        )
-        {
-            var estacionResultado =
-                await _estacionRepository
-                    .ObtenerOCrearAsync(
-                        idFamilia,
-                        estacion
+                await _bomRepository
+                    .GuardarDetalleAsync(
+                        idBom,
+                        material.IdMaterial,
+                        numeroFila,
+                        bomQty,
+                        estacion,
+                        stdPack
                     );
 
-            if (
-                estacionResultado is null
-            )
+                resultado.FilasCorrectas++;
+            }
+            catch (Exception ex)
             {
-                resultado.Advertencias.Add(
-                    new AdvertenciaImportacionBom
+                resultado.FilasConError++;
+
+                resultado.Errores.Add(
+                    new ErrorImportacionBom
                     {
                         NumeroFila =
                             numeroFila,
 
                         Mensaje =
-                            "No se pudo crear o identificar la estación."
+                            ex.Message
                     }
                 );
-
-                resultado
-                    .FilasConAdvertencia++;
             }
         }
-        else
-        {
-            resultado.Advertencias.Add(
-                new AdvertenciaImportacionBom
-                {
-                    NumeroFila =
-                        numeroFila,
 
-                    Mensaje =
-                        "La estación está vacía."
-                }
-            );
-
-            resultado
-                .FilasConAdvertencia++;
-        }
-
-        resultado.FilasCorrectas++;
-    }
-    catch (Exception ex)
-    {
-        resultado.FilasConError++;
-
-        resultado.Errores.Add(
-            new ErrorImportacionBom
-            {
-                NumeroFila =
-                    numeroFila,
-
-                Mensaje =
-                    ex.Message
-            }
-        );
-    }
-}
-
-return resultado;
+        return resultado;
     }
 
     private static Dictionary<string, int>
         ObtenerColumnas(
             IXLRow filaEncabezados)
-{
-    var columnas =
-        new Dictionary<string, int>();
-
-    foreach (
-        var celda in
-        filaEncabezados.CellsUsed()
-    )
     {
-        var encabezado =
-            NormalizarEncabezado(
-                celda.GetString()
-            );
+        var columnas =
+            new Dictionary<string, int>();
 
-        if (
-            !string.IsNullOrWhiteSpace(
-                encabezado
-            )
+        foreach (
+            var celda in
+            filaEncabezados.CellsUsed()
         )
         {
-            columnas[encabezado] =
-                celda.Address
-                    .ColumnNumber;
+            var encabezado =
+                NormalizarEncabezado(
+                    celda.GetString()
+                );
+
+            if (
+                !string.IsNullOrWhiteSpace(
+                    encabezado
+                )
+            )
+            {
+                columnas[encabezado] =
+                    celda.Address
+                        .ColumnNumber;
+            }
+        }
+
+        return columnas;
+    }
+
+    private static void
+        ValidarColumnasObligatorias(
+            Dictionary<string, int> columnas)
+    {
+        var columnasObligatorias =
+     new[]
+     {
+        "PRODUCTNUMBER",
+        "CUSTDSG1",
+        "CUSTDSG2",
+        "INTDSG",
+        "MATERIALNUMBER",
+        "MATERIALNAME",
+        "GENERICCODE",
+        "BOMQTY"
+     };
+
+        var faltantes =
+            columnasObligatorias
+                .Where(
+                    columna =>
+                        !columnas.ContainsKey(
+                            columna
+                        )
+                )
+                .ToList();
+
+        if (faltantes.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Faltan columnas obligatorias: " +
+                string.Join(
+                    ", ",
+                    faltantes
+                )
+            );
         }
     }
 
-    return columnas;
-}
-
-private static void
-    ValidarColumnasObligatorias(
-        Dictionary<string, int> columnas)
-{
-    var columnasObligatorias =
-        new[]
-        {
-                "PRODUCTNUMBER",
-                "MATERIALNUMBER",
-                "MATERIALNAME",
-                "BOMQTY",
-                "ESTACION",
-                "STDPACK"
-        };
-
-    var faltantes =
-        columnasObligatorias
-            .Where(
-                columna =>
-                    !columnas.ContainsKey(
-                        columna
-                    )
-            )
-            .ToList();
-
-    if (faltantes.Count > 0)
-    {
-        throw new InvalidOperationException(
-            "Faltan columnas obligatorias: " +
-            string.Join(
-                ", ",
-                faltantes
-            )
-        );
-    }
-}
-
-private static string ObtenerTexto(
-    IXLRow fila,
-    Dictionary<string, int> columnas,
-    string nombreColumna)
-{
-    var numeroColumna =
-        columnas[nombreColumna];
-
-    return fila
-        .Cell(numeroColumna)
-        .GetString()
-        .Trim();
-}
-
-private static decimal ObtenerDecimal(
-    IXLRow fila,
-    Dictionary<string, int> columnas,
-    string nombreColumna)
-{
-    var texto =
-        ObtenerTexto(
-            fila,
-            columnas,
-            nombreColumna
-        );
-
-    if (
-        decimal.TryParse(
-            texto,
-            out var valor
-        )
-    )
-    {
-        return valor;
-    }
-
-    throw new InvalidOperationException(
-        $"{nombreColumna} no contiene un número válido."
-    );
-}
-
-private static decimal?
-    ObtenerDecimalOpcional(
+    private static string ObtenerTexto(
         IXLRow fila,
         Dictionary<string, int> columnas,
         string nombreColumna)
-{
-    var texto =
-        ObtenerTexto(
-            fila,
-            columnas,
-            nombreColumna
+    {
+        var numeroColumna =
+            columnas[nombreColumna];
+
+        return fila
+            .Cell(numeroColumna)
+            .GetString()
+            .Trim();
+    }
+
+    private static decimal ObtenerDecimal(
+        IXLRow fila,
+        Dictionary<string, int> columnas,
+        string nombreColumna)
+    {
+        var texto =
+            ObtenerTexto(
+                fila,
+                columnas,
+                nombreColumna
+            );
+
+        if (
+            decimal.TryParse(
+                texto,
+                out var valor
+            )
+        )
+        {
+            return valor;
+        }
+
+        throw new InvalidOperationException(
+            $"{nombreColumna} no contiene un número válido."
         );
-
-    if (
-        string.IsNullOrWhiteSpace(
-            texto
-        ) ||
-        texto.Equals(
-            "#N/D",
-            StringComparison
-                .OrdinalIgnoreCase
-        ) ||
-        texto.Equals(
-            "#N/A",
-            StringComparison
-                .OrdinalIgnoreCase
-        )
-    )
-    {
-        return null;
     }
 
-    if (
-        decimal.TryParse(
-            texto,
-            out var valor
-        )
-    )
+
+    private static string
+        NormalizarEncabezado(
+            string encabezado)
     {
-        return valor;
+        return encabezado
+            .Trim()
+            .ToUpperInvariant()
+            .Replace(" ", "")
+            .Replace(".", "")
+            .Replace("_", "")
+            .Replace("-", "");
     }
-
-    return null;
-}
-
-private static string
-    NormalizarEncabezado(
-        string encabezado)
-{
-    return encabezado
-        .Trim()
-        .ToUpperInvariant()
-        .Replace(" ", "")
-        .Replace(".", "")
-        .Replace("_", "")
-        .Replace("-", "");
-}
 }

@@ -274,20 +274,45 @@ public sealed class FamiliaRepository
         var idProyectoResultado =
             await command.ExecuteScalarAsync();
 
+        int idProyecto;
+
         if (
             idProyectoResultado is null ||
             idProyectoResultado is DBNull
         )
         {
-            throw new InvalidOperationException(
-                $"El proyecto {nombreProyectoLimpio} no existe o está inactivo."
-            );
-        }
+            command.Parameters.Clear();
 
-        var idProyecto =
-            Convert.ToInt32(
-                idProyectoResultado
+            command.CommandText = """
+    INSERT INTO proyectos (
+        nombre,
+        descripcion,
+        activo
+    )
+    VALUES (
+        @nombreProyecto,
+        'Proyecto creado automáticamente desde 5MF',
+        TRUE
+    );
+    """;
+
+            command.Parameters.AddWithValue(
+                "@nombreProyecto",
+                nombreProyectoLimpio
             );
+
+            await command.ExecuteNonQueryAsync();
+
+            idProyecto =
+                (int)command.LastInsertedId;
+        }
+        else
+        {
+            idProyecto =
+                Convert.ToInt32(
+                    idProyectoResultado
+                );
+        }
 
         // Crea la familia usando Code como nombre.
         return await CrearAsync(
