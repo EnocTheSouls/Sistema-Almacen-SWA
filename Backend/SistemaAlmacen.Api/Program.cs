@@ -31,14 +31,16 @@ builder.Services.AddScoped<EstacionRepository>();
 builder.Services.AddScoped<SolicitudRepository>();
 builder.Services.AddScoped<MovimientoInventarioRepository>();
 builder.Services.AddScoped<ImportacionBomRepository>();
-builder.Services.AddScoped<ImportacionFiveMfRepository>();
+builder.Services.AddScoped<ImportacionFiveMfRepository>();  
 builder.Services.AddScoped<BomRepository>();
 builder.Services.AddScoped<BomImportService>();
 builder.Services.AddScoped<FiveMfImportService>();
 builder.Services.AddScoped<IpsExportService>();
+builder.Services.AddScoped<MaterialBarcodeExportService>();
 builder.Services.AddScoped<AlertaCambioDisenoRepository>();
 builder.Services.AddScoped<EstacionImportService>();
-builder.Services.AddScoped<EstacionImportService>();
+
+builder.Services.AddControllers();
 
 
 
@@ -258,5 +260,7 @@ app.MapMovimientoInventarioEndpoints();
 app.MapBomImportEndpoints();
 app.MapFiveMfImportEndpoints();
 app.MapIpsExportEndpoints();
+app.MapMaterialBarcodeExportEndpoints();
 app.MapGroup("/api").MapAlertaCambioDisenoEndpoints();
+app.MapControllers();
 app.Run();

@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
 } from "react";
 
@@ -35,6 +36,61 @@ export function Layout({
     setMostrarPerfil,
   ] = useState(false);
 
+  // Detecta si la aplicación se muestra en celular.
+  const [
+    modoMovil,
+    setModoMovil,
+  ] = useState(
+    () =>
+      window.matchMedia(
+        "(max-width: 768px)"
+      ).matches
+  );
+
+  // Controla el menú lateral en celular.
+  const [
+    menuMovilAbierto,
+    setMenuMovilAbierto,
+  ] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery =
+      window.matchMedia(
+        "(max-width: 768px)"
+      );
+
+    const actualizarModoMovil = (
+      event: MediaQueryListEvent
+    ) => {
+      setModoMovil(
+        event.matches
+      );
+
+      if (!event.matches) {
+        setMenuMovilAbierto(false);
+      }
+    };
+
+    setModoMovil(
+      mediaQuery.matches
+    );
+
+    mediaQuery.addEventListener(
+      "change",
+      actualizarModoMovil
+    );
+
+    return () => {
+      mediaQuery.removeEventListener(
+        "change",
+        actualizarModoMovil
+      );
+    };
+  }, []);
+
+
+
+
   const abrirPerfil = () => {
     setMostrarPerfil(true);
   };
@@ -45,19 +101,81 @@ export function Layout({
 
   return (
     <div style={layoutStyle}>
-      <Sidebar />
+      <Sidebar
+        modoMovil={modoMovil}
+        abiertoMovil={menuMovilAbierto}
+        onCerrarMovil={() => {
+          setMenuMovilAbierto(false);
+        }}
+      />
+
+      {modoMovil && menuMovilAbierto && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => {
+            setMenuMovilAbierto(false);
+          }}
+          style={mobileOverlayStyle}
+        />
+      )}
 
       <div style={contentContainerStyle}>
-        <header style={headerStyle}>
-          <div style={systemNameStyle}>
-            Sistema Almacén
+        <header
+          style={{
+            ...headerStyle,
+            height:
+              modoMovil ? "60px" : "70px",
+
+            padding:
+              modoMovil
+                ? "0 14px"
+                : "0 30px",
+            position: "sticky",
+            top: 0,
+            zIndex: 1000,
+          }}
+        >
+          <div style={headerLeftStyle}>
+            {modoMovil && (
+              <button
+                type="button"
+                title="Abrir menú"
+                aria-label="Abrir menú"
+                aria-expanded={
+                  menuMovilAbierto
+                }
+                onClick={() => {
+                  setMenuMovilAbierto(true);
+                }}
+                style={menuButtonStyle}
+              >
+                <MenuIcon />
+              </button>
+            )}
+
+            <div
+              style={{
+                ...systemNameStyle,
+                fontSize:
+                  modoMovil
+                    ? "17px"
+                    : "22px",
+              }}
+            >
+              Sistema Almacén
+            </div>
           </div>
 
+
           <div style={profileAreaStyle}>
-            <span style={roleStyle}>
-              {currentUser?.role ??
-                "SIN ROL"}
-            </span>
+            {!modoMovil && (
+              <span style={roleStyle}>
+                {currentUser?.role ??
+                  "SIN ROL"}
+              </span>
+            )}
+
 
             <button
               type="button"
@@ -71,7 +189,15 @@ export function Layout({
           </div>
         </header>
 
-        <main style={mainStyle}>
+        <main
+          style={{
+            ...mainStyle,
+            padding:
+              modoMovil
+                ? "12px"
+                : "30px",
+          }}
+        >
           {children}
         </main>
       </div>
@@ -216,9 +342,33 @@ export function Layout({
           </div>,
           document.body
         )}
+
+
     </div>
   );
 }
+
+// Icono para abrir el menú móvil.
+function MenuIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M4 6h16M4 12h16M4 18h16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+
 
 // Icono de configuración del perfil.
 function GearIcon() {
@@ -250,7 +400,10 @@ function GearIcon() {
 }
 
 const layoutStyle = {
+  width: "100%",
+  minHeight: "100vh",
   display: "flex",
+  overflowX: "hidden" as const,
 };
 
 const contentContainerStyle = {
@@ -259,6 +412,8 @@ const contentContainerStyle = {
   flexDirection: "column" as const,
   minWidth: 0,
   minHeight: "100vh",
+  width: "100%",
+  overflowX: "hidden" as const,
 };
 
 const headerStyle = {
@@ -422,3 +577,36 @@ const primaryButtonStyle = {
   fontWeight: "700",
   cursor: "pointer",
 };
+
+const headerLeftStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+};
+
+const menuButtonStyle = {
+  width: "40px",
+  height: "40px",
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  border: "1px solid #cbd5e1",
+  borderRadius: "9px",
+  background: "#ffffff",
+  color: "#102957",
+  cursor: "pointer",
+};
+
+const mobileOverlayStyle = {
+  position: "fixed" as const,
+  inset: 0,
+  zIndex: 2990,
+  padding: 0,
+  border: "none",
+  background:
+    "rgba(15, 23, 42, 0.58)",
+  cursor: "pointer",
+};
+``

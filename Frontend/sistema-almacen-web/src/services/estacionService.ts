@@ -30,6 +30,8 @@ export interface ResultadoImportacionEstacion {
   estacionesCreadas: number;
   estacionesExistentes: number;
   asignacionesRealizadas: number;
+  estacionesCreadasDetalle: string[];
+  estacionesExistentesDetalle: string[];
   errores: ErrorImportacionEstacion[];
   advertencias: AdvertenciaImportacionEstacion[];
 }

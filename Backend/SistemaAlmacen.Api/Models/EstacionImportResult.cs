@@ -20,11 +20,21 @@ public sealed class EstacionImportResult
 
     public int AsignacionesRealizadas { get; set; }
 
+    public List<string>
+    EstacionesCreadasDetalle
+    { get; set; } = [];
+
+    public List<string>
+        EstacionesExistentesDetalle
+    { get; set; } = [];
+
     public List<ErrorImportacionEstacion>
-        Errores { get; set; } = [];
+        Errores
+    { get; set; } = [];
 
     public List<AdvertenciaImportacionEstacion>
-        Advertencias { get; set; } = [];
+        Advertencias
+    { get; set; } = [];
 }
 
 // Error detectado en una fila.

@@ -174,6 +174,12 @@ export function EstructuraPage() {
     ResultadoImportacionEstacion | null
   >(null);
 
+  // Controla el detalle desplegable de la importación.
+  const [
+    mostrarDetalleImportacion,
+    setMostrarDetalleImportacion,
+  ] = useState(false);
+
   const [
     mostrarFormularioEstacion,
     setMostrarFormularioEstacion,
@@ -939,7 +945,6 @@ export function EstructuraPage() {
       }
     };
 
-
   const abrirImportacionEstaciones = (
     familia: Familia
   ) => {
@@ -958,6 +963,7 @@ export function EstructuraPage() {
     setMostrarImportacionEstaciones(
       true
     );
+    setMostrarDetalleImportacion(false);
   };
 
   const cerrarImportacionEstaciones = () => {
@@ -977,6 +983,8 @@ export function EstructuraPage() {
     );
 
     setErrorFormulario("");
+
+    setMostrarDetalleImportacion(false);
   };
 
   const ejecutarImportacionEstaciones =
@@ -1598,21 +1606,67 @@ export function EstructuraPage() {
                 familias y estaciones.
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={manejarNuevoRegistro}
-              style={primaryButtonStyle}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
             >
-              {tabActiva === "proyectos" &&
-                "+ Nuevo proyecto"}
+              {tabActiva === "estaciones" && (
+                <button
+                  type="button"
+                  title={
+                    filtroFamilia <= 0
+                      ? "Para importar estaciones, primero selecciona un proyecto y una familia."
+                      : "Importar las estaciones del archivo Excel en la familia seleccionada."
+                  }
+                  disabled={filtroFamilia <= 0}
+                  onClick={() => {
+                    const familiaSeleccionada =
+                      familias.find(
+                        (familia) =>
+                          familia.idFamilia ===
+                          filtroFamilia
+                      );
 
-              {tabActiva === "familias" &&
-                "+ Nueva familia"}
+                    if (familiaSeleccionada) {
+                      abrirImportacionEstaciones(
+                        familiaSeleccionada
+                      );
+                    }
+                  }}
+                  style={{
+                    ...secondaryButtonStyle,
+                    opacity:
+                      filtroFamilia <= 0 ? 0.6 : 1,
+                    cursor:
+                      filtroFamilia <= 0
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+                  Importar estaciones
+                </button>
+              )}
 
-              {tabActiva === "estaciones" &&
-                "+ Nueva estación"}
-            </button>
+              <button
+                type="button"
+                onClick={manejarNuevoRegistro}
+                style={primaryButtonStyle}
+              >
+                {tabActiva === "proyectos" &&
+                  "+ Nuevo proyecto"}
+
+                {tabActiva === "familias" &&
+                  "+ Nueva familia"}
+
+                {tabActiva === "estaciones" &&
+                  "+ Nueva estación"}
+              </button>
+            </div>
+
+
           </div>
 
           {mensajeExito && (
@@ -1744,7 +1798,7 @@ export function EstructuraPage() {
                       Todos los proyectos
                     </option>
 
-                    {proyectos.map((proyecto, indice) => (
+                    {proyectos.map((proyecto) => (
                       <option
                         key={
                           proyecto.idProyecto
@@ -1940,6 +1994,11 @@ export function EstructuraPage() {
                 onCambiarEstado={
                   cambiarEstadoDeEstacion
                 }
+                numeroInicial={
+                  (paginaEstaciones - 1) *
+                  REGISTROS_POR_PAGINA +
+                  1
+                }
               />
 
             )}
@@ -1989,7 +2048,7 @@ export function EstructuraPage() {
             )}
 
         </section>
-      </div>
+      </div >
 
       {mostrarFormularioProyecto && (
         <div style={modalOverlayStyle}>
@@ -2102,35 +2161,39 @@ export function EstructuraPage() {
             </form>
           </section>
         </div>
-      )}
-      {mostrarFormularioFamilia && (
-        <FamiliaFormModal
-          proyectos={proyectos}
-          idProyecto={idProyectoFamilia}
-          nombre={nombreFamilia}
-          descripcion={descripcionFamilia}
-          guardando={guardando}
-          error={errorFormulario}
-          esEdicion={
-            familiaEnEdicion !== null
-          }
-          onCambiarProyecto={
-            setIdProyectoFamilia
-          }
-          onCambiarNombre={
-            setNombreFamilia
-          }
-          onCambiarDescripcion={
-            setDescripcionFamilia
-          }
-          onGuardar={guardarFamilia}
-          onCancelar={
-            cerrarFormularioFamilia
-          }
-        />
-      )}
+      )
+      }
+      {
+        mostrarFormularioFamilia && (
+          <FamiliaFormModal
+            proyectos={proyectos}
+            idProyecto={idProyectoFamilia}
+            nombre={nombreFamilia}
+            descripcion={descripcionFamilia}
+            guardando={guardando}
+            error={errorFormulario}
+            esEdicion={
+              familiaEnEdicion !== null
+            }
+            onCambiarProyecto={
+              setIdProyectoFamilia
+            }
+            onCambiarNombre={
+              setNombreFamilia
+            }
+            onCambiarDescripcion={
+              setDescripcionFamilia
+            }
+            onGuardar={guardarFamilia}
+            onCancelar={
+              cerrarFormularioFamilia
+            }
+          />
+        )
+      }
 
-      {mostrarImportacionEstaciones &&
+      {
+        mostrarImportacionEstaciones &&
         familiaImportacion && (
           <div style={modalOverlayStyle}>
             <section style={modalStyle}>
@@ -2218,10 +2281,48 @@ export function EstructuraPage() {
 
                 {resultadoImportacionEstaciones && (
                   <div style={importResultStyle}>
-                    <strong>
-                      Resultado de la importación
-                    </strong>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                      }}
+                    >
+                      <strong>
+                        Resultado de la importación
+                      </strong>
 
+                      <button
+                        type="button"
+                        title="Ver detalle de la importación"
+                        aria-label="Ver detalle de la importación"
+                        aria-expanded={mostrarDetalleImportacion}
+                        onClick={() =>
+                          setMostrarDetalleImportacion(
+                            (valorActual) => !valorActual
+                          )
+                        }
+                        style={{
+                          width: "34px",
+                          height: "34px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0,
+                          border: "1px solid #bbf7d0",
+                          borderRadius: "8px",
+                          background: "#ffffff",
+                          color: "#166534",
+                          fontSize: "20px",
+                          fontWeight: "700",
+                          lineHeight: 1,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ⋮
+                      </button>
+                    </div>
                     <div style={importSummaryStyle}>
                       <span>
                         Total:{" "}
@@ -2279,6 +2380,84 @@ export function EstructuraPage() {
                         }
                       </span>
                     </div>
+                    {mostrarDetalleImportacion && (
+                      <div
+                        style={{
+                          marginTop: "14px",
+                          paddingTop: "14px",
+                          borderTop: "1px solid #bbf7d0",
+                          display: "grid",
+                          gap: "14px",
+                          fontSize: "13px",
+                        }}
+                      >
+                        <div>
+                          <strong>
+                            Estaciones creadas
+                          </strong>
+
+                          {resultadoImportacionEstaciones
+                            .estacionesCreadasDetalle
+                            .length > 0 ? (
+                            <ul
+                              style={{
+                                margin: "8px 0 0",
+                                paddingLeft: "20px",
+                              }}
+                            >
+                              {resultadoImportacionEstaciones
+                                .estacionesCreadasDetalle
+                                .map((nombreEstacion) => (
+                                  <li key={nombreEstacion}>
+                                    {nombreEstacion}
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : (
+                            <p
+                              style={{
+                                margin: "6px 0 0",
+                              }}
+                            >
+                              No se crearon estaciones nuevas.
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <strong>
+                            Estaciones existentes
+                          </strong>
+
+                          {resultadoImportacionEstaciones
+                            .estacionesExistentesDetalle
+                            .length > 0 ? (
+                            <ul
+                              style={{
+                                margin: "8px 0 0",
+                                paddingLeft: "20px",
+                              }}
+                            >
+                              {resultadoImportacionEstaciones
+                                .estacionesExistentesDetalle
+                                .map((nombreEstacion) => (
+                                  <li key={nombreEstacion}>
+                                    {nombreEstacion}
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : (
+                            <p
+                              style={{
+                                margin: "6px 0 0",
+                              }}
+                            >
+                              No se encontraron estaciones existentes.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2321,36 +2500,40 @@ export function EstructuraPage() {
               </form>
             </section>
           </div>
-        )}
+        )
+      }
 
-      {mostrarFormularioEstacion && (
-        <EstacionFormModal
-          proyectos={proyectos}
-          familias={familias}
-          idProyecto={idProyectoEstacion}
-          idFamilia={idFamiliaEstacion}
-          nombre={nombreEstacion}
-          guardando={guardando}
-          error={errorFormulario}
-          esEdicion={
-            estacionEnEdicion !== null
-          }
-          onCambiarProyecto={
-            setIdProyectoEstacion
-          }
-          onCambiarFamilia={
-            setIdFamiliaEstacion
-          }
-          onCambiarNombre={
-            setNombreEstacion
-          }
-          onGuardar={guardarEstacion}
-          onCancelar={
-            cerrarFormularioEstacion
-          }
-        />
-      )}
-      {mostrarConfirmacionEliminar &&
+      {
+        mostrarFormularioEstacion && (
+          <EstacionFormModal
+            proyectos={proyectos}
+            familias={familias}
+            idProyecto={idProyectoEstacion}
+            idFamilia={idFamiliaEstacion}
+            nombre={nombreEstacion}
+            guardando={guardando}
+            error={errorFormulario}
+            esEdicion={
+              estacionEnEdicion !== null
+            }
+            onCambiarProyecto={
+              setIdProyectoEstacion
+            }
+            onCambiarFamilia={
+              setIdFamiliaEstacion
+            }
+            onCambiarNombre={
+              setNombreEstacion
+            }
+            onGuardar={guardarEstacion}
+            onCancelar={
+              cerrarFormularioEstacion
+            }
+          />
+        )
+      }
+      {
+        mostrarConfirmacionEliminar &&
         proyectoAEliminar && (
           <div style={modalOverlayStyle}>
             <section
@@ -2424,8 +2607,10 @@ export function EstructuraPage() {
               </div>
             </section>
           </div>
-        )}
-      {mostrarConfirmacionEliminarFamilia &&
+        )
+      }
+      {
+        mostrarConfirmacionEliminarFamilia &&
         familiaAEliminar && (
           <div style={modalOverlayStyle}>
             <section
@@ -2500,8 +2685,10 @@ export function EstructuraPage() {
               </div>
             </section>
           </div>
-        )}
-      {mostrarConfirmacionEliminarEstacion &&
+        )
+      }
+      {
+        mostrarConfirmacionEliminarEstacion &&
         estacionAEliminar && (
           <div style={modalOverlayStyle}>
             <section
@@ -2574,8 +2761,9 @@ export function EstructuraPage() {
               </div>
             </section>
           </div>
-        )}
-    </Layout>
+        )
+      }
+    </Layout >
   );
 }
 interface ProyectosTableProps {
@@ -2638,7 +2826,7 @@ function ProyectosTable({
         </thead>
 
         <tbody>
-          {proyectos.map((proyecto) => (
+          {proyectos.map((proyecto, indice) => (
             <tr key={proyecto.idProyecto}>
               <td style={numberCellStyle}>
                 {numeroInicial + indice}
@@ -2745,7 +2933,6 @@ function FamiliasTable({
   onEditar,
   onEliminar,
   onCambiarEstado,
-  onImportarEstaciones,
 }: FamiliasTableProps) {
   if (familias.length === 0) {
     return (
@@ -2844,23 +3031,6 @@ function FamiliasTable({
               <td style={actionsCellStyle}>
                 <button
                   type="button"
-                  title="Importar estaciones"
-                  disabled={
-                    guardando ||
-                    !familia.activo
-                  }
-                  onClick={() => {
-                    onImportarEstaciones(
-                      familia
-                    );
-                  }}
-                  style={importStationButtonStyle}
-                >
-                  Importar estaciones
-                </button>
-
-                <button
-                  type="button"
                   title="Editar familia"
                   aria-label={`Editar ${familia.nombre}`}
                   disabled={guardando}
@@ -2896,6 +3066,7 @@ function FamiliasTable({
 interface EstacionesTableProps {
   estaciones: Estacion[];
   guardando: boolean;
+  numeroInicial: number;
 
   onEditar: (
     estacion: Estacion
@@ -2913,6 +3084,7 @@ interface EstacionesTableProps {
 function EstacionesTable({
   estaciones,
   guardando,
+  numeroInicial,
   onEditar,
   onEliminar,
   onCambiarEstado,
@@ -2961,10 +3133,10 @@ function EstacionesTable({
         </thead>
 
         <tbody>
-          {estaciones.map((estacion) => (
+          {estaciones.map((estacion, indice) => (
             <tr key={estacion.idEstacion}>
-              <td style={tdStyle}>
-                {estacion.idEstacion}
+              <td style={numberCellStyle}>
+                {numeroInicial + indice}
               </td>
 
               <td style={tdStyle}>
@@ -3281,6 +3453,12 @@ const thStyle = {
   textAlign: "left" as const,
   whiteSpace: "nowrap" as const,
 };
+const numberHeaderStyle = {
+  ...thStyle,
+  width: "70px",
+  textAlign: "center" as const,
+};
+
 
 const tdStyle = {
   padding: "14px",
@@ -3288,6 +3466,13 @@ const tdStyle = {
     "1px solid #e5e7eb",
   color: "#334155",
   fontSize: "14px",
+};
+
+const numberCellStyle = {
+  ...tdStyle,
+  width: "70px",
+  textAlign: "center" as const,
+  fontWeight: "700",
 };
 
 const actionsCellStyle = {
@@ -3497,20 +3682,6 @@ const textareaStyle = {
 const helpTextStyle = {
   color: "#64748b",
   fontSize: "12px",
-};
-
-const importStationButtonStyle = {
-  minHeight: "34px",
-  marginRight: "7px",
-  padding: "7px 10px",
-  border: "1px solid #99f6e4",
-  borderRadius: "8px",
-  background: "#f0fdfa",
-  color: "#0f766e",
-  fontSize: "12px",
-  fontWeight: "700",
-  cursor: "pointer",
-  whiteSpace: "nowrap" as const,
 };
 
 const selectedFileStyle = {

@@ -71,6 +71,17 @@ export function SolicitudesPage() {
     setFiltroEstado,
   ] = useState("Todos");
 
+  // Detecta la vista móvil para ajustar la página.
+  const [
+    modoMovil,
+    setModoMovil,
+  ] = useState(
+    () =>
+      window.matchMedia(
+        "(max-width: 768px)"
+      ).matches
+  );
+
   // Carga todas las solicitudes registradas.
   const cargarSolicitudes = async () => {
     try {
@@ -104,6 +115,39 @@ export function SolicitudesPage() {
     cargarSolicitudes();
   }, []);
 
+
+  useEffect(() => {
+    const mediaQuery =
+      window.matchMedia(
+        "(max-width: 768px)"
+      );
+
+    const actualizarModoMovil = (
+      event: MediaQueryListEvent
+    ) => {
+      setModoMovil(
+        event.matches
+      );
+    };
+
+    setModoMovil(
+      mediaQuery.matches
+    );
+
+    mediaQuery.addEventListener(
+      "change",
+      actualizarModoMovil
+    );
+
+    return () => {
+      mediaQuery.removeEventListener(
+        "change",
+        actualizarModoMovil
+      );
+    };
+  }, []);
+
+  // Obtiene los estados que existen actualmente.
   // Obtiene los estados que existen actualmente.
   const estadosDisponibles =
     useMemo(() => {
@@ -288,28 +332,76 @@ export function SolicitudesPage() {
   return (
     <Layout>
       <div style={pageContainerStyle}>
-        <section style={cardStyle}>
+        <section
+          style={{
+            ...cardStyle,
+            padding:
+              modoMovil
+                ? "16px"
+                : "30px",
+            borderRadius:
+              modoMovil
+                ? "12px"
+                : "16px",
+          }}
+        >
           <div style={headerStyle}>
-            <div>
-              <h1 style={titleStyle}>
-                Solicitudes
-              </h1>
+            <div
+              style={{
+                ...headerStyle,
+                flexDirection:
+                  modoMovil
+                    ? "column"
+                    : "row",
 
-              <p style={descriptionStyle}>
-                Bandeja de solicitudes de material
-                enviadas por las líneas de producción.
-              </p>
-            </div>
+                alignItems:
+                  modoMovil
+                    ? "stretch"
+                    : "center",
 
-            <button
-              type="button"
-              onClick={
-                abrirNuevaSolicitud
-              }
-              style={primaryButtonStyle}
+                gap:
+                  modoMovil
+                    ? "14px"
+                    : "20px",
+              }}
             >
-              + Nueva solicitud
-            </button>
+              <div>
+                <h1
+                  style={{
+                    ...titleStyle,
+
+                    fontSize:
+                      modoMovil
+                        ? "24px"
+                        : "30px",
+                  }}
+                >
+                  Solicitudes
+                </h1>
+
+                <p style={descriptionStyle}>
+                  Bandeja de solicitudes de material
+                  enviadas por las líneas de producción.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  abrirNuevaSolicitud
+                }
+                style={{
+                  ...primaryButtonStyle,
+
+                  width:
+                    modoMovil
+                      ? "100%"
+                      : "auto",
+                }}
+              >
+                + Nueva solicitud
+              </button>
+            </div>
           </div>
 
           {mensajeExito && (
@@ -693,6 +785,8 @@ const filtersStyle = {
   border: "1px solid #e2e8f0",
   borderRadius: "10px",
   background: "#f8fafc",
+  width: "100%",
+  boxSizing: "border-box" as const,
 };
 
 const searchGroupStyle = {

@@ -19,7 +19,17 @@ import {
 const SIDEBAR_FIXED_KEY =
   "sidebar_fijado";
 
-export function Sidebar() {
+interface SidebarProps {
+  modoMovil?: boolean;
+  abiertoMovil?: boolean;
+  onCerrarMovil?: () => void;
+}
+
+export function Sidebar({
+  modoMovil = false,
+  abiertoMovil = false,
+  onCerrarMovil,
+}: SidebarProps) {
   const navigate =
     useNavigate();
 
@@ -57,8 +67,11 @@ export function Sidebar() {
   // El menú se contrae si no está fijado
   // y el puntero se encuentra fuera.
   const collapsed =
-    !fijado &&
-    !punteroDentro;
+    modoMovil
+      ? false
+      : !fijado &&
+      !punteroDentro;
+
 
   // Comprueba si una ruta está seleccionada.
   const rutaActiva = (
@@ -111,6 +124,13 @@ export function Sidebar() {
       "background-color 180ms ease, border-color 180ms ease",
   });
 
+  // Cierra el menú móvil al seleccionar una opción.
+  const cerrarMenuMovil = () => {
+    if (modoMovil) {
+      onCerrarMovil?.();
+    }
+  };
+
   // Fija o libera el menú.
   const cambiarFijado = () => {
     const nuevoEstado =
@@ -126,14 +146,16 @@ export function Sidebar() {
     );
   };
 
-  // Elimina el token y regresa al login.
   const manejarCierreSesion = () => {
     cerrarSesion();
+
+    onCerrarMovil?.();
 
     navigate(
       "/login"
     );
   };
+
 
   return (
     <aside
@@ -148,15 +170,37 @@ export function Sidebar() {
         );
       }}
       style={{
-        width: collapsed
-          ? "42px"
-          : "260px",
+        width: modoMovil
+          ? "280px"
+          : collapsed
+            ? "42px"
+            : "260px",
 
-        position: "sticky",
+        position:
+          modoMovil
+            ? "fixed"
+            : "sticky",
+
         top: 0,
+
+        left: modoMovil
+          ? 0
+          : undefined,
+
         height: "100vh",
         maxHeight: "100vh",
-        alignSelf: "flex-start",
+
+        alignSelf:
+          modoMovil
+            ? undefined
+            : "flex-start",
+
+        transform:
+          modoMovil &&
+            !abiertoMovil
+            ? "translateX(-100%)"
+            : "translateX(0)",
+
         flexShrink: 0,
         display: "flex",
 
@@ -177,9 +221,14 @@ export function Sidebar() {
           "4px 0 15px rgba(15, 41, 87, 0.18)",
 
         transition:
-          "width 280ms ease",
+          modoMovil
+            ? "transform 240ms ease"
+            : "width 280ms ease",
 
-        zIndex: 20,
+        zIndex:
+          modoMovil
+            ? 3000
+            : 20,
       }}
     >
       {collapsed ? (
@@ -227,7 +276,10 @@ export function Sidebar() {
         <>
           <div
             style={{
-              width: "260px",
+              width:
+                modoMovil
+                  ? "280px"
+                  : "260px",
 
               padding:
                 "20px 18px 0",
@@ -262,65 +314,69 @@ export function Sidebar() {
                 MENÚ
               </div>
 
-              <button
-                type="button"
-                onClick={
-                  cambiarFijado
-                }
-                title={
-                  fijado
-                    ? "Liberar menú"
-                    : "Fijar menú abierto"
-                }
-                aria-label={
-                  fijado
-                    ? "Liberar menú"
-                    : "Fijar menú abierto"
-                }
-                style={{
-                  position:
-                    "absolute",
+              {!modoMovil && (
+                <button
+                  type="button"
+                  onClick={
+                    cambiarFijado
+                  }
+                  title={
+                    fijado
+                      ? "Liberar menú"
+                      : "Fijar menú abierto"
+                  }
+                  aria-label={
+                    fijado
+                      ? "Liberar menú"
+                      : "Fijar menú abierto"
+                  }
+                  style={{
+                    position:
+                      "absolute",
 
-                  top: "2px",
-                  right: "0",
+                    top: "2px",
+                    right: "0",
 
-                  width: "26px",
-                  height: "26px",
+                    width: "26px",
+                    height: "26px",
 
-                  display: "flex",
+                    display: "flex",
 
-                  alignItems:
-                    "center",
+                    alignItems:
+                      "center",
 
-                  justifyContent:
-                    "center",
+                    justifyContent:
+                      "center",
 
-                  padding: 0,
+                    padding: 0,
 
-                  border:
-                    "1px solid rgba(255, 255, 255, 0.2)",
+                    border:
+                      "1px solid rgba(255, 255, 255, 0.2)",
 
-                  borderRadius:
-                    "6px",
+                    borderRadius:
+                      "6px",
 
-                  background: fijado
-                    ? "#2563eb"
-                    : "rgba(255, 255, 255, 0.08)",
+                    background: fijado
+                      ? "#2563eb"
+                      : "rgba(255, 255, 255, 0.08)",
 
-                  color:
-                    "#ffffff",
+                    color:
+                      "#ffffff",
 
-                  cursor:
-                    "pointer",
+                    cursor:
+                      "pointer",
 
-                  transition:
-                    "background-color 180ms ease",
-                }}
-              >
-                <PinIcon
-                  fijado={fijado}
-                />
-              </button>
+                    transition:
+                      "background-color 180ms ease",
+                  }}
+                >
+                  <PinIcon
+                    fijado={fijado}
+                  />
+                </button>
+              )}
+
+
             </div>
 
             <div
@@ -342,7 +398,10 @@ export function Sidebar() {
 
           <nav
             style={{
-              width: "260px",
+              width:
+                modoMovil
+                  ? "280px"
+                  : "260px",
 
               display: "flex",
 
@@ -368,6 +427,7 @@ export function Sidebar() {
 
             <Link
               to="/dashboard"
+              onClick={cerrarMenuMovil}
               style={linkStyle(
                 "/dashboard"
               )}
@@ -379,6 +439,7 @@ export function Sidebar() {
               <>
                 <Link
                   to="/usuarios"
+                  onClick={cerrarMenuMovil}
                   style={linkStyle(
                     "/usuarios"
                   )}
@@ -388,6 +449,7 @@ export function Sidebar() {
 
                 <Link
                   to="/proyectos"
+                  onClick={cerrarMenuMovil}
                   style={linkStyle(
                     "/proyectos"
                   )}
@@ -399,6 +461,7 @@ export function Sidebar() {
 
             <Link
               to="/materiales"
+              onClick={cerrarMenuMovil}
               style={linkStyle(
                 "/materiales"
               )}
@@ -408,6 +471,7 @@ export function Sidebar() {
 
             <Link
               to="/solicitudes"
+              onClick={cerrarMenuMovil}
               style={linkStyle(
                 "/solicitudes"
               )}
@@ -417,6 +481,7 @@ export function Sidebar() {
 
             <Link
               to="/inventario"
+              onClick={cerrarMenuMovil}
               style={linkStyle(
                 "/inventario"
               )}
@@ -427,6 +492,7 @@ export function Sidebar() {
             {esAdministrador && (
               <Link
                 to="/kardex"
+                onClick={cerrarMenuMovil}
                 style={linkStyle(
                   "/kardex"
                 )}
@@ -439,7 +505,10 @@ export function Sidebar() {
 
           <div
             style={{
-              width: "260px",
+              width:
+                modoMovil
+                  ? "280px"
+                  : "260px",
 
               marginTop:
                 "auto",

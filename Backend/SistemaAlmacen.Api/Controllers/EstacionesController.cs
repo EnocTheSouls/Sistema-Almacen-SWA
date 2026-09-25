@@ -25,45 +25,6 @@ public sealed class EstacionesController
         _estacionImportService =
             estacionImportService;
     }
-
-    // Obtiene todas las estaciones.
-    [HttpGet]
-    public async Task<IActionResult>
-        ObtenerTodasAsync()
-    {
-        var estaciones =
-            await _estacionRepository
-                .ObtenerTodasAsync();
-
-        return Ok(estaciones);
-    }
-
-    // Obtiene las estaciones de una familia.
-    [HttpGet("familia/{idFamilia:int}")]
-    public async Task<IActionResult>
-        ObtenerPorFamiliaAsync(
-            int idFamilia)
-    {
-        if (idFamilia <= 0)
-        {
-            return BadRequest(
-                new
-                {
-                    mensaje =
-                        "La familia seleccionada no es válida."
-                }
-            );
-        }
-
-        var estaciones =
-            await _estacionRepository
-                .ObtenerPorFamiliaAsync(
-                    idFamilia
-                );
-
-        return Ok(estaciones);
-    }
-
     // Importa estaciones oficiales para una familia.
     [HttpPost("importar/{idFamilia:int}")]
     public async Task<IActionResult>
@@ -123,13 +84,12 @@ public sealed class EstacionesController
                 archivo.OpenReadStream();
 
             var resultado =
-                await _estacionImportService
-                    .ImportarAsync(
-                        stream,
-                        archivo.FileName,
-                        idFamilia
-                    );
-
+        await _estacionImportService
+        .ImportarCatalogoAsync(
+            stream,
+            archivo.FileName,
+            idFamilia
+        );
             return Ok(
                 new
                 {

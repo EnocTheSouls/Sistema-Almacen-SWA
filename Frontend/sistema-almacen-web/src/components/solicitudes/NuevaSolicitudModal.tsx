@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -103,6 +104,31 @@ export function NuevaSolicitudModal({
     setBusquedaMaterial,
   ] = useState("");
 
+  // Material seleccionado antes de agregarlo a la lista.
+  const [
+    materialPendiente,
+    setMaterialPendiente,
+  ] = useState<MaterialCatalogo | null>(
+    null
+  );
+
+  // Cantidad que se agregará a la solicitud.
+  const [
+    cantidadPendiente,
+    setCantidadPendiente,
+  ] = useState("1");
+
+  // Referencias para devolver el foco.
+  const inputEscaneoRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  const inputCantidadRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
   const [
     materiales,
     setMateriales,
@@ -116,6 +142,17 @@ export function NuevaSolicitudModal({
 
   const [error, setError] =
     useState("");
+
+  // Detecta la vista móvil del dispositivo.
+  const [
+    modoMovil,
+    setModoMovil,
+  ] = useState(
+    () =>
+      window.matchMedia(
+        "(max-width: 768px)"
+      ).matches
+  );
 
   // Carga los catálogos usados por la solicitud.
   useEffect(() => {
@@ -158,6 +195,41 @@ export function NuevaSolicitudModal({
 
     cargarCatalogos();
   }, []);
+
+
+  useEffect(() => {
+    const mediaQuery =
+      window.matchMedia(
+        "(max-width: 768px)"
+      );
+
+    const actualizarModoMovil = (
+      event: MediaQueryListEvent
+    ) => {
+      setModoMovil(
+        event.matches
+      );
+    };
+
+    setModoMovil(
+      mediaQuery.matches
+    );
+
+    mediaQuery.addEventListener(
+      "change",
+      actualizarModoMovil
+    );
+
+    return () => {
+      mediaQuery.removeEventListener(
+        "change",
+        actualizarModoMovil
+      );
+    };
+  }, []);
+
+
+
 
   const proyectosDisponibles =
     useMemo(
@@ -276,46 +348,111 @@ export function NuevaSolicitudModal({
     setError("");
   };
 
+
+  // Selecciona el material y solicita su cantidad.
   const agregarMaterial = (
     material: MaterialCatalogo
   ) => {
-    const materialRepetido =
-      materiales.some(
-        (materialActual) =>
-          materialActual.idMaterial ===
-          material.idMaterial
-      );
+    setMaterialPendiente(
+      material
+    );
 
-    if (materialRepetido) {
+    setCantidadPendiente("1");
+    setBusquedaMaterial("");
+    setError("");
+
+    window.setTimeout(() => {
+      inputCantidadRef.current?.focus();
+      inputCantidadRef.current?.select();
+    }, 0);
+  };
+
+  // Confirma y agrega el material a la lista.
+  const confirmarMaterialPendiente = () => {
+    if (!materialPendiente) {
       setError(
-        `El material ${material.numeroParteMaterial} ya está agregado.`
+        "Escanea o selecciona un material."
       );
 
+      inputEscaneoRef.current?.focus();
+      return;
+    }
+
+    const cantidad =
+      Number(cantidadPendiente);
+
+    if (
+      !Number.isInteger(cantidad) ||
+      cantidad <= 0
+    ) {
+      setError(
+        "La cantidad debe ser un número entero mayor que cero."
+      );
+
+      inputCantidadRef.current?.focus();
+      inputCantidadRef.current?.select();
       return;
     }
 
     setMateriales(
-      (materialesActuales) => [
-        ...materialesActuales,
-        {
-          idMaterial:
-            material.idMaterial,
+      (materialesActuales) => {
+        const materialExistente =
+          materialesActuales.find(
+            (material) =>
+              material.idMaterial ===
+              materialPendiente.idMaterial
+          );
 
-          numeroParte:
-            material.numeroParteMaterial,
+        if (materialExistente) {
+          return materialesActuales.map(
+            (material) =>
+              material.idMaterial ===
+                materialPendiente.idMaterial
+                ? {
+                  ...material,
+                  cantidad: String(
+                    Number(
+                      material.cantidad || "0"
+                    ) + cantidad
+                  ),
+                }
+                : material
+          );
+        }
 
-          descripcion:
-            material.descripcion,
+        return [
+          ...materialesActuales,
+          {
+            idMaterial:
+              materialPendiente.idMaterial,
 
-          // La cantidad debe capturarla el solicitante.
-          cantidad: ""
-        },
-      ]
+            numeroParte:
+              materialPendiente
+                .numeroParteMaterial,
+
+            descripcion:
+              materialPendiente.descripcion,
+
+            cantidad:
+              String(cantidad),
+          },
+        ];
+      }
     );
 
+    setMaterialPendiente(null);
+    setCantidadPendiente("1");
     setBusquedaMaterial("");
     setError("");
+
+    // Recupera el foco para continuar escaneando.
+    window.setTimeout(() => {
+      inputEscaneoRef.current?.focus();
+    }, 0);
   };
+
+
+
 
   const cambiarCantidad = (
     idMaterial: number,
@@ -500,11 +637,68 @@ export function NuevaSolicitudModal({
   };
 
   return (
-    <div style={overlayStyle}>
-      <section style={modalStyle}>
-        <div style={headerStyle}>
+    <div
+      style={{
+        ...overlayStyle,
+        alignItems:
+          modoMovil
+            ? "stretch"
+            : "center",
+        padding:
+          modoMovil
+            ? 0
+            : "24px",
+      }}
+    >
+
+      <section
+        style={{
+          ...modalStyle,
+          maxWidth:
+            modoMovil
+              ? "100%"
+              : "1050px",
+          maxHeight:
+            modoMovil
+              ? "100vh"
+              : "92vh",
+          minHeight:
+            modoMovil
+              ? "100vh"
+              : "auto",
+          padding:
+            modoMovil
+              ? "16px"
+              : "28px",
+          borderRadius:
+            modoMovil
+              ? 0
+              : "16px",
+        }}
+      >
+        <div
+          style={{
+            ...headerStyle,
+            gap:
+              modoMovil
+                ? "12px"
+                : "20px",
+            marginBottom:
+              modoMovil
+                ? "18px"
+                : "24px",
+          }}
+        >
           <div>
-            <h2 style={titleStyle}>
+            <h2
+              style={{
+                ...titleStyle,
+                fontSize:
+                  modoMovil
+                    ? "22px"
+                    : "25px",
+              }}
+            >
               Nueva solicitud
             </h2>
 
@@ -539,8 +733,19 @@ export function NuevaSolicitudModal({
               Destino
             </h3>
 
-            <div style={selectorsGridStyle}>
-              <div style={formGroupStyle}>
+            <div
+              style={{
+                ...selectorsGridStyle,
+                gridTemplateColumns:
+                  modoMovil
+                    ? "1fr"
+                    : "repeat(auto-fit, minmax(220px, 1fr))",
+                gap:
+                  modoMovil
+                    ? "12px"
+                    : "15px",
+              }}
+            >              <div style={formGroupStyle}>
                 <label
                   htmlFor="nuevoProyecto"
                   style={labelStyle}
@@ -707,7 +912,15 @@ export function NuevaSolicitudModal({
                 </div>
               )}
 
-            <div style={separatorStyle} />
+            <div
+              style={{
+                ...separatorStyle,
+                margin:
+                  modoMovil
+                    ? "20px 0"
+                    : "26px 0",
+              }}
+            />
 
             <div style={materialsHeaderStyle}>
               <h3 style={sectionTitleStyle}>
@@ -731,14 +944,18 @@ export function NuevaSolicitudModal({
               </label>
 
               <input
+                ref={inputEscaneoRef}
                 id="buscarMaterialSolicitud"
                 type="text"
                 value={busquedaMaterial}
-                onChange={(event) =>
+                onChange={(event) => {
                   setBusquedaMaterial(
                     event.target.value
-                  )
-                }
+                  );
+
+                  setMaterialPendiente(null);
+                  setError("");
+                }}
                 disabled={enviando}
                 placeholder="Número de parte, descripción, código de barras o serial"
                 autoComplete="off"
@@ -804,10 +1021,212 @@ export function NuevaSolicitudModal({
                 )}
             </div>
 
+            {materialPendiente && (
+              <div
+                style={{
+                  marginBottom: "18px",
+                  padding: "14px",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: "10px",
+                  background: "#eff6ff",
+                }}
+              >
+                <strong
+                  style={{
+                    display: "block",
+                    color: "#102957",
+                    fontSize: "15px",
+                  }}
+                >
+                  {
+                    materialPendiente
+                      .numeroParteMaterial
+                  }
+                </strong>
+
+                <p
+                  style={{
+                    margin: "5px 0 14px",
+                    color: "#475569",
+                    fontSize: "13px",
+                  }}
+                >
+                  {materialPendiente.descripcion}
+                </p>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      modoMovil
+                        ? "1fr"
+                        : "minmax(160px, 1fr) auto",
+                    alignItems: "end",
+                    gap: "10px",
+                  }}
+                >
+                  <div style={formGroupStyle}>
+                    <label
+                      htmlFor="cantidadMaterialPendiente"
+                      style={labelStyle}
+                    >
+                      Cantidad solicitada *
+                    </label>
+
+                    <input
+                      ref={inputCantidadRef}
+                      id="cantidadMaterialPendiente"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={cantidadPendiente}
+                      onChange={(event) => {
+                        setCantidadPendiente(
+                          event.target.value
+                        );
+
+                        setError("");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+
+                          confirmarMaterialPendiente();
+                        }
+                      }}
+                      disabled={enviando}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      confirmarMaterialPendiente
+                    }
+                    disabled={
+                      enviando ||
+                      !cantidadPendiente
+                    }
+                    style={{
+                      ...primaryButtonStyle,
+                      width:
+                        modoMovil
+                          ? "100%"
+                          : "130px",
+                      minHeight: "44px",
+                      opacity:
+                        enviando ||
+                          !cantidadPendiente
+                          ? 0.65
+                          : 1,
+                    }}
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
+            )}
+
             {materiales.length === 0 ? (
               <div style={emptyStyle}>
-                Busca un material y selecciónalo
-                para agregarlo.
+                Busca o escanea un material para
+                agregarlo.
+              </div>
+            ) : modoMovil ? (
+              <div
+                style={{
+                  display: "grid",
+                  gap: "12px",
+                }}
+              >
+                {materiales.map(
+                  (material) => (
+                    <article
+                      key={
+                        material.idMaterial
+                      }
+                      style={{
+                        padding: "14px",
+                        border:
+                          "1px solid #e2e8f0",
+                        borderRadius: "10px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          display: "block",
+                          color: "#102957",
+                          fontSize: "15px",
+                        }}
+                      >
+                        {material.numeroParte}
+                      </strong>
+
+                      <p
+                        style={{
+                          margin: "6px 0 14px",
+                          color: "#64748b",
+                          fontSize: "13px",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {material.descripcion}
+                      </p>
+
+                      <label
+                        htmlFor={
+                          `cantidad-${material.idMaterial}`
+                        }
+                        style={labelStyle}
+                      >
+                        Cantidad solicitada *
+                      </label>
+
+                      <input
+                        id={
+                          `cantidad-${material.idMaterial}`
+                        }
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={material.cantidad}
+                        onChange={(event) =>
+                          cambiarCantidad(
+                            material.idMaterial,
+                            event.target.value
+                          )
+                        }
+                        disabled={enviando}
+                        placeholder="Cantidad requerida"
+                        required
+                        style={{
+                          ...inputStyle,
+                          marginTop: "7px",
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        disabled={enviando}
+                        onClick={() =>
+                          quitarMaterial(
+                            material.idMaterial
+                          )
+                        }
+                        style={{
+                          ...removeButtonStyle,
+                          width: "100%",
+                          minHeight: "42px",
+                          marginTop: "12px",
+                        }}
+                      >
+                        Quitar material
+                      </button>
+                    </article>
+                  )
+                )}
               </div>
             ) : (
               <div style={tableContainerStyle}>
@@ -847,16 +1266,12 @@ export function NuevaSolicitudModal({
                         >
                           <td style={tdStyle}>
                             <strong>
-                              {
-                                material.numeroParte
-                              }
+                              {material.numeroParte}
                             </strong>
                           </td>
 
                           <td style={tdStyle}>
-                            {
-                              material.descripcion
-                            }
+                            {material.descripcion}
                           </td>
 
                           <td style={tdStyle}>
@@ -892,9 +1307,7 @@ export function NuevaSolicitudModal({
                                   material.idMaterial
                                 )
                               }
-                              style={
-                                removeButtonStyle
-                              }
+                              style={removeButtonStyle}
                             >
                               Quitar
                             </button>
@@ -913,12 +1326,39 @@ export function NuevaSolicitudModal({
               </div>
             )}
 
-            <div style={actionsStyle}>
+            <div
+              style={{
+                ...actionsStyle,
+                flexDirection:
+                  modoMovil
+                    ? "column-reverse"
+                    : "row",
+                position:
+                  modoMovil
+                    ? "sticky"
+                    : "static",
+                bottom:
+                  modoMovil
+                    ? 0
+                    : undefined,
+                padding:
+                  modoMovil
+                    ? "12px 0 4px"
+                    : 0,
+                background: "#ffffff",
+              }}
+            >
               <button
                 type="button"
                 onClick={cerrarModal}
                 disabled={enviando}
-                style={secondaryButtonStyle}
+                style={{
+                  ...secondaryButtonStyle,
+                  width:
+                    modoMovil
+                      ? "100%"
+                      : "auto",
+                }}
               >
                 Cancelar
               </button>
@@ -947,7 +1387,7 @@ export function NuevaSolicitudModal({
           </form>
         )}
       </section>
-    </div>
+    </div >
   );
 }
 

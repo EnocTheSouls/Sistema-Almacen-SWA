@@ -38,6 +38,209 @@ public sealed class EstacionImportService
         _bomRepository =
             bomRepository;
     }
+    // Importa únicamente estaciones únicas
+    // en la familia seleccionada.
+    public async Task<EstacionImportResult>
+        ImportarCatalogoAsync(
+            Stream archivo,
+            string nombreArchivo,
+            int idFamilia)
+    {
+        var resultado =
+            new EstacionImportResult
+            {
+                NombreArchivo =
+                    nombreArchivo
+            };
+
+        using var workbook =
+            new XLWorkbook(archivo);
+
+        var worksheet =
+            workbook.Worksheets
+                .FirstOrDefault();
+
+        if (worksheet is null)
+        {
+            throw new InvalidOperationException(
+                "El archivo no contiene hojas."
+            );
+        }
+
+        var filaEncabezados =
+            worksheet.FirstRowUsed();
+
+        if (filaEncabezados is null)
+        {
+            throw new InvalidOperationException(
+                "El archivo no contiene encabezados."
+            );
+        }
+
+        var columnas =
+            ObtenerColumnas(
+                filaEncabezados
+            );
+
+        if (!columnas.ContainsKey("ESTACION"))
+        {
+            throw new InvalidOperationException(
+                "El archivo debe contener la columna Estacion."
+            );
+        }
+
+        var numeroFilaEncabezados =
+            filaEncabezados.RowNumber();
+
+        var ultimaFila =
+            worksheet.LastRowUsed()
+                ?.RowNumber() ??
+            numeroFilaEncabezados;
+
+        var estacionesProcesadas =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase
+            );
+
+        for (
+            var numeroFila =
+                numeroFilaEncabezados + 1;
+            numeroFila <= ultimaFila;
+            numeroFila++
+        )
+        {
+            var fila =
+                worksheet.Row(numeroFila);
+
+            if (fila.IsEmpty())
+            {
+                continue;
+            }
+
+            resultado.TotalFilas++;
+
+            try
+            {
+                var nombreEstacion =
+                    ObtenerTexto(
+                        fila,
+                        columnas,
+                        "ESTACION"
+                    )
+                    .ToUpperInvariant();
+
+                if (
+                    string.IsNullOrWhiteSpace(
+                        nombreEstacion
+                    )
+                )
+                {
+                    resultado
+                        .FilasConAdvertencia++;
+
+                    resultado.Advertencias.Add(
+                        new AdvertenciaImportacionEstacion
+                        {
+                            NumeroFila =
+                                numeroFila,
+
+                            Mensaje =
+                                "La fila no tiene estación y fue omitida."
+                        }
+                    );
+
+                    continue;
+                }
+
+                // Omite estaciones repetidas en el archivo.
+                if (
+                    !estacionesProcesadas.Add(
+                        nombreEstacion
+                    )
+                )
+                {
+                    continue;
+                }
+
+                if (
+                    nombreEstacion.Equals(
+                        "1710",
+                        StringComparison.OrdinalIgnoreCase
+                    ) ||
+                    nombreEstacion.Equals(
+                        "0919",
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
+                {
+                    throw new InvalidOperationException(
+                        $"El valor {nombreEstacion} no es una estación oficial."
+                    );
+                }
+
+                var estacionExistente =
+                    await _estacionRepository
+                        .ObtenerPorFamiliaYNombreAsync(
+                            idFamilia,
+                            nombreEstacion
+                        );
+
+                var estacion =
+                    await _estacionRepository
+                        .ObtenerOCrearAsync(
+                            idFamilia,
+                            nombreEstacion
+                        );
+
+                if (estacion is null)
+                {
+                    throw new InvalidOperationException(
+                        $"No se pudo crear o localizar la estación {nombreEstacion}."
+                    );
+                }
+
+                if (estacionExistente is null)
+                {
+                    resultado
+                        .EstacionesCreadas++;
+
+                    resultado
+                        .EstacionesCreadasDetalle
+                        .Add(estacion.Nombre);
+                }
+                else
+                {
+                    resultado
+                        .EstacionesExistentes++;
+
+                    resultado
+                        .EstacionesExistentesDetalle
+                        .Add(estacion.Nombre);
+                }
+
+                resultado
+                    .FilasCorrectas++;
+            }
+            catch (Exception ex)
+            {
+                resultado
+                    .FilasConError++;
+
+                resultado.Errores.Add(
+                    new ErrorImportacionEstacion
+                    {
+                        NumeroFila =
+                            numeroFila,
+
+                        Mensaje =
+                            ex.Message
+                    }
+                );
+            }
+        }
+
+        return resultado;
+    }
 
     public async Task<EstacionImportResult>
         ImportarAsync(
@@ -344,17 +547,25 @@ public sealed class EstacionImportService
                         $"No se pudo crear o localizar la estación {nombreEstacion}."
                     );
                 }
-
                 if (estacionExistente is null)
                 {
                     resultado
                         .EstacionesCreadas++;
+
+                    resultado
+                        .EstacionesCreadasDetalle
+                        .Add(estacion.Nombre);
                 }
                 else
                 {
                     resultado
                         .EstacionesExistentes++;
+
+                    resultado
+                        .EstacionesExistentesDetalle
+                        .Add(estacion.Nombre);
                 }
+
 
                 var asignada =
                     await _bomRepository

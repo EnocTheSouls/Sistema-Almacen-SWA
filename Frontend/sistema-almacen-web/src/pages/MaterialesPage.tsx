@@ -1,3 +1,4 @@
+import Barcode from "react-barcode";
 import {
   useEffect,
   useMemo,
@@ -125,6 +126,13 @@ export function MaterialesPage() {
     setMostrarFormulario,
   ] = useState(false);
 
+  // Material seleccionado para mostrar su etiqueta.
+  const [
+    materialEtiqueta,
+    setMaterialEtiqueta,
+  ] = useState<MaterialCatalogo | null>(
+    null
+  );
 
 
   const [
@@ -1070,8 +1078,102 @@ export function MaterialesPage() {
     );
   };
 
+  // Descarga el Excel con todos los códigos de barras.
+const exportarCodigosCsv = async () => {
+  try {
+    setErrorCarga("");
+    setMensajeExito("");
+
+    const token =
+      localStorage.getItem("token");
+
+    const respuesta =
+      await fetch(
+        "http://localhost:5042/api/materiales/exportar-codigos-barras",
+        {
+          method: "GET",
+          headers: token
+            ? {
+                Authorization:
+                  `Bearer ${token}`,
+              }
+            : undefined,
+        }
+      );
+
+    if (!respuesta.ok) {
+      const contenido =
+        await respuesta.text();
+
+      throw new Error(
+        contenido ||
+          `No fue posible generar el Excel. Código ${respuesta.status}.`
+      );
+    }
+
+    const archivo =
+      await respuesta.blob();
+
+    if (archivo.size === 0) {
+      throw new Error(
+        "El archivo Excel generado está vacío."
+      );
+    }
+
+    const url =
+      window.URL.createObjectURL(
+        archivo
+      );
+
+    const enlace =
+      document.createElement("a");
+
+    enlace.href = url;
+
+    enlace.download =
+      `CODIGOS_BARRAS_MATERIALES_${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
+
+    enlace.style.display = "none";
+
+    document.body.appendChild(
+      enlace
+    );
+
+    enlace.click();
+
+    setTimeout(() => {
+      enlace.remove();
+
+      window.URL.revokeObjectURL(
+        url
+      );
+    }, 1000);
+
+    setMensajeExito(
+      "El Excel con los códigos de barras se generó correctamente."
+    );
+  } catch (error) {
+    console.error(
+      "Error al exportar códigos de barras:",
+      error
+    );
+
+    setErrorCarga(
+      error instanceof Error
+        ? error.message
+        : "No fue posible exportar los códigos de barras."
+    );
+  }
+};
+
+  
+
   return (
     <Layout>
+
+
       <div style={pageContainerStyle}>
         <section style={cardStyle}>
           <div style={headerStyle}>
@@ -1082,28 +1184,32 @@ export function MaterialesPage() {
               <br />
               {esAdministrador && (
                 <div style={headerActionsStyle}>
-                  <button
-                    type="button"
-                    onClick={abrirImportacionFiveMf}
-                    style={importButtonStyle}
-                  >
-                    Importar 5MF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={descargarListasIps}
-                    style={importButtonStyle}
-                  >
-                    Generar listas IPS
-                  </button>
+                  <div style={importActionsStyle}>
+                    <button
+                      type="button"
+                      onClick={abrirImportacionFiveMf}
+                      style={importButtonStyle}
+                    >
+                      Importar 5MF
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={abrirImportacionBom}
-                    style={importButtonStyle}
-                  >
-                    Importar BOM
-                  </button>
+                    <button
+                      type="button"
+                      onClick={descargarListasIps}
+                      style={importButtonStyle}
+                    >
+                      Generar listas IPS
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={abrirImportacionBom}
+                      style={importButtonStyle}
+                    >
+                      Importar BOM
+                    </button>
+
+                  </div>
 
                   <button
                     type="button"
@@ -1114,6 +1220,7 @@ export function MaterialesPage() {
                   </button>
                 </div>
               )}
+
 
 
 
@@ -1303,11 +1410,81 @@ export function MaterialesPage() {
                       <th
                         style={{
                           ...thStyle,
-                          textAlign:
-                            "right",
+                          minWidth: "210px",
                         }}
                       >
-                        Acciones
+                        <div
+                          style={{
+                            position: "relative",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minHeight: "28px",
+                          }}
+                        >
+                          <span>
+                            Acciones
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={exportarCodigosCsv}
+                            disabled={materiales.length === 0}
+                            title="Exportar todos los códigos de barras"
+                            aria-label="Exportar todos los códigos de barras"
+                            style={{
+                              position: "absolute",
+                              right: 0,
+                              width: "30px",
+                              height: "30px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: 0,
+                              border: "1px solid #1c4e9c",
+                              borderRadius: "6px",
+                              background: "#ffffff",
+                              color: "#1c4e9c",
+                              cursor:
+                                materiales.length === 0
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                materiales.length === 0
+                                  ? 0.5
+                                  : 1,
+                            }}
+                          >
+                            <svg
+                              width="17"
+                              height="17"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M6 2h8l4 4v16H6V2Z"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                              />
+
+                              <path
+                                d="M14 2v5h5"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                              />
+
+                              <path
+                                d="M9 12h6M9 16h6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </th>
                     )}
                   </tr>
@@ -1392,15 +1569,12 @@ export function MaterialesPage() {
                             : "Inactivo"}
                         </button>
                       </td>
-
                       {esAdministrador && (
                         <td
                           style={{
                             ...tdStyle,
-                            textAlign:
-                              "right",
-                            whiteSpace:
-                              "nowrap",
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           <button
@@ -1410,9 +1584,7 @@ export function MaterialesPage() {
                                 material
                               );
                             }}
-                            style={
-                              editButtonStyle
-                            }
+                            style={editButtonStyle}
                           >
                             Modificar
                           </button>
@@ -1424,14 +1596,69 @@ export function MaterialesPage() {
                                 material
                               );
                             }}
-                            style={
-                              deleteButtonStyle
-                            }
+                            style={deleteButtonStyle}
                           >
                             Eliminar
                           </button>
+
+                          <button
+                            type="button"
+                            title={`Ver etiqueta de ${material.numeroParteMaterial}`}
+                            aria-label={`Ver etiqueta de ${material.numeroParteMaterial}`}
+                            onClick={() => {
+                              setMaterialEtiqueta(
+                                material
+                              );
+                            }}
+                            style={{
+                              width: "34px",
+                              height: "34px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginLeft: "7px",
+                              padding: 0,
+                              border: "none",
+                              borderRadius: 0,
+                              background: "transparent",
+                              color: "#2a302e",
+                              cursor: "pointer",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            <svg
+                              width="17"
+                              height="17"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M6 2h8l4 4v16H6V2Z"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                              />
+
+                              <path
+                                d="M14 2v5h5"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                              />
+
+                              <path
+                                d="M9 12h6M9 16h6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </button>
                         </td>
                       )}
+
+
                     </tr>
                   )
                   )}
@@ -1496,6 +1723,115 @@ export function MaterialesPage() {
           >
             Siguiente
           </button>
+        </div>
+      )}
+      {materialEtiqueta && (
+        <div style={modalOverlayStyle}>
+          <section
+            style={{
+              ...modalStyle,
+              maxWidth: "520px",
+            }}
+          >
+            <div style={modalHeaderStyle}>
+              <div>
+                <h2 style={modalTitleStyle}>
+                  Etiqueta de material
+                </h2>
+
+                <p style={modalDescriptionStyle}>
+                  Vista previa del código escaneable.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMaterialEtiqueta(null);
+                }}
+                aria-label="Cerrar etiqueta"
+                style={closeButtonStyle}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: "24px",
+                border: "2px solid #102957",
+                borderRadius: "12px",
+                background: "#ffffff",
+                color: "#102957",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  marginBottom: "8px",
+                  fontSize: "22px",
+                  fontWeight: "800",
+                }}
+              >
+                {materialEtiqueta.numeroParteMaterial}
+              </div>
+
+              <div
+                style={{
+                  marginBottom: "18px",
+                  color: "#475569",
+                  fontSize: "14px",
+                }}
+              >
+                {materialEtiqueta.descripcion}
+              </div>
+
+              <div
+                style={{
+                  maxWidth: "100%",
+                  overflowX: "auto",
+                }}
+              >
+                <Barcode
+                  value={
+                    materialEtiqueta.codigoBarras ||
+                    materialEtiqueta.numeroParteMaterial
+                  }
+                  format="CODE128"
+                  width={2}
+                  height={90}
+                  displayValue
+                  fontSize={16}
+                  margin={10}
+                />
+              </div>
+
+              <div
+                style={{
+                  marginTop: "12px",
+                  color: "#475569",
+                  fontSize: "12px",
+                }}
+              >
+                Generic Code:{" "}
+                <strong>
+                  {materialEtiqueta.genericCode}
+                </strong>
+              </div>
+            </div>
+
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMaterialEtiqueta(null);
+                }}
+                style={secondaryButtonStyle}
+              >
+                Cerrar
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -1832,7 +2168,7 @@ export function MaterialesPage() {
                       htmlFor="codigoBarras"
                       style={labelStyle}
                     >
-                      Código de barras
+                      Escanear codigo
                     </label>
 
                     <div style={scanFieldStyle}>
@@ -1843,7 +2179,7 @@ export function MaterialesPage() {
                           formulario.codigoBarras
                         }
                         disabled
-                        placeholder="Se asignará mediante escaneo"
+                        placeholder=""
                         style={
                           disabledInputStyle
                         }
@@ -1860,13 +2196,6 @@ export function MaterialesPage() {
                         Escanear
                       </button>
                     </div>
-
-                    <small
-                      style={helpTextStyle}
-                    >
-                      Este dato no se captura
-                      manualmente.
-                    </small>
                   </div>
 
 
@@ -2867,6 +3196,14 @@ const successStyle = {
   fontWeight: "700",
 };
 const headerActionsStyle = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "20px",
+  flexWrap: "wrap" as const,
+};
+const importActionsStyle = {
   display: "flex",
   alignItems: "center",
   gap: "10px",

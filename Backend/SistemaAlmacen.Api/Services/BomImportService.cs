@@ -82,6 +82,21 @@ public sealed class BomImportService
                 filaEncabezados
             );
 
+        // Muestra los encabezados disponibles en el BOM.
+        Console.WriteLine(
+            "COLUMNAS DEL BOM:"
+        );
+
+        Console.WriteLine(
+            string.Join(
+                Environment.NewLine,
+                columnas.Keys
+                    .OrderBy(
+                        columna => columna
+                    )
+            )
+        );
+
         ValidarColumnasObligatorias(
             columnas
         );

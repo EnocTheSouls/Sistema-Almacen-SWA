@@ -449,11 +449,14 @@ public sealed class MaterialRepository
             string.IsNullOrWhiteSpace(unidadMedida)
                 ? null
                 : unidadMedida.Trim().ToUpperInvariant();
-
+        // Usa el número de parte como código escaneable
+        // cuando no se proporciona otro código.
         var codigoBarrasLimpio =
             string.IsNullOrWhiteSpace(codigoBarras)
-                ? null
-                : codigoBarras.Trim();
+                ? numeroParteLimpio
+                : codigoBarras
+                    .Trim()
+                    .ToUpperInvariant();
 
         var serialKitsLimpio =
             string.IsNullOrWhiteSpace(serialKits)
@@ -616,14 +619,18 @@ public sealed class MaterialRepository
                 ? DBNull.Value
                 : unidadMedida.Trim().ToUpperInvariant()
         );
-
+        // Conserva un identificador escaneable.
+        // Si no hay otro código, utiliza el número de parte.
         command.Parameters.AddWithValue(
             "@codigoBarras",
             string.IsNullOrWhiteSpace(codigoBarras)
-                ? DBNull.Value
-                : codigoBarras.Trim()
+                ? numeroParteMaterial
+                    .Trim()
+                    .ToUpperInvariant()
+                : codigoBarras
+                    .Trim()
+                    .ToUpperInvariant()
         );
-
         command.Parameters.AddWithValue(
             "@serialKits",
             string.IsNullOrWhiteSpace(serialKits)
