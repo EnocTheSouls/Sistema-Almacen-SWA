@@ -82,7 +82,7 @@ public sealed class BomImportService
                 filaEncabezados
             );
 
-        // Muestra los encabezados disponibles en el BOM.
+        // Muestra temporalmente las columnas reales del BOM.
         Console.WriteLine(
             "COLUMNAS DEL BOM:"
         );
@@ -100,7 +100,6 @@ public sealed class BomImportService
         ValidarColumnasObligatorias(
             columnas
         );
-
         var ultimaFila =
             worksheet.LastRowUsed()
                 ?.RowNumber() ?? 1;
