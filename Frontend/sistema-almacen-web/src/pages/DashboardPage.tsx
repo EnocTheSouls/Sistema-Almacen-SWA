@@ -128,6 +128,17 @@ export function DashboardPage() {
     setFechaHoraActual,
   ] = useState(new Date());
 
+  // Detecta pantallas móviles.
+  const [
+    modoMovil,
+    setModoMovil,
+  ] = useState(
+    () =>
+      window.matchMedia(
+        "(max-width: 768px)"
+      ).matches
+  );
+
   const configuracion =
     configuracionInicial;
 
@@ -207,6 +218,39 @@ export function DashboardPage() {
     return () => {
       window.clearInterval(
         intervaloReloj
+      );
+    };
+  }, []);
+
+  // Actualiza el diseño al cambiar
+  // el tamaño de la pantalla.
+  useEffect(() => {
+    const mediaQuery =
+      window.matchMedia(
+        "(max-width: 768px)"
+      );
+
+    const actualizarModoMovil = (
+      event: MediaQueryListEvent
+    ) => {
+      setModoMovil(
+        event.matches
+      );
+    };
+
+    setModoMovil(
+      mediaQuery.matches
+    );
+
+    mediaQuery.addEventListener(
+      "change",
+      actualizarModoMovil
+    );
+
+    return () => {
+      mediaQuery.removeEventListener(
+        "change",
+        actualizarModoMovil
       );
     };
   }, []);
@@ -425,13 +469,66 @@ export function DashboardPage() {
     <Layout>
       <div style={pageContainerStyle}>
         <section
-          style={
-            dashboardContainerStyle
-          }
+          style={{
+            ...dashboardContainerStyle,
+
+            padding:
+              modoMovil
+                ? "14px"
+                : "30px",
+
+            borderRadius:
+              modoMovil
+                ? "10px"
+                : "16px",
+
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            overflowX: "hidden",
+            boxSizing: "border-box",
+          }}
         >
-          <header style={headerStyle}>
+
+          {mensajeExito && (
+            <div style={successStyle}>
+              {mensajeExito}
+            </div>
+          )}
+
+
+
+          <header
+            style={{
+              ...headerStyle,
+
+              flexDirection:
+                modoMovil
+                  ? "column"
+                  : "row",
+
+              alignItems:
+                modoMovil
+                  ? "stretch"
+                  : "center",
+
+              gap:
+                modoMovil
+                  ? "14px"
+                  : "20px",
+            }}
+          >
             <div>
-              <h1 style={titleStyle}>
+              <h1
+                style={{
+                  ...titleStyle,
+
+                  fontSize:
+                    modoMovil
+                      ? "23px"
+                      : "30px",
+                }}
+              >
                 Centro de solicitudes
               </h1>
 
@@ -444,12 +541,55 @@ export function DashboardPage() {
             </div>
 
             <div
-              style={
-                headerActionsStyle
-              }
+              style={{
+                ...headerActionsStyle,
+
+                width:
+                  modoMovil
+                    ? "100%"
+                    : "auto",
+
+                justifyContent:
+                  modoMovil
+                    ? "space-between"
+                    : "flex-end",
+
+                padding:
+                  modoMovil
+                    ? "10px 0"
+                    : 0,
+
+                boxSizing: "border-box",
+              }}
             >
-              <div style={clockStyle}>
-                <strong style={timeStyle}>
+              <div
+                style={{
+                  ...clockStyle,
+
+                  alignItems:
+                    modoMovil
+                      ? "flex-start"
+                      : "flex-end",
+
+                  marginRight:
+                    modoMovil
+                      ? 0
+                      : "10px",
+
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                }}
+              >
+                <strong
+                  style={{
+                    ...timeStyle,
+
+                    fontSize:
+                      modoMovil
+                        ? "21px"
+                        : "27px",
+                  }}
+                >
                   {fechaHoraActual.toLocaleTimeString(
                     "es-MX",
                     {
@@ -460,7 +600,23 @@ export function DashboardPage() {
                   )}
                 </strong>
 
-                <span style={dateStyle}>
+                <span
+                  style={{
+                    ...dateStyle,
+
+                    fontSize:
+                      modoMovil
+                        ? "11px"
+                        : "12px",
+
+                    maxWidth:
+                      modoMovil
+                        ? "190px"
+                        : "none",
+
+                    lineHeight: 1.35,
+                  }}
+                >
                   {fechaHoraActual.toLocaleDateString(
                     "es-MX",
                     {
@@ -481,7 +637,21 @@ export function DashboardPage() {
                 disabled={actualizando}
                 title="Actualizar información"
                 aria-label="Actualizar información"
-                style={iconButtonStyle}
+                style={{
+                  ...iconButtonStyle,
+
+                  width:
+                    modoMovil
+                      ? "40px"
+                      : "44px",
+
+                  height:
+                    modoMovil
+                      ? "40px"
+                      : "44px",
+
+                  flexShrink: 0,
+                }}
               >
                 {actualizando
                   ? "..."
@@ -495,538 +665,584 @@ export function DashboardPage() {
                 }
                 title="Pantalla completa"
                 aria-label="Pantalla completa"
-                style={iconButtonStyle}
+                style={{
+                  ...iconButtonStyle,
+
+                  width:
+                    modoMovil
+                      ? "40px"
+                      : "44px",
+
+                  height:
+                    modoMovil
+                      ? "40px"
+                      : "44px",
+
+                  flexShrink: 0,
+                }}
               >
                 ⛶
               </button>
             </div>
           </header>
-          {mensajeExito && (
-            <div style={successStyle}>
-              {mensajeExito}
-            </div>
-          )}
-
-          {errorCarga && (
-            <div style={errorStyle}>
-              {errorCarga}
-            </div>
-          )}
-
-          {cargando ? (
-            <div style={loadingStyle}>
-              Cargando Dashboard...
-            </div>
-          ) : (
-            <>
-              <div style={kpiGridStyle}>
-                <KpiCard
-                  titulo="Pendientes"
-                  cantidad={
-                    (dashboard?.pendientes ?? 0) +
-                    (dashboard?.parciales ?? 0)
-                  }
-                  color="#ffffff"
-                  fondo="#ea580c"
-                  descripcion="Solicitudes esperando atención"
-                />
-
-                <KpiCard
-                  titulo="Surtidas"
-                  cantidad={
-                    solicitudesSurtidas
-                  }
-                  color="#ffffff"
-                  fondo="#16a34a"
-                  descripcion="Material descontado y preparado"
-                />
-
-                <KpiCard
-                  titulo="Total"
-                  cantidad={
-                    solicitudes.length
-                  }
-                  color="#ffffff"
-                  fondo="#2563eb"
-                  descripcion="Solicitudes registradas"
-                />
+          {
+            errorCarga && (
+              <div style={errorStyle}>
+                {errorCarga}
               </div>
-              <section
-                style={
-                  pendingSectionStyle
-                }
-              >
+            )
+          }
+
+          {
+            cargando ? (
+              <div style={loadingStyle}>
+                Cargando Dashboard...
+              </div>
+            ) : (
+              <>
                 <div
+                  style={{
+                    ...kpiGridStyle,
+
+                    // En móvil muestra un KPI por fila.
+                    gridTemplateColumns:
+                      modoMovil
+                        ? "minmax(0, 1fr)"
+                        : "repeat(3, minmax(220px, 1fr))",
+
+                    gap:
+                      modoMovil
+                        ? "10px"
+                        : "18px",
+
+                    marginBottom:
+                      modoMovil
+                        ? "18px"
+                        : "28px",
+                  }}
+                >
+                  <KpiCard
+                    titulo="Pendientes"
+                    cantidad={
+                      (dashboard?.pendientes ?? 0) +
+                      (dashboard?.parciales ?? 0)
+                    }
+                    color="#ffffff"
+                    fondo="#ea580c"
+                    descripcion="Solicitudes esperando atención"
+                    compacto={modoMovil}
+                  />
+
+                  <KpiCard
+                    titulo="Surtidas"
+                    cantidad={
+                      solicitudesSurtidas
+                    }
+                    color="#ffffff"
+                    fondo="#16a34a"
+                    descripcion="Material descontado y preparado"
+                    compacto={modoMovil}
+                  />
+
+                  <KpiCard
+                    titulo="Total"
+                    cantidad={
+                      solicitudes.length
+                    }
+                    color="#ffffff"
+                    fondo="#2563eb"
+                    descripcion="Solicitudes registradas"
+                    compacto={modoMovil}
+                  />
+                </div>
+                <section
                   style={
-                    pendingHeaderStyle
+                    pendingSectionStyle
                   }
                 >
-                  <div>
-                    <h2
-                      style={
-                        sectionTitleStyle
-                      }
-                    >
-                      Solicitudes pendientes
-                    </h2>
-
-                    <p
-                      style={
-                        sectionDescriptionStyle
-                      }
-                    >
-                      Las solicitudes más
-                      antiguas aparecen primero.
-                    </p>
-                  </div>
-
                   <div
                     style={
-                      pendingCounterStyle
+                      pendingHeaderStyle
                     }
                   >
-                    {(dashboard?.pendientes ?? 0) +
-                      (dashboard?.parciales ?? 0)}{" "}
-                    pendientes
-                  </div>
-                </div>
+                    <div>
+                      <h2
+                        style={
+                          sectionTitleStyle
+                        }
+                      >
+                        Solicitudes pendientes
+                      </h2>
 
-                {solicitudesPendientes.length ===
-                  0 ? (
-                  <div style={emptyStyle}>
-                    No hay solicitudes
-                    pendientes.
-                  </div>
-                ) : (
-                  <div
-                    style={
-                      tableContainerStyle
-                    }
-                  >
-                    <table
-                      style={tableStyle}
+                      <p
+                        style={
+                          sectionDescriptionStyle
+                        }
+                      >
+                        Las solicitudes más
+                        antiguas aparecen primero.
+                      </p>
+                    </div>
+
+                    <div
+                      style={
+                        pendingCounterStyle
+                      }
                     >
-                      <thead>
-                        <tr style={tableHeaderStyle}>
-                          <th style={thStyle}>
-                            Solicitud
-                          </th>
+                      {(dashboard?.pendientes ?? 0) +
+                        (dashboard?.parciales ?? 0)}{" "}
+                      pendientes
+                    </div>
+                  </div>
 
-                          <th style={thStyle}>
-                            Espera
-                          </th>
+                  {solicitudesPendientes.length ===
+                    0 ? (
+                    <div style={emptyStyle}>
+                      No hay solicitudes
+                      pendientes.
+                    </div>
+                  ) : (
+                    <div
+                      style={
+                        tableContainerStyle
+                      }
+                    >
+                      <table
+                        style={tableStyle}
+                      >
+                        <thead>
+                          <tr style={tableHeaderStyle}>
+                            <th style={thStyle}>
+                              Solicitud
+                            </th>
 
-                          <th style={thStyle}>
-                            Proyecto
-                          </th>
+                            <th style={thStyle}>
+                              Espera
+                            </th>
 
-                          <th style={thStyle}>
-                            Familia
-                          </th>
+                            <th style={thStyle}>
+                              Proyecto
+                            </th>
 
-                          <th style={thStyle}>
-                            Estación
-                          </th>
+                            <th style={thStyle}>
+                              Familia
+                            </th>
 
-                          <th style={thStyle}>
-                            Material
-                          </th>
+                            <th style={thStyle}>
+                              Estación
+                            </th>
 
-                          <th style={thStyle}>
-                            Cantidad pendiente
-                          </th>
+                            <th style={thStyle}>
+                              Material
+                            </th>
 
-                          <th style={thStyle}>
-                            Estado
-                          </th>
+                            <th style={thStyle}>
+                              Cantidad pendiente
+                            </th>
 
-                          <th
-                            style={{
-                              ...thStyle,
-                              textAlign: "right",
-                            }}
-                          >
-                            Acción
-                          </th>
-                        </tr>
-                      </thead>
+                            <th style={thStyle}>
+                              Estado
+                            </th>
 
-                      <tbody>
-                        {solicitudesPendientes.map(
-                          (solicitud) => {
-                            const minutos =
-                              calcularMinutosEspera(
-                                solicitud.fechaSolicitud,
-                                fechaHoraActual
-                              );
+                            <th
+                              style={{
+                                ...thStyle,
+                                textAlign: "right",
+                              }}
+                            >
+                              Acción
+                            </th>
+                          </tr>
+                        </thead>
 
-                            const alerta =
-                              obtenerAlertaEspera(
-                                minutos,
-                                configuracion
-                              );
-                            // Materiales que todavía tienen cantidad pendiente.
-                            const materialesPendientes =
-                              [...(solicitud.materiales ?? [])]
-                                .filter(
-                                  (material) =>
-                                    material.cantidadSurtida <
-                                    material.cantidadSolicitada
-                                )
-                                .sort(
-                                  (
-                                    materialA,
-                                    materialB
-                                  ) => {
-                                    const prioridadA =
-                                      materialA.cantidadSurtida === 0
-                                        ? 1
-                                        : 2;
-
-                                    const prioridadB =
-                                      materialB.cantidadSurtida === 0
-                                        ? 1
-                                        : 2;
-
-                                    return prioridadA - prioridadB;
-                                  }
+                        <tbody>
+                          {solicitudesPendientes.map(
+                            (solicitud) => {
+                              const minutos =
+                                calcularMinutosEspera(
+                                  solicitud.fechaSolicitud,
+                                  fechaHoraActual
                                 );
 
-                            // Primero muestra un material sin surtir.
-                            // Después muestra uno parcialmente surtido.
-                            const materialPrincipal =
-                              materialesPendientes[0];
+                              const alerta =
+                                obtenerAlertaEspera(
+                                  minutos,
+                                  configuracion
+                                );
+                              // Materiales que todavía tienen cantidad pendiente.
+                              const materialesPendientes =
+                                [...(solicitud.materiales ?? [])]
+                                  .filter(
+                                    (material) =>
+                                      material.cantidadSurtida <
+                                      material.cantidadSolicitada
+                                  )
+                                  .sort(
+                                    (
+                                      materialA,
+                                      materialB
+                                    ) => {
+                                      const prioridadA =
+                                        materialA.cantidadSurtida === 0
+                                          ? 1
+                                          : 2;
 
-                            const cantidadPendiente =
-                              materialPrincipal
-                                ? Math.max(
+                                      const prioridadB =
+                                        materialB.cantidadSurtida === 0
+                                          ? 1
+                                          : 2;
+
+                                      return prioridadA - prioridadB;
+                                    }
+                                  );
+
+                              // Primero muestra un material sin surtir.
+                              // Después muestra uno parcialmente surtido.
+                              const materialPrincipal =
+                                materialesPendientes[0];
+
+                              const cantidadPendiente =
+                                materialPrincipal
+                                  ? Math.max(
+                                    0,
+                                    materialPrincipal
+                                      .cantidadSolicitada -
+                                    materialPrincipal
+                                      .cantidadSurtida
+                                  )
+                                  : 0;
+
+                              const materialesAdicionales =
+                                Math.max(
                                   0,
-                                  materialPrincipal
-                                    .cantidadSolicitada -
-                                  materialPrincipal
-                                    .cantidadSurtida
-                                )
-                                : 0;
+                                  materialesPendientes.length - 1
+                                );
 
-                            const materialesAdicionales =
-                              Math.max(
-                                0,
-                                materialesPendientes.length - 1
+
+                              return (
+                                <tr
+                                  key={
+                                    solicitud.idSolicitud
+                                  }
+                                  style={{
+                                    ...pendingRowStyle,
+
+                                    background:
+                                      alerta.fondo,
+
+                                    borderLeft:
+                                      `6px solid ${alerta.color}`,
+                                  }}
+                                  onClick={() =>
+                                    abrirDetalle(
+                                      solicitud
+                                    )
+                                  }
+                                >
+                                  <td style={tdStyle}>
+                                    <strong>
+                                      #
+                                      {
+                                        solicitud.idSolicitud
+                                      }
+                                    </strong>
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    <span
+                                      style={{
+                                        ...waitingBadgeStyle,
+
+                                        background:
+                                          alerta.color,
+                                      }}
+                                    >
+                                      {formatearTiempoEspera(
+                                        minutos
+                                      )}
+                                    </span>
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    <div
+                                      style={shortTextStyle}
+                                      title={solicitud.nombreProyecto}
+                                    >
+                                      {solicitud.nombreProyecto}
+                                    </div>
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    <div
+                                      style={familyTextStyle}
+                                      title={solicitud.nombreFamilia}
+                                    >
+                                      {solicitud.nombreFamilia}
+                                      <td style={tdStyle}>
+                                        <div
+                                          style={stationTextStyle}
+                                          title={
+                                            materialPrincipal
+                                              ?.nombreEstacion ??
+                                            "Sin estación"
+                                          }
+                                        >
+                                          <strong>
+                                            {materialPrincipal
+                                              ?.nombreEstacion ??
+                                              "Sin estación"}
+                                          </strong>
+                                        </div>
+                                      </td>
+                                      <strong>
+                                        {solicitud.nombreEstacion}
+                                      </strong>
+                                    </div>
+                                  </td>
+
+
+                                  <td style={tdStyle}>
+                                    <div style={materialCellStyle}>
+                                      <strong
+                                        title={
+                                          materialPrincipal
+                                            ?.numeroParteMaterial ??
+                                          "Sin material"
+                                        }
+                                      >
+                                        {materialPrincipal
+                                          ?.numeroParteMaterial ??
+                                          "N/A"}
+                                      </strong>
+
+                                      <span
+                                        style={materialDescriptionStyle}
+                                        title={
+                                          materialPrincipal
+                                            ?.descripcionMaterial ??
+                                          "Sin descripción"
+                                        }
+                                      >
+                                        {materialPrincipal
+                                          ?.descripcionMaterial ??
+                                          "Sin descripción"}
+                                      </span>
+                                      {materialesAdicionales > 0 && (
+                                        <span style={additionalBadgeStyle}>
+                                          +{materialesAdicionales} pendientes
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td style={tdStyle}>
+                                    <strong>
+                                      {cantidadPendiente}
+                                    </strong>
+                                  </td>
+                                  <td style={tdStyle}>
+                                    <span
+                                      style={
+                                        solicitud.nombreEstado
+                                          .trim()
+                                          .toLowerCase() === "parcial"
+                                          ? partialStatusStyle
+                                          : pendingStatusStyle
+                                      }
+                                    >
+                                      {solicitud.nombreEstado}
+                                    </span>
+                                  </td>
+                                  <td
+                                    style={{
+                                      ...tdStyle,
+
+                                      textAlign:
+                                        "right",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={(
+                                        event
+                                      ) => {
+                                        event.stopPropagation();
+
+                                        abrirDetalle(
+                                          solicitud
+                                        );
+                                      }}
+                                      style={
+                                        openButtonStyle
+                                      }
+                                    >
+                                      Abrir
+                                    </button>
+                                  </td>
+                                </tr>
                               );
+                            }
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
+                  <div
+                    style={
+                      sectionActionsStyle
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href =
+                          "/solicitudes";
+                      }}
+                      style={
+                        viewAllButtonStyle
+                      }
+                    >
+                      Ver todas las solicitudes
+                    </button>
+                  </div>
+                </section>
+                <section
+                  style={{
+                    ...pendingSectionStyle,
+                    marginTop: "20px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() =>
+                    setMostrarAlertasDiseno(true)
+                  }
+                >
+                  <div style={pendingHeaderStyle}>
+                    <div>
+                      <h2 style={sectionTitleStyle}>
+                        Próximos Cambios de Diseño
+                      </h2>
 
-                            return (
+                      <p style={sectionDescriptionStyle}>
+                        Cambios detectados automáticamente
+                        desde el 5MF.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMostrarAlertasDiseno(true)
+                      }
+                      style={viewAllButtonStyle}
+                    >
+                      Ver todos
+                    </button>
+                  </div>
+
+                  {alertasDiseno.length === 0 ? (
+                    <div style={emptyStyle}>
+                      No hay cambios próximos.
+                    </div>
+                  ) : (
+                    <div style={tableContainerStyle}>
+                      <table style={tableStyle}>
+                        <thead>
+                          <tr style={tableHeaderStyle}>
+                            <th style={thStyle}>
+                              Proyecto
+                            </th>
+
+                            <th style={thStyle}>
+                              Familia
+                            </th>
+
+                            <th style={thStyle}>
+                              Cambio
+                            </th>
+
+                            <th style={thStyle}>
+                              Fecha
+                            </th>
+
+                            <th style={thStyle}>
+                              Días
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {alertasResumen.map(
+                            (alerta) => (
                               <tr
                                 key={
-                                  solicitud.idSolicitud
-                                }
-                                style={{
-                                  ...pendingRowStyle,
-
-                                  background:
-                                    alerta.fondo,
-
-                                  borderLeft:
-                                    `6px solid ${alerta.color}`,
-                                }}
-                                onClick={() =>
-                                  abrirDetalle(
-                                    solicitud
-                                  )
+                                  alerta.arnesActual +
+                                  alerta.disenoSiguiente
                                 }
                               >
                                 <td style={tdStyle}>
+                                  {alerta.proyecto}
+                                </td>
+
+                                <td style={tdStyle}>
+                                  {alerta.familia}
+                                </td>
+
+                                <td style={tdStyle}>
                                   <strong>
-                                    #
-                                    {
-                                      solicitud.idSolicitud
-                                    }
+                                    {alerta.disenoActual}
                                   </strong>
+                                  {" → "}
+                                  <strong>
+                                    {alerta.disenoSiguiente}
+                                  </strong>
+                                </td>
+
+                                <td style={tdStyle}>
+                                  {alerta.fechaCambio}
                                 </td>
 
                                 <td style={tdStyle}>
                                   <span
                                     style={{
-                                      ...waitingBadgeStyle,
-
+                                      padding:
+                                        "6px 10px",
+                                      borderRadius:
+                                        "999px",
                                       background:
-                                        alerta.color,
+                                        alerta.diasRestantes <= 7
+                                          ? "#fecaca"
+                                          : alerta.diasRestantes <= 14
+                                            ? "#fed7aa"
+                                            : "#dcfce7",
+
+                                      color:
+                                        alerta.diasRestantes <= 7
+                                          ? "#991b1b"
+                                          : alerta.diasRestantes <= 14
+                                            ? "#9a3412"
+                                            : "#166534",
                                     }}
                                   >
-                                    {formatearTiempoEspera(
-                                      minutos
-                                    )}
+                                    {alerta.diasRestantes === 0
+                                      ? "Hoy"
+                                      : `${alerta.diasRestantes} días`}
                                   </span>
-                                </td>
-
-                                <td style={tdStyle}>
-                                  <div
-                                    style={shortTextStyle}
-                                    title={solicitud.nombreProyecto}
-                                  >
-                                    {solicitud.nombreProyecto}
-                                  </div>
-                                </td>
-
-                                <td style={tdStyle}>
-                                  <div
-                                    style={familyTextStyle}
-                                    title={solicitud.nombreFamilia}
-                                  >
-                                    {solicitud.nombreFamilia}
-                                  </div>
-                                </td>
-                                <td style={tdStyle}>
-                                  <div
-                                    style={stationTextStyle}
-                                    title={solicitud.nombreEstacion}
-                                  >
-                                    <strong>
-                                      {solicitud.nombreEstacion}
-                                    </strong>
-                                  </div>
-                                </td>
-
-                                <td style={tdStyle}>
-                                  <div style={materialCellStyle}>
-                                    <strong
-                                      title={
-                                        materialPrincipal
-                                          ?.numeroParteMaterial ??
-                                        "Sin material"
-                                      }
-                                    >
-                                      {materialPrincipal
-                                        ?.numeroParteMaterial ??
-                                        "N/A"}
-                                    </strong>
-
-                                    <span
-                                      style={materialDescriptionStyle}
-                                      title={
-                                        materialPrincipal
-                                          ?.descripcionMaterial ??
-                                        "Sin descripción"
-                                      }
-                                    >
-                                      {materialPrincipal
-                                        ?.descripcionMaterial ??
-                                        "Sin descripción"}
-                                    </span>
-                                    {materialesAdicionales > 0 && (
-                                      <span style={additionalBadgeStyle}>
-                                        +{materialesAdicionales} pendientes
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td style={tdStyle}>
-                                  <strong>
-                                    {cantidadPendiente}
-                                  </strong>
-                                </td>
-                                <td style={tdStyle}>
-                                  <span
-                                    style={
-                                      solicitud.nombreEstado
-                                        .trim()
-                                        .toLowerCase() === "parcial"
-                                        ? partialStatusStyle
-                                        : pendingStatusStyle
-                                    }
-                                  >
-                                    {solicitud.nombreEstado}
-                                  </span>
-                                </td>
-                                <td
-                                  style={{
-                                    ...tdStyle,
-
-                                    textAlign:
-                                      "right",
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={(
-                                      event
-                                    ) => {
-                                      event.stopPropagation();
-
-                                      abrirDetalle(
-                                        solicitud
-                                      );
-                                    }}
-                                    style={
-                                      openButtonStyle
-                                    }
-                                  >
-                                    Abrir
-                                  </button>
                                 </td>
                               </tr>
-                            );
-                          }
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                <div
-                  style={
-                    sectionActionsStyle
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.href =
-                        "/solicitudes";
-                    }}
-                    style={
-                      viewAllButtonStyle
-                    }
-                  >
-                    Ver todas las solicitudes
-                  </button>
-                </div>
-              </section>
-              <section
-                style={{
-                  ...pendingSectionStyle,
-                  marginTop: "20px",
-                  cursor: "pointer",
-                }}
-                onClick={() =>
-                  setMostrarAlertasDiseno(true)
-                }
-              >
-                <div style={pendingHeaderStyle}>
-                  <div>
-                    <h2 style={sectionTitleStyle}>
-                      Próximos Cambios de Diseño
-                    </h2>
-
-                    <p style={sectionDescriptionStyle}>
-                      Cambios detectados automáticamente
-                      desde el 5MF.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMostrarAlertasDiseno(true)
-                    }
-                    style={viewAllButtonStyle}
-                  >
-                    Ver todos
-                  </button>
-                </div>
-
-                {alertasDiseno.length === 0 ? (
-                  <div style={emptyStyle}>
-                    No hay cambios próximos.
-                  </div>
-                ) : (
-                  <div style={tableContainerStyle}>
-                    <table style={tableStyle}>
-                      <thead>
-                        <tr style={tableHeaderStyle}>
-                          <th style={thStyle}>
-                            Proyecto
-                          </th>
-
-                          <th style={thStyle}>
-                            Familia
-                          </th>
-
-                          <th style={thStyle}>
-                            Cambio
-                          </th>
-
-                          <th style={thStyle}>
-                            Fecha
-                          </th>
-
-                          <th style={thStyle}>
-                            Días
-                          </th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {alertasResumen.map(
-                          (alerta) => (
-                            <tr
-                              key={
-                                alerta.arnesActual +
-                                alerta.disenoSiguiente
-                              }
-                            >
-                              <td style={tdStyle}>
-                                {alerta.proyecto}
-                              </td>
-
-                              <td style={tdStyle}>
-                                {alerta.familia}
-                              </td>
-
-                              <td style={tdStyle}>
-                                <strong>
-                                  {alerta.disenoActual}
-                                </strong>
-                                {" → "}
-                                <strong>
-                                  {alerta.disenoSiguiente}
-                                </strong>
-                              </td>
-
-                              <td style={tdStyle}>
-                                {alerta.fechaCambio}
-                              </td>
-
-                              <td style={tdStyle}>
-                                <span
-                                  style={{
-                                    padding:
-                                      "6px 10px",
-                                    borderRadius:
-                                      "999px",
-                                    background:
-                                      alerta.diasRestantes <= 7
-                                        ? "#fecaca"
-                                        : alerta.diasRestantes <= 14
-                                          ? "#fed7aa"
-                                          : "#dcfce7",
-
-                                    color:
-                                      alerta.diasRestantes <= 7
-                                        ? "#991b1b"
-                                        : alerta.diasRestantes <= 14
-                                          ? "#9a3412"
-                                          : "#166534",
-                                  }}
-                                >
-                                  {alerta.diasRestantes}
-                                  {" días"}
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
 
 
-            </>
-          )}
-        </section>
-      </div>
+              </>
+            )
+          }
+        </section >
+      </div >
       {mostrarAlertasDiseno && (
         <div style={modalOverlayStyle}>
           <section
@@ -1106,7 +1322,9 @@ export function DashboardPage() {
                         </td>
 
                         <td style={tdStyle}>
-                          {alerta.diasRestantes}
+                          {alerta.diasRestantes === 0
+                            ? "Hoy"
+                            : `${alerta.diasRestantes} días`}
                         </td>
                       </tr>
                     )
@@ -1159,22 +1377,25 @@ export function DashboardPage() {
             </div>
           </section>
         </div>
-      )}
+      )
+      }
 
-      {solicitudSeleccionada && (
-        <SolicitudDetalleModal
-          solicitud={
-            solicitudSeleccionada
-          }
-          onCerrar={
-            cerrarDetalle
-          }
-          onSolicitudActualizada={
-            manejarSolicitudActualizada
-          }
-        />
-      )}
-    </Layout>
+      {
+        solicitudSeleccionada && (
+          <SolicitudDetalleModal
+            solicitud={
+              solicitudSeleccionada
+            }
+            onCerrar={
+              cerrarDetalle
+            }
+            onSolicitudActualizada={
+              manejarSolicitudActualizada
+            }
+          />
+        )
+      }
+    </Layout >
   );
 }
 
@@ -1184,6 +1405,7 @@ interface KpiCardProps {
   color: string;
   fondo: string;
   descripcion: string;
+  compacto: boolean;
 }
 
 function KpiCard({
@@ -1192,40 +1414,117 @@ function KpiCard({
   color,
   fondo,
   descripcion,
+  compacto,
 }: KpiCardProps) {
   return (
     <article
       style={{
         ...kpiCardStyle,
         background: fondo,
+
+        width: "100%",
+        minWidth: 0,
+
+        minHeight:
+          compacto
+            ? "82px"
+            : "155px",
+
+        padding:
+          compacto
+            ? "13px 16px"
+            : "22px",
+
+        flexDirection:
+          compacto
+            ? "row"
+            : "column",
+
+        justifyContent:
+          compacto
+            ? "flex-start"
+            : "center",
+
+        textAlign:
+          compacto
+            ? "left"
+            : "center",
+
+        gap:
+          compacto
+            ? "15px"
+            : 0,
+
+        boxSizing: "border-box",
       }}
     >
       <strong
         style={{
           ...kpiNumberStyle,
           color,
+
+          minWidth:
+            compacto
+              ? "52px"
+              : "auto",
+
+          fontSize:
+            compacto
+              ? "31px"
+              : "46px",
+
+          textAlign:
+            compacto
+              ? "center"
+              : "inherit",
         }}
       >
         {cantidad}
       </strong>
 
-      <h3
+      <div
         style={{
-          ...kpiTitleStyle,
-          color,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
         }}
       >
-        {titulo}
-      </h3>
+        <h3
+          style={{
+            ...kpiTitleStyle,
+            color,
 
-      <span
-        style={{
-          ...kpiDescriptionStyle,
-          color,
-        }}
-      >
-        {descripcion}
-      </span>
+            margin:
+              compacto
+                ? "0 0 3px"
+                : "10px 0 5px",
+
+            fontSize:
+              compacto
+                ? "16px"
+                : "20px",
+          }}
+        >
+          {titulo}
+        </h3>
+
+        <span
+          style={{
+            ...kpiDescriptionStyle,
+            color,
+
+            fontSize:
+              compacto
+                ? "11px"
+                : "13px",
+
+            lineHeight: 1.35,
+          }}
+        >
+          {descripcion}
+        </span>
+      </div>
     </article>
   );
 }
@@ -1326,8 +1625,12 @@ function obtenerAlertaEspera(
 const pageContainerStyle = {
   width: "100%",
   maxWidth: "1500px",
+  minWidth: 0,
   margin: "0 auto",
+  boxSizing: "border-box" as const,
+  overflowX: "hidden" as const,
 };
+
 
 const dashboardContainerStyle = {
   padding: "30px",
@@ -1470,9 +1773,14 @@ const pendingCounterStyle = {
 };
 
 const tableContainerStyle = {
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
   overflowX: "auto" as const,
+  overflowY: "hidden" as const,
   border: "1px solid #e2e8f0",
   borderRadius: "10px",
+  boxSizing: "border-box" as const,
 };
 
 const tableStyle = {

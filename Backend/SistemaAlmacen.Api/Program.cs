@@ -39,7 +39,7 @@ builder.Services.AddScoped<IpsExportService>();
 builder.Services.AddScoped<MaterialBarcodeExportService>();
 builder.Services.AddScoped<AlertaCambioDisenoRepository>();
 builder.Services.AddScoped<EstacionImportService>();
-
+builder.Services.AddScoped<MaterialStationImportService>();
 builder.Services.AddControllers();
 
 
@@ -263,4 +263,5 @@ app.MapIpsExportEndpoints();
 app.MapMaterialBarcodeExportEndpoints();
 app.MapGroup("/api").MapAlertaCambioDisenoEndpoints();
 app.MapControllers();
+app.MapMaterialStationImportEndpoints();
 app.Run();

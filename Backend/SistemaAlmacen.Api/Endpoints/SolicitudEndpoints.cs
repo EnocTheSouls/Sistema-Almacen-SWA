@@ -412,21 +412,29 @@ public static class SolicitudEndpoints
                 });
             }
 
-            // Detecta materiales repetidos.
+            // Solo considera duplicado el mismo material
+            // dentro del mismo contexto BOM y estación.
             var materialesDuplicados =
                 dto.Materiales
-                    .GroupBy(
-                        detalle => detalle.IdMaterial
-                    )
+                    .GroupBy(detalle => new
+                    {
+                        detalle.IdMaterial,
+                        detalle.IdBomDetalle,
+                        detalle.IdEstacion
+                    })
                     .Where(
                         grupoMaterial =>
                             grupoMaterial.Count() > 1
                     )
-                    .Select(
-                        grupoMaterial =>
-                            grupoMaterial.Key
-                    )
+                    .Select(grupoMaterial => new
+                    {
+                        grupoMaterial.Key.IdMaterial,
+                        grupoMaterial.Key.IdBomDetalle,
+                        grupoMaterial.Key.IdEstacion
+                    })
                     .ToList();
+
+
 
             if (materialesDuplicados.Count > 0)
             {
@@ -464,6 +472,75 @@ public static class SolicitudEndpoints
                             $"La cantidad solicitada del material {detalle.IdMaterial} debe ser un número entero mayor que cero."
                     });
                 }
+
+                // Los materiales escaneados deben incluir
+                // el contexto completo obtenido del QR.
+                if (origenSolicitud == "ESCANEO")
+                {
+                    if (
+                        !detalle.IdBomDetalle.HasValue ||
+                        detalle.IdBomDetalle.Value <= 0
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"El material {detalle.IdMaterial} no contiene un detalle BOM válido."
+                        });
+                    }
+
+                    if (
+                        !detalle.IdArnes.HasValue ||
+                        detalle.IdArnes.Value <= 0
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"El material {detalle.IdMaterial} no contiene un arnés válido."
+                        });
+                    }
+
+                    if (
+                        !detalle.IdEstacion.HasValue ||
+                        detalle.IdEstacion.Value <= 0
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"El material {detalle.IdMaterial} no contiene una estación válida."
+                        });
+                    }
+                }
+                else
+                {
+                    // La captura manual puede no tener
+                    // contexto BOM, arnés o estación.
+                    // Si contiene alguno, deben venir todos.
+                    var tieneAlgunContexto =
+                        detalle.IdBomDetalle.HasValue ||
+                        detalle.IdArnes.HasValue ||
+                        detalle.IdEstacion.HasValue;
+
+                    var tieneContextoCompleto =
+                        detalle.IdBomDetalle.HasValue &&
+                        detalle.IdArnes.HasValue &&
+                        detalle.IdEstacion.HasValue;
+
+                    if (
+                        tieneAlgunContexto &&
+                        !tieneContextoCompleto
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"El contexto del material {detalle.IdMaterial} está incompleto."
+                        });
+                    }
+                }
+
 
                 var material =
                     await materialRepository.ObtenerPorIdAsync(
@@ -538,15 +615,12 @@ public static class SolicitudEndpoints
             }
             catch (InvalidOperationException ex)
             {
-                return Results.Problem(
-                    title:
-                        "Configuración de solicitudes incompleta",
-                    detail:
-                        ex.Message,
-                    statusCode:
-                        StatusCodes.Status500InternalServerError
-                );
+                return Results.BadRequest(new
+                {
+                    mensaje = ex.Message
+                });
             }
+
         })
         .WithName("CrearSolicitud")
         .RequireAuthorization(policy =>
@@ -597,6 +671,29 @@ public static class SolicitudEndpoints
                     mensaje =
                         $"La solicitud ya se encuentra en estado {solicitudActual.NombreEstado}."
                 });
+            }
+
+            // Impide cancelar una solicitud
+            // que ya tenga algún material surtido.
+            if (dto.IdEstado == 8)
+            {
+                var tieneCantidadSurtida =
+                    solicitudActual.Materiales.Any(
+                        material =>
+                            material.CantidadSurtida > 0
+                    );
+
+                if (tieneCantidadSurtida)
+                {
+                    return Results.Conflict(new
+                    {
+                        codigo =
+                            "SOLICITUD_CON_SURTIDO",
+
+                        mensaje =
+                            "No se puede cancelar la solicitud porque uno o más materiales ya tienen cantidad surtida."
+                    });
+                }
             }
 
             // Los estados de surtido se determinan automáticamente
@@ -676,6 +773,17 @@ public static class SolicitudEndpoints
                 {
                     mensaje =
                         "El estado solicitado no existe en la base de datos."
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new
+                {
+                    codigo =
+                        "SOLICITUD_CON_SURTIDO",
+
+                    mensaje =
+                        ex.Message
                 });
             }
         })

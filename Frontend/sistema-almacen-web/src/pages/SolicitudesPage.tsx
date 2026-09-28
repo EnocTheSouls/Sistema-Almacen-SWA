@@ -345,64 +345,76 @@ export function SolicitudesPage() {
                 : "16px",
           }}
         >
-          <div style={headerStyle}>
-            <div
-              style={{
-                ...headerStyle,
-                flexDirection:
-                  modoMovil
-                    ? "column"
-                    : "row",
+          <div
+            style={{
+              ...headerStyle,
 
-                alignItems:
-                  modoMovil
-                    ? "stretch"
-                    : "center",
+              flexDirection:
+                modoMovil
+                  ? "column"
+                  : "row",
 
-                gap:
-                  modoMovil
-                    ? "14px"
-                    : "20px",
-              }}
-            >
-              <div>
-                <h1
-                  style={{
-                    ...titleStyle,
+              alignItems:
+                modoMovil
+                  ? "stretch"
+                  : "flex-start",
 
-                    fontSize:
-                      modoMovil
-                        ? "24px"
-                        : "30px",
-                  }}
-                >
-                  Solicitudes
-                </h1>
-
-                <p style={descriptionStyle}>
-                  Bandeja de solicitudes de material
-                  enviadas por las líneas de producción.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  abrirNuevaSolicitud
-                }
+              gap:
+                modoMovil
+                  ? "14px"
+                  : "20px",
+            }}
+          >
+            <div>
+              <h1
                 style={{
-                  ...primaryButtonStyle,
+                  ...titleStyle,
 
-                  width:
+                  fontSize:
                     modoMovil
-                      ? "100%"
-                      : "auto",
+                      ? "24px"
+                      : "30px",
                 }}
               >
-                + Nueva solicitud
-              </button>
+                Solicitudes
+              </h1>
+
+              <p style={descriptionStyle}>
+                Bandeja de solicitudes de material
+                enviadas por las líneas de producción.
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={
+                abrirNuevaSolicitud
+              }
+              style={{
+                ...primaryButtonStyle,
+
+                // En móvil ocupa todo el ancho.
+                // En escritorio conserva su tamaño actual.
+                width:
+                  modoMovil
+                    ? "100%"
+                    : "auto",
+
+                maxWidth: "100%",
+
+                alignSelf:
+                  modoMovil
+                    ? "stretch"
+                    : "auto",
+
+                boxSizing:
+                  "border-box",
+              }}
+            >
+              + Nueva solicitud
+            </button>
           </div>
+
 
           {mensajeExito && (
             <div style={successStyle}>
@@ -485,28 +497,32 @@ export function SolicitudesPage() {
             />
           </div>
 
-          <div style={filtersStyle}>
-            <div style={searchGroupStyle}>
-              <label
-                htmlFor="buscarSolicitud"
-                style={labelStyle}
-              >
-                Buscar solicitud
-              </label>
+          <div
+            style={{
+              ...filtersStyle,
 
-              <input
-                id="buscarSolicitud"
-                type="text"
-                value={busqueda}
-                onChange={(event) =>
-                  setBusqueda(
-                    event.target.value
-                  )
-                }
-                placeholder="ID, proyecto, familia, estación, material o solicitante"
-                style={inputStyle}
-              />
-            </div>
+              gridTemplateColumns:
+                modoMovil
+                  ? "minmax(0, 1fr)"
+                  : "minmax(250px, 2fr) minmax(180px, 1fr) auto",
+
+              padding:
+                modoMovil
+                  ? "12px"
+                  : "17px",
+
+              gap:
+                modoMovil
+                  ? "12px"
+                  : "13px",
+
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+              overflow: "hidden",
+              boxSizing: "border-box",
+            }}
+          > 
 
             <div style={statusGroupStyle}>
               <label
@@ -787,12 +803,6 @@ const filtersStyle = {
   background: "#f8fafc",
   width: "100%",
   boxSizing: "border-box" as const,
-};
-
-const searchGroupStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: "7px",
 };
 
 const statusGroupStyle = {

@@ -238,9 +238,17 @@ public sealed class SolicitudRepository
         if (idEstado.HasValue)
         {
             condiciones.Add(
-                "s.id_estado = @idEstado"
-            );
-
+    """
+    EXISTS (
+        SELECT 1
+        FROM solicitud_detalle AS sdFiltro
+        WHERE sdFiltro.id_solicitud =
+              s.id_solicitud
+          AND sdFiltro.id_estacion =
+              @idEstacion
+    )
+    """
+);
             command.Parameters.AddWithValue(
                 "@idEstado",
                 idEstado.Value
@@ -521,6 +529,160 @@ public sealed class SolicitudRepository
                         "nombre_estacion"
                     );
             }
+            // Valida el contexto individual de cada
+            // material capturado mediante QR.
+            foreach (var detalle in materiales)
+            {
+                if (detalle.IdMaterial <= 0)
+                {
+                    throw new InvalidOperationException(
+                        "La solicitud contiene un material inválido."
+                    );
+                }
+
+                if (
+                    detalle.CantidadSolicitada <= 0 ||
+                    detalle.CantidadSolicitada !=
+                        decimal.Truncate(
+                            detalle.CantidadSolicitada
+                        )
+                )
+                {
+                    throw new InvalidOperationException(
+                        "Todas las cantidades solicitadas deben ser números enteros mayores que cero."
+                    );
+                }
+
+                // El escaneo QR requiere el contexto completo.
+                if (origenLimpio == "ESCANEO")
+                {
+                    if (
+                        !detalle.IdBomDetalle.HasValue ||
+                        detalle.IdBomDetalle.Value <= 0 ||
+                        !detalle.IdArnes.HasValue ||
+                        detalle.IdArnes.Value <= 0 ||
+                        !detalle.IdEstacion.HasValue ||
+                        detalle.IdEstacion.Value <= 0
+                    )
+                    {
+                        throw new InvalidOperationException(
+                            "Todos los materiales escaneados deben incluir detalle BOM, arnés y estación."
+                        );
+                    }
+
+                    await using var validarDetalleCommand =
+                        connection.CreateCommand();
+
+                    validarDetalleCommand.Transaction =
+                        transaction;
+
+                    validarDetalleCommand.CommandText = """
+            SELECT COUNT(*)
+            FROM bom_detalle AS bd
+
+            INNER JOIN bom AS b
+                ON b.id_bom = bd.id_bom
+
+            INNER JOIN arneses AS a
+                ON a.id_arnes = b.id_arnes
+
+            INNER JOIN familias AS f
+                ON f.id_familia = a.id_familia
+
+            INNER JOIN proyectos AS p
+                ON p.id_proyecto = f.id_proyecto
+
+            INNER JOIN estaciones AS e
+                ON e.id_estacion = bd.id_estacion
+
+            INNER JOIN materiales AS m
+                ON m.id_material = bd.id_material
+
+            WHERE bd.id_detalle = @idBomDetalle
+              AND bd.id_material = @idMaterial
+              AND a.id_arnes = @idArnes
+              AND e.id_estacion = @idEstacion
+              AND e.id_familia = f.id_familia
+              AND f.id_familia = @idFamilia
+              AND p.id_proyecto = @idProyecto
+              AND b.vigente = TRUE
+              AND a.activo = TRUE
+              AND f.activo = TRUE
+              AND p.activo = TRUE
+              AND e.activo = TRUE
+              AND m.activo = TRUE;
+            """;
+
+                    validarDetalleCommand.Parameters.AddWithValue(
+                        "@idBomDetalle",
+                        detalle.IdBomDetalle.Value
+                    );
+
+                    validarDetalleCommand.Parameters.AddWithValue(
+                        "@idMaterial",
+                        detalle.IdMaterial
+                    );
+
+                    validarDetalleCommand.Parameters.AddWithValue(
+                        "@idArnes",
+                        detalle.IdArnes.Value
+                    );
+
+                    validarDetalleCommand.Parameters.AddWithValue(
+                        "@idEstacion",
+                        detalle.IdEstacion.Value
+                    );
+
+                    validarDetalleCommand.Parameters.AddWithValue(
+                        "@idFamilia",
+                        idFamilia
+                    );
+
+                    validarDetalleCommand.Parameters.AddWithValue(
+                        "@idProyecto",
+                        idProyecto
+                    );
+
+                    var relacionesValidas =
+                        Convert.ToInt32(
+                            await validarDetalleCommand
+                                .ExecuteScalarAsync()
+                        );
+
+                    if (relacionesValidas != 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"El material {detalle.IdMaterial} no corresponde al proyecto, familia, arnés, estación o detalle BOM indicado."
+                        );
+                    }
+                }
+                else
+                {
+                    // Una captura manual puede no contener
+                    // contexto BOM, pero si lo contiene
+                    // debe estar completo.
+                    var tieneAlgunContexto =
+                        detalle.IdBomDetalle.HasValue ||
+                        detalle.IdArnes.HasValue ||
+                        detalle.IdEstacion.HasValue;
+
+                    var tieneContextoCompleto =
+                        detalle.IdBomDetalle.HasValue &&
+                        detalle.IdArnes.HasValue &&
+                        detalle.IdEstacion.HasValue;
+
+                    if (
+                        tieneAlgunContexto &&
+                        !tieneContextoCompleto
+                    )
+                    {
+                        throw new InvalidOperationException(
+                            "El contexto del material está incompleto."
+                        );
+                    }
+                }
+            }
+
 
             long idSolicitud;
 
@@ -616,20 +778,28 @@ public sealed class SolicitudRepository
 
                 detalleCommand.Transaction = transaction;
 
+
                 detalleCommand.CommandText = """
-                    INSERT INTO solicitud_detalle (
-                        id_solicitud,
-                        id_material,
-                        cantidad_solicitada,
-                        cantidad_surtida
-                    )
-                    VALUES (
-                        @idSolicitud,
-                        @idMaterial,
-                        @cantidadSolicitada,
-                        0
-                    );
-                    """;
+    INSERT INTO solicitud_detalle (
+        id_solicitud,
+        id_material,
+        id_bom_detalle,
+        id_arnes,
+        id_estacion,
+        cantidad_solicitada,
+        cantidad_surtida
+    )
+    VALUES (
+        @idSolicitud,
+        @idMaterial,
+        @idBomDetalle,
+        @idArnes,
+        @idEstacion,
+        @cantidadSolicitada,
+        0
+    );
+    """;
+
 
                 detalleCommand.Parameters.AddWithValue(
                     "@idSolicitud",
@@ -640,6 +810,24 @@ public sealed class SolicitudRepository
                     "@idMaterial",
                     detalle.IdMaterial
                 );
+                detalleCommand.Parameters.AddWithValue(
+                    "@idBomDetalle",
+                    (object?)detalle.IdBomDetalle ??
+                    DBNull.Value
+                );
+
+                detalleCommand.Parameters.AddWithValue(
+                    "@idArnes",
+                    (object?)detalle.IdArnes ??
+                    DBNull.Value
+                );
+
+                detalleCommand.Parameters.AddWithValue(
+                    "@idEstacion",
+                    (object?)detalle.IdEstacion ??
+                    DBNull.Value
+                );
+
 
                 detalleCommand.Parameters.AddWithValue(
                     "@cantidadSolicitada",
@@ -664,7 +852,7 @@ public sealed class SolicitudRepository
         }
     }
 
-    // Cambia el estado de una solicitud y devuelve el registro actualizado.
+    // Cambia el estado de una solicitud.
     public async Task<Solicitud?> CambiarEstadoAsync(
         long idSolicitud,
         int idEstado)
@@ -674,38 +862,92 @@ public sealed class SolicitudRepository
 
         await connection.OpenAsync();
 
-        await using var command =
-            connection.CreateCommand();
+        await using var transaction =
+            await connection.BeginTransactionAsync();
 
-        command.CommandText = """
-        UPDATE solicitudes
-        SET id_estado = @idEstado
-        WHERE id_solicitud = @idSolicitud;
-        """;
-
-        command.Parameters.AddWithValue(
-            "@idSolicitud",
-            idSolicitud
-        );
-
-        command.Parameters.AddWithValue(
-            "@idEstado",
-            idEstado
-        );
-
-        var filasAfectadas =
-            await command.ExecuteNonQueryAsync();
-
-        if (filasAfectadas == 0)
+        try
         {
-            return null;
+            // Si se solicita cancelar, comprueba
+            // nuevamente que no exista surtido.
+            if (idEstado == 8)
+            {
+                await using var validarCommand =
+                    connection.CreateCommand();
+
+                validarCommand.Transaction =
+                    transaction;
+
+                validarCommand.CommandText = """
+                SELECT COUNT(*)
+                FROM solicitud_detalle
+                WHERE id_solicitud = @idSolicitud
+                  AND cantidad_surtida > 0;
+                """;
+
+                validarCommand.Parameters.AddWithValue(
+                    "@idSolicitud",
+                    idSolicitud
+                );
+
+                var detallesConSurtido =
+                    Convert.ToInt32(
+                        await validarCommand
+                            .ExecuteScalarAsync()
+                    );
+
+                if (detallesConSurtido > 0)
+                {
+                    throw new InvalidOperationException(
+                        "No se puede cancelar la solicitud porque uno o más materiales ya tienen cantidad surtida."
+                    );
+                }
+            }
+
+            await using var command =
+                connection.CreateCommand();
+
+            command.Transaction =
+                transaction;
+
+            command.CommandText = """
+            UPDATE solicitudes
+            SET id_estado = @idEstado
+            WHERE id_solicitud = @idSolicitud;
+            """;
+
+            command.Parameters.AddWithValue(
+                "@idSolicitud",
+                idSolicitud
+            );
+
+            command.Parameters.AddWithValue(
+                "@idEstado",
+                idEstado
+            );
+
+            var filasAfectadas =
+                await command.ExecuteNonQueryAsync();
+
+            if (filasAfectadas == 0)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            await transaction.CommitAsync();
+
+            return await ObtenerPorIdAsync(
+                idSolicitud
+            );
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
         }
 
-        // Consulta y devuelve la solicitud con el nuevo estado.
-        return await ObtenerPorIdAsync(
-            idSolicitud
-        );
     }
+
 
 
     // Obtiene los contadores de solicitudes para el dashboard.
@@ -1405,25 +1647,54 @@ public sealed class SolicitudRepository
 
         await using var command =
             connection.CreateCommand();
-
         command.CommandText = """
-            SELECT
-                sd.id_detalle,
-                sd.id_solicitud,
-                sd.id_material,
-                m.numero_parte_material,
-                m.descripcion AS descripcion_material,
-                m.unidad_medida,
-                m.tipo_empaque,
-                m.std_pack,
-                sd.cantidad_solicitada,
-                sd.cantidad_surtida
-            FROM solicitud_detalle AS sd
-            INNER JOIN materiales AS m
-                ON m.id_material = sd.id_material
-            WHERE sd.id_solicitud = @idSolicitud
-            ORDER BY m.numero_parte_material;
-            """;
+    SELECT
+        sd.id_detalle,
+        sd.id_solicitud,
+        sd.id_material,
+
+        sd.id_bom_detalle,
+        sd.id_arnes,
+        a.numero_parte_arnes
+            AS numero_arnes,
+
+        sd.id_estacion,
+        e.nombre
+            AS nombre_estacion,
+
+        m.numero_parte_material,
+
+        m.descripcion
+            AS descripcion_material,
+
+        m.unidad_medida,
+        m.tipo_empaque,
+        m.std_pack,
+
+        sd.cantidad_solicitada,
+        sd.cantidad_surtida
+
+    FROM solicitud_detalle AS sd
+
+    INNER JOIN materiales AS m
+        ON m.id_material =
+           sd.id_material
+
+    LEFT JOIN arneses AS a
+        ON a.id_arnes =
+           sd.id_arnes
+
+    LEFT JOIN estaciones AS e
+        ON e.id_estacion =
+           sd.id_estacion
+
+    WHERE sd.id_solicitud =
+          @idSolicitud
+
+    ORDER BY
+        m.numero_parte_material,
+        sd.id_detalle;
+    """;
 
         command.Parameters.AddWithValue(
             "@idSolicitud",
@@ -1562,7 +1833,6 @@ public sealed class SolicitudRepository
                 reader.GetString("origen_solicitud")
         };
     }
-
     // Convierte una fila de MySQL en un detalle.
     private static SolicitudDetalle MapearDetalle(
         MySqlDataReader reader)
@@ -1570,13 +1840,74 @@ public sealed class SolicitudRepository
         return new SolicitudDetalle
         {
             IdDetalle =
-                reader.GetInt64("id_detalle"),
+                reader.GetInt64(
+                    "id_detalle"
+                ),
 
             IdSolicitud =
-                reader.GetInt64("id_solicitud"),
+                reader.GetInt64(
+                    "id_solicitud"
+                ),
 
             IdMaterial =
-                reader.GetInt32("id_material"),
+                reader.GetInt32(
+                    "id_material"
+                ),
+
+            IdBomDetalle =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "id_bom_detalle"
+                    )
+                )
+                    ? null
+                    : reader.GetInt64(
+                        "id_bom_detalle"
+                    ),
+
+            IdArnes =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "id_arnes"
+                    )
+                )
+                    ? null
+                    : reader.GetInt32(
+                        "id_arnes"
+                    ),
+
+            NumeroArnes =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "numero_arnes"
+                    )
+                )
+                    ? null
+                    : reader.GetString(
+                        "numero_arnes"
+                    ),
+
+            IdEstacion =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "id_estacion"
+                    )
+                )
+                    ? null
+                    : reader.GetInt32(
+                        "id_estacion"
+                    ),
+
+            NombreEstacion =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "nombre_estacion"
+                    )
+                )
+                    ? null
+                    : reader.GetString(
+                        "nombre_estacion"
+                    ),
 
             NumeroParteMaterial =
                 reader.GetString(
@@ -1588,23 +1919,38 @@ public sealed class SolicitudRepository
                     "descripcion_material"
                 ),
 
-            UnidadMedida = reader.IsDBNull(
-                reader.GetOrdinal("unidad_medida")
-            )
-                ? null
-                : reader.GetString("unidad_medida"),
+            UnidadMedida =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "unidad_medida"
+                    )
+                )
+                    ? null
+                    : reader.GetString(
+                        "unidad_medida"
+                    ),
 
-            TipoEmpaque = reader.IsDBNull(
-                reader.GetOrdinal("tipo_empaque")
-            )
-                ? null
-                : reader.GetString("tipo_empaque"),
+            TipoEmpaque =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "tipo_empaque"
+                    )
+                )
+                    ? null
+                    : reader.GetString(
+                        "tipo_empaque"
+                    ),
 
-            StdPack = reader.IsDBNull(
-                reader.GetOrdinal("std_pack")
-            )
-                ? null
-                : reader.GetDecimal("std_pack"),
+            StdPack =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "std_pack"
+                    )
+                )
+                    ? null
+                    : reader.GetDecimal(
+                        "std_pack"
+                    ),
 
             CantidadSolicitada =
                 reader.GetDecimal(
@@ -1617,4 +1963,5 @@ public sealed class SolicitudRepository
                 )
         };
     }
+
 }

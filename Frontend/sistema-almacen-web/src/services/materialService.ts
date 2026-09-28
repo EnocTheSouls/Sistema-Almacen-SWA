@@ -8,6 +8,37 @@ import type {
   MaterialCatalogo,
 } from "../types/material";
 
+export interface MaterialQrContexto {
+  idBomDetalle: number;
+
+  idProyecto: number;
+  proyecto: string;
+
+  idFamilia: number;
+  familia: string;
+
+  idArnes: number;
+  numeroArnes: string;
+  disenoArnes: string;
+
+  idEstacion: number;
+  estacion: string;
+
+  idMaterial: number;
+  numeroParteMaterial: string;
+  descripcion: string;
+  genericCode: string;
+
+  unidadMedida: string | null;
+  tipoEmpaque: string | null;
+  stdPack: number | null;
+}
+
+export interface ValidarMaterialQrRequest {
+  contenidoQr: string;
+}
+
+
 // Obtiene el catálogo completo de materiales.
 export async function obtenerMateriales(): Promise<
   MaterialCatalogo[]
@@ -101,4 +132,27 @@ export async function cambiarEstadoMaterial(
       },
     }
   );
+}
+
+
+// Valida un QR contextual contra
+// la estructura real registrada en el BOM.
+export async function validarMaterialQr(
+  contenidoQr: string
+): Promise<MaterialQrContexto> {
+  const datos:
+    ValidarMaterialQrRequest = {
+    contenidoQr:
+      contenidoQr.trim(),
+  };
+
+  const respuesta =
+    await apiClient.post<
+      MaterialQrContexto
+    >(
+      "/materiales/validar-qr",
+      datos
+    );
+
+  return respuesta.data;
 }

@@ -25,6 +25,11 @@ import {
 
 import {
   obtenerMateriales,
+  validarMaterialQr,
+} from "../../services/materialService";
+
+import type {
+  MaterialQrContexto,
 } from "../../services/materialService";
 
 import {
@@ -64,6 +69,15 @@ interface MaterialSeleccionado {
   numeroParte: string;
   descripcion: string;
   cantidad: string;
+
+  idBomDetalle: number | null;
+  idArnes: number | null;
+  numeroArnes: string | null;
+
+  idEstacion: number | null;
+  nombreEstacion: string | null;
+
+  origen: "MANUAL" | "ESCANEO";
 }
 
 export function NuevaSolicitudModal({
@@ -103,6 +117,27 @@ export function NuevaSolicitudModal({
     busquedaMaterial,
     setBusquedaMaterial,
   ] = useState("");
+  // Contexto completo validado desde el QR.
+  const [
+    contextoQrPendiente,
+    setContextoQrPendiente,
+  ] = useState<MaterialQrContexto | null>(
+    null
+  );
+
+  // Indica que el QR se está validando.
+  const [
+    validandoQr,
+    setValidandoQr,
+  ] = useState(false);
+
+  const [
+    solicitudConQr,
+    setSolicitudConQr,
+  ] = useState(false);
+
+
+
 
   // Material seleccionado antes de agregarlo a la lista.
   const [
@@ -347,12 +382,165 @@ export function NuevaSolicitudModal({
     setIdEstacion(0);
     setError("");
   };
+  // Valida el QR y completa automáticamente
+  // proyecto, familia y estación.
+  const procesarQrContextual = async (
+    contenidoQr: string
+  ) => {
+    const contenidoLimpio =
+      contenidoQr.trim();
 
+    if (
+      !contenidoLimpio
+        .toUpperCase()
+        .startsWith("SWA|")
+    ) {
+      return false;
+    }
 
+    try {
+      setValidandoQr(true);
+      setError("");
+
+      const contexto =
+        await validarMaterialQr(
+          contenidoLimpio
+        );
+
+      // Después del primer material, solamente
+      // se exige el mismo proyecto y familia.
+      // La estación puede ser diferente.
+      if (materiales.length > 0) {
+        if (
+          idProyecto !==
+          contexto.idProyecto
+        ) {
+          setError(
+            `El material pertenece al proyecto ${contexto.proyecto}, pero la solicitud actual corresponde a otro proyecto.`
+          );
+
+          setBusquedaMaterial("");
+
+          window.setTimeout(() => {
+            inputEscaneoRef.current?.focus();
+          }, 0);
+
+          return true;
+        }
+
+        if (
+          idFamilia !==
+          contexto.idFamilia
+        ) {
+          setError(
+            `El material pertenece a la familia ${contexto.familia}, pero la solicitud actual corresponde a otra familia.`
+          );
+
+          setBusquedaMaterial("");
+
+          window.setTimeout(() => {
+            inputEscaneoRef.current?.focus();
+          }, 0);
+
+          return true;
+        }
+      }
+
+      setIdProyecto(
+        contexto.idProyecto
+      );
+
+      setIdFamilia(
+        contexto.idFamilia
+      );
+
+      setIdEstacion(
+        contexto.idEstacion
+      );
+
+      setContextoQrPendiente(
+        contexto
+      );
+      setSolicitudConQr(
+        true
+      );
+
+      // Localiza el material real dentro
+      // del catálogo previamente cargado.
+      const materialCatalogo =
+        catalogoMateriales.find(
+          (material) =>
+            material.idMaterial ===
+            contexto.idMaterial
+        );
+
+      if (!materialCatalogo) {
+        setContextoQrPendiente(
+          null
+        );
+
+        setError(
+          "El material del QR no está disponible en el catálogo activo."
+        );
+
+        setBusquedaMaterial("");
+
+        window.setTimeout(() => {
+          inputEscaneoRef.current?.focus();
+        }, 0);
+
+        return true;
+      }
+
+      setMaterialPendiente(
+        materialCatalogo
+      );
+
+      setCantidadPendiente("1");
+      setBusquedaMaterial("");
+      setError("");
+
+      window.setTimeout(() => {
+        inputCantidadRef.current?.focus();
+        inputCantidadRef.current?.select();
+      }, 0);
+
+      return true;
+    } catch (errorQr) {
+      console.error(
+        "Error al validar QR:",
+        errorQr
+      );
+
+      setBusquedaMaterial("");
+      setContextoQrPendiente(null);
+      setMaterialPendiente(null);
+
+      setError(
+        obtenerMensajeErrorQr(
+          errorQr
+        )
+      );
+
+      window.setTimeout(() => {
+        inputEscaneoRef.current?.focus();
+      }, 0);
+
+      return true;
+    } finally {
+      setValidandoQr(false);
+    }
+  };
   // Selecciona el material y solicita su cantidad.
   const agregarMaterial = (
     material: MaterialCatalogo
   ) => {
+    // Una selección manual no conserva
+    // el contexto del QR anterior.
+    setContextoQrPendiente(
+      null
+    );
+
     setMaterialPendiente(
       material
     );
@@ -364,6 +552,23 @@ export function NuevaSolicitudModal({
     window.setTimeout(() => {
       inputCantidadRef.current?.focus();
       inputCantidadRef.current?.select();
+    }, 50);
+  };
+  // Descarta el material escaneado o seleccionado
+  // antes de agregarlo a la solicitud.
+  const cancelarMaterialPendiente = () => {
+    setMaterialPendiente(null);
+
+    setContextoQrPendiente(
+      null
+    );
+
+    setCantidadPendiente("1");
+    setBusquedaMaterial("");
+    setError("");
+
+    window.setTimeout(() => {
+      inputEscaneoRef.current?.focus();
     }, 0);
   };
 
@@ -396,18 +601,34 @@ export function NuevaSolicitudModal({
 
     setMateriales(
       (materialesActuales) => {
+        const idBomDetallePendiente =
+          contextoQrPendiente
+            ?.idBomDetalle ?? null;
+
+        const idEstacionPendiente =
+          contextoQrPendiente
+            ?.idEstacion ?? null;
+
         const materialExistente =
           materialesActuales.find(
             (material) =>
               material.idMaterial ===
-              materialPendiente.idMaterial
+              materialPendiente.idMaterial &&
+              material.idBomDetalle ===
+              idBomDetallePendiente &&
+              material.idEstacion ===
+              idEstacionPendiente
           );
 
         if (materialExistente) {
           return materialesActuales.map(
             (material) =>
               material.idMaterial ===
-                materialPendiente.idMaterial
+                materialPendiente.idMaterial &&
+                material.idBomDetalle ===
+                idBomDetallePendiente &&
+                material.idEstacion ===
+                idEstacionPendiente
                 ? {
                   ...material,
                   cantidad: String(
@@ -435,12 +656,38 @@ export function NuevaSolicitudModal({
 
             cantidad:
               String(cantidad),
+
+            idBomDetalle:
+              contextoQrPendiente
+                ?.idBomDetalle ?? null,
+
+            idArnes:
+              contextoQrPendiente
+                ?.idArnes ?? null,
+
+            numeroArnes:
+              contextoQrPendiente
+                ?.numeroArnes ?? null,
+
+            idEstacion:
+              contextoQrPendiente
+                ?.idEstacion ?? null,
+
+            nombreEstacion:
+              contextoQrPendiente
+                ?.estacion ?? null,
+
+            origen:
+              contextoQrPendiente
+                ? "ESCANEO"
+                : "MANUAL",
           },
         ];
       }
     );
 
     setMaterialPendiente(null);
+    setContextoQrPendiente(null);
     setCantidadPendiente("1");
     setBusquedaMaterial("");
     setError("");
@@ -456,6 +703,8 @@ export function NuevaSolicitudModal({
 
   const cambiarCantidad = (
     idMaterial: number,
+    idBomDetalle: number | null,
+    idEstacion: number | null,
     cantidad: string
   ) => {
     setMateriales(
@@ -463,7 +712,11 @@ export function NuevaSolicitudModal({
         materialesActuales.map(
           (material) =>
             material.idMaterial ===
-              idMaterial
+              idMaterial &&
+              material.idBomDetalle ===
+              idBomDetalle &&
+              material.idEstacion ===
+              idEstacion
               ? {
                 ...material,
                 cantidad,
@@ -474,18 +727,58 @@ export function NuevaSolicitudModal({
   };
 
   const quitarMaterial = (
-    idMaterial: number
+    idMaterial: number,
+    idBomDetalle: number | null,
+    idEstacion: number | null
   ) => {
     setMateriales(
       (materialesActuales) =>
         materialesActuales.filter(
           (material) =>
-            material.idMaterial !==
-            idMaterial
+            !(
+              material.idMaterial ===
+              idMaterial &&
+              material.idBomDetalle ===
+              idBomDetalle &&
+              material.idEstacion ===
+              idEstacion
+            )
         )
     );
 
     setError("");
+  };
+
+  const obtenerMensajeErrorQr = (
+    errorQr: unknown
+  ) => {
+    if (
+      axios.isAxiosError(
+        errorQr
+      )
+    ) {
+      const mensaje =
+        errorQr.response
+          ?.data?.mensaje;
+
+      if (
+        typeof mensaje === "string"
+      ) {
+        return mensaje;
+      }
+
+      const detalle =
+        errorQr.response
+          ?.data?.detail;
+
+      if (
+        typeof detalle === "string"
+      ) {
+        return detalle;
+      }
+    }
+
+    return "No se pudo validar la etiqueta QR.";
   };
 
   const obtenerMensajeError = (
@@ -587,14 +880,16 @@ export function NuevaSolicitudModal({
     try {
       setEnviando(true);
 
+
       const solicitudCreada =
         await crearSolicitud({
           idProyecto,
           idFamilia,
           idEstacion,
           origenSolicitud:
-            "MANUAL",
-
+            solicitudConQr
+              ? "ESCANEO"
+              : "MANUAL",
           materiales:
             materiales.map(
               (material) => ({
@@ -605,6 +900,15 @@ export function NuevaSolicitudModal({
                   Number(
                     material.cantidad
                   ),
+
+                idBomDetalle:
+                  material.idBomDetalle,
+
+                idArnes:
+                  material.idArnes,
+
+                idEstacion:
+                  material.idEstacion,
               })
             ),
         });
@@ -815,7 +1119,8 @@ export function NuevaSolicitudModal({
                   }
                   disabled={
                     enviando ||
-                    idProyecto <= 0
+                    idProyecto <= 0 ||
+                    materiales.length > 0
                   }
                   style={inputStyle}
                 >
@@ -866,7 +1171,8 @@ export function NuevaSolicitudModal({
                   }
                   disabled={
                     enviando ||
-                    idFamilia <= 0
+                    idFamilia <= 0 ||
+                    materiales.length > 0
                   }
                   style={inputStyle}
                 >
@@ -940,7 +1246,7 @@ export function NuevaSolicitudModal({
                 htmlFor="buscarMaterialSolicitud"
                 style={labelStyle}
               >
-                Buscar material
+                Buscar o escanear material
               </label>
 
               <input
@@ -954,17 +1260,83 @@ export function NuevaSolicitudModal({
                   );
 
                   setMaterialPendiente(null);
+                  setContextoQrPendiente(null);
                   setError("");
                 }}
-                disabled={enviando}
-                placeholder="Número de parte, descripción, código de barras o serial"
+                onKeyDown={async (event) => {
+                  if (event.key !== "Enter") {
+                    return;
+                  }
+
+                  event.preventDefault();
+
+                  const contenido =
+                    busquedaMaterial.trim();
+
+                  if (!contenido) {
+                    return;
+                  }
+
+                  const esQr =
+                    await procesarQrContextual(
+                      contenido
+                    );
+
+                  if (esQr) {
+                    return;
+                  }
+
+                  const contenidoNormalizado =
+                    contenido.toUpperCase();
+
+                  const materialExacto =
+                    materialesEncontrados.find(
+                      (material) =>
+                        material
+                          .numeroParteMaterial
+                          .trim()
+                          .toUpperCase() ===
+                        contenidoNormalizado ||
+                        (
+                          material.codigoBarras
+                            ?.trim()
+                            .toUpperCase() ??
+                          ""
+                        ) ===
+                        contenidoNormalizado
+                    );
+
+                  if (materialExacto) {
+                    agregarMaterial(
+                      materialExacto
+                    );
+
+                    return;
+                  }
+
+                  setError(
+                    "No se encontró una coincidencia exacta para el código escaneado."
+                  );
+                }}
+                disabled={
+                  enviando ||
+                  validandoQr
+                }
+                placeholder={
+                  validandoQr
+                    ? "Validando etiqueta QR..."
+                    : "Escanea un QR o busca un material"
+                }
                 autoComplete="off"
                 style={inputStyle}
               />
 
               {busquedaMaterial.trim() &&
-                materialesEncontrados.length >
-                0 && (
+                materialesEncontrados.length > 0 &&
+                !busquedaMaterial
+                  .trim()
+                  .toUpperCase()
+                  .startsWith("SWA|") && (
                   <div style={resultsStyle}>
                     {materialesEncontrados.map(
                       (material) => (
@@ -973,17 +1345,21 @@ export function NuevaSolicitudModal({
                             material.idMaterial
                           }
                           type="button"
-                          disabled={enviando}
-                          onClick={() =>
+                          disabled={
+                            enviando ||
+                            validandoQr
+                          }
+                          onClick={() => {
                             agregarMaterial(
                               material
-                            )
-                          }
+                            );
+                          }}
                           style={resultButtonStyle}
                         >
                           <strong>
                             {
-                              material.numeroParteMaterial
+                              material
+                                .numeroParteMaterial
                             }
                           </strong>
 
@@ -992,16 +1368,15 @@ export function NuevaSolicitudModal({
                               resultDescriptionStyle
                             }
                           >
-                            {
-                              material.descripcion
-                            }
+                            {material.descripcion}
                           </span>
 
                           {material.codigoBarras && (
                             <small>
                               Código:{" "}
                               {
-                                material.codigoBarras
+                                material
+                                  .codigoBarras
                               }
                             </small>
                           )}
@@ -1012,14 +1387,19 @@ export function NuevaSolicitudModal({
                 )}
 
               {busquedaMaterial.trim() &&
-                materialesEncontrados.length ===
-                0 && (
+                materialesEncontrados.length === 0 &&
+                !validandoQr &&
+                !busquedaMaterial
+                  .trim()
+                  .toUpperCase()
+                  .startsWith("SWA|") && (
                   <div style={noResultsStyle}>
                     No se encontraron materiales
                     activos.
                   </div>
                 )}
             </div>
+
 
             {materialPendiente && (
               <div
@@ -1043,6 +1423,86 @@ export function NuevaSolicitudModal({
                       .numeroParteMaterial
                   }
                 </strong>
+                {contextoQrPendiente && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        modoMovil
+                          ? "1fr"
+                          : "repeat(2, minmax(0, 1fr))",
+                      gap: "7px 14px",
+                      marginBottom: "14px",
+                      padding: "12px",
+                      border:
+                        "1px solid #bfdbfe",
+                      borderRadius: "8px",
+                      background: "#ffffff",
+                      color: "#334155",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <span>
+                      Proyecto:{" "}
+                      <strong>
+                        {
+                          contextoQrPendiente
+                            .proyecto
+                        }
+                      </strong>
+                    </span>
+
+                    <span>
+                      Familia:{" "}
+                      <strong>
+                        {
+                          contextoQrPendiente
+                            .familia
+                        }
+                      </strong>
+                    </span>
+
+                    <span>
+                      Arnés:{" "}
+                      <strong>
+                        {
+                          contextoQrPendiente
+                            .numeroArnes
+                        }
+                      </strong>
+                    </span>
+
+                    <span>
+                      Diseño:{" "}
+                      <strong>
+                        {
+                          contextoQrPendiente
+                            .disenoArnes
+                        }
+                      </strong>
+                    </span>
+
+                    <span>
+                      Estación:{" "}
+                      <strong>
+                        {
+                          contextoQrPendiente
+                            .estacion
+                        }
+                      </strong>
+                    </span>
+
+                    <span>
+                      Detalle BOM:{" "}
+                      <strong>
+                        {
+                          contextoQrPendiente
+                            .idBomDetalle
+                        }
+                      </strong>
+                    </span>
+                  </div>
+                )}
 
                 <p
                   style={{
@@ -1098,32 +1558,81 @@ export function NuevaSolicitudModal({
                       style={inputStyle}
                     />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={
-                      confirmarMaterialPendiente
-                    }
-                    disabled={
-                      enviando ||
-                      !cantidadPendiente
-                    }
+                  <div
                     style={{
-                      ...primaryButtonStyle,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+
                       width:
                         modoMovil
                           ? "100%"
-                          : "130px",
-                      minHeight: "44px",
-                      opacity:
-                        enviando ||
-                          !cantidadPendiente
-                          ? 0.65
-                          : 1,
+                          : "145px",
                     }}
                   >
-                    Agregar
-                  </button>
+                    <button
+                      type="button"
+                      onClick={
+                        confirmarMaterialPendiente
+                      }
+                      disabled={
+                        enviando ||
+                        validandoQr ||
+                        !cantidadPendiente
+                      }
+                      style={{
+                        ...primaryButtonStyle,
+
+                        width: "100%",
+                        minHeight: "44px",
+
+                        opacity:
+                          enviando ||
+                            validandoQr ||
+                            !cantidadPendiente
+                            ? 0.65
+                            : 1,
+
+                        cursor:
+                          enviando ||
+                            validandoQr ||
+                            !cantidadPendiente
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {validandoQr
+                        ? "Validando..."
+                        : "Agregar"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={
+                        cancelarMaterialPendiente
+                      }
+                      disabled={enviando}
+                      style={{
+                        ...secondaryButtonStyle,
+
+                        width: "100%",
+                        minHeight: "40px",
+                        padding: "8px 12px",
+
+                        opacity:
+                          enviando
+                            ? 0.65
+                            : 1,
+
+                        cursor:
+                          enviando
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      Cancelar material
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1144,7 +1653,7 @@ export function NuevaSolicitudModal({
                   (material) => (
                     <article
                       key={
-                        material.idMaterial
+                        `${material.idMaterial}-${material.idBomDetalle ?? "manual"}-${material.idEstacion ?? "sin-estacion"}`
                       }
                       style={{
                         padding: "14px",
@@ -1195,6 +1704,8 @@ export function NuevaSolicitudModal({
                         onChange={(event) =>
                           cambiarCantidad(
                             material.idMaterial,
+                            material.idBomDetalle,
+                            material.idEstacion,
                             event.target.value
                           )
                         }
@@ -1212,7 +1723,9 @@ export function NuevaSolicitudModal({
                         disabled={enviando}
                         onClick={() =>
                           quitarMaterial(
-                            material.idMaterial
+                            material.idMaterial,
+                            material.idBomDetalle,
+                            material.idEstacion
                           )
                         }
                         style={{
@@ -1261,7 +1774,7 @@ export function NuevaSolicitudModal({
                       (material) => (
                         <tr
                           key={
-                            material.idMaterial
+                            `${material.idMaterial}-${material.idBomDetalle ?? "manual"}-${material.idEstacion ?? "sin-estacion"}`
                           }
                         >
                           <td style={tdStyle}>
@@ -1283,6 +1796,8 @@ export function NuevaSolicitudModal({
                               onChange={(event) =>
                                 cambiarCantidad(
                                   material.idMaterial,
+                                  material.idBomDetalle,
+                                  material.idEstacion,
                                   event.target.value
                                 )
                               }
@@ -1304,7 +1819,9 @@ export function NuevaSolicitudModal({
                               disabled={enviando}
                               onClick={() =>
                                 quitarMaterial(
-                                  material.idMaterial
+                                  material.idMaterial,
+                                  material.idBomDetalle,
+                                  material.idEstacion
                                 )
                               }
                               style={removeButtonStyle}

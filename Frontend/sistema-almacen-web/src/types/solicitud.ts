@@ -1,8 +1,11 @@
 export interface CrearSolicitudDetalleRequest {
   idMaterial: number;
   cantidadSolicitada: number;
-}
 
+  idBomDetalle: number | null;
+  idArnes: number | null;
+  idEstacion: number | null;
+}
 export interface CrearSolicitudRequest {
   idProyecto: number;
   idFamilia: number;
@@ -14,15 +17,27 @@ export interface CrearSolicitudRequest {
 export interface SolicitudDetalle {
   idDetalle: number;
   idSolicitud: number;
+
   idMaterial: number;
   numeroParteMaterial: string;
   descripcionMaterial: string;
+
   unidadMedida: string | null;
   tipoEmpaque: string | null;
   stdPack: number | null;
+
   cantidadSolicitada: number;
   cantidadSurtida: number;
+
+  // Contexto individual del material escaneado.
+  idBomDetalle: number | null;
+  idArnes: number | null;
+  numeroArnes: string | null;
+
+  idEstacion: number | null;
+  nombreEstacion: string | null;
 }
+
 
 export interface Solicitud {
   idSolicitud: number;

@@ -9,6 +9,17 @@ public sealed class SolicitudDetalle
 
     public int IdMaterial { get; set; }
 
+    // Contexto individual del material.
+    public long? IdBomDetalle { get; set; }
+
+    public int? IdArnes { get; set; }
+
+    public string? NumeroArnes { get; set; }
+
+    public int? IdEstacion { get; set; }
+
+    public string? NombreEstacion { get; set; }
+
     // Número de parte que verá el usuario.
     public string NumeroParteMaterial { get; set; } =
         string.Empty;
@@ -31,5 +42,6 @@ public sealed class SolicitudDetalle
 
     // Cantidad que todavía falta por entregar.
     public decimal CantidadPendiente =>
-        CantidadSolicitada - CantidadSurtida;
+        CantidadSolicitada -
+        CantidadSurtida;
 }

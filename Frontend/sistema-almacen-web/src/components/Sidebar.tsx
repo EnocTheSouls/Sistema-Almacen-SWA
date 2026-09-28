@@ -88,41 +88,69 @@ export function Sidebar({
     );
   };
 
-  // Estilo para las opciones del menú.
   const linkStyle = (
     path: string
-  ) => ({
-    display: "block",
-    width: "100%",
-    boxSizing:
-      "border-box" as const,
-    padding: "12px 16px",
+  ) => {
+    const activa =
+      rutaActiva(path);
 
-    borderLeft: rutaActiva(path)
-      ? "5px solid #60a5fa"
-      : "5px solid transparent",
+    return {
+      position:
+        "relative" as const,
 
-    borderRadius: "8px",
+      display: "flex",
+      alignItems: "center",
 
-    background: rutaActiva(path)
-      ? "rgba(255, 255, 255, 0.13)"
-      : "transparent",
+      width: "100%",
+      minHeight: "43px",
 
-    color: "#ffffff",
-    fontSize: "15px",
+      boxSizing:
+        "border-box" as const,
 
-    fontWeight: rutaActiva(path)
-      ? "700"
-      : "500",
+      padding: "10px 13px",
 
-    textDecoration: "none",
+      border:
+        activa
+          ? "1px solid rgba(147, 197, 253, 0.24)"
+          : "1px solid transparent",
 
-    whiteSpace:
-      "nowrap" as const,
+      borderRadius: "9px",
 
-    transition:
-      "background-color 180ms ease, border-color 180ms ease",
-  });
+      background:
+        activa
+          ? "linear-gradient(90deg, rgba(37, 99, 235, 0.34) 0%, rgba(96, 165, 250, 0.12) 100%)"
+          : "transparent",
+
+      boxShadow:
+        activa
+          ? "inset 3px 0 0 #60a5fa"
+          : "none",
+
+      color:
+        activa
+          ? "#ffffff"
+          : "#dbeafe",
+
+      fontSize: "14px",
+
+      fontWeight:
+        activa
+          ? "800"
+          : "600",
+
+      textDecoration: "none",
+
+      whiteSpace:
+        "nowrap" as const,
+
+      transition:
+        "background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease",
+    };
+  };
+
+
+
+
 
   // Cierra el menú móvil al seleccionar una opción.
   const cerrarMenuMovil = () => {
@@ -187,8 +215,17 @@ export function Sidebar({
           ? 0
           : undefined,
 
-        height: "100vh",
-        maxHeight: "100vh",
+        height: modoMovil
+          ? "100dvh"
+          : "100vh",
+
+        maxHeight: modoMovil
+          ? "100dvh"
+          : "100vh",
+
+        minHeight: modoMovil
+          ? "100dvh"
+          : "100vh",
 
         alignSelf:
           modoMovil
@@ -213,12 +250,13 @@ export function Sidebar({
           "border-box",
 
         background:
-          "linear-gradient(180deg, #102957 0%, #0b2148 100%)",
+          "linear-gradient(180deg, #102957 0%, #0b2148 58%, #081a39 100%)",
 
         color: "#ffffff",
 
         boxShadow:
-          "4px 0 15px rgba(15, 41, 87, 0.18)",
+          "8px 0 30px rgba(15, 23, 42, 0.16)",
+
 
         transition:
           modoMovil
@@ -274,6 +312,7 @@ export function Sidebar({
         </div>
       ) : (
         <>
+
           <div
             style={{
               width:
@@ -281,45 +320,50 @@ export function Sidebar({
                   ? "280px"
                   : "260px",
 
-              padding:
-                "20px 18px 0",
+              flexShrink: 0,
+              padding: "18px 16px 14px",
+              boxSizing: "border-box",
 
-              boxSizing:
-                "border-box",
+              borderBottom:
+                "1px solid rgba(255, 255, 255, 0.1)",
             }}
           >
             <div
               style={{
-                position:
-                  "relative",
-
-                minHeight: "30px",
+                display: "flex",
+                alignItems: "center",
+                gap: "11px",
+                minWidth: 0,
               }}
             >
               <div
                 style={{
-                  color: "#9fb4d4",
-                  fontSize: "14px",
-                  fontWeight: "800",
-
-                  letterSpacing:
-                    "3px",
-
-                  lineHeight: "30px",
-
-                  textAlign:
-                    "center",
+                  minWidth: 0,
+                  flex: "1 1 auto",
                 }}
               >
-                MENÚ
+                <strong
+                  style={{
+                    display: "center",
+                    overflow: "hidden",
+                    color: "#ffffff",
+                    fontSize: "14px",
+                    fontWeight: "800",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    
+                  }}
+                >
+                  MENU
+                </strong>
+
+               
               </div>
 
               {!modoMovil && (
                 <button
                   type="button"
-                  onClick={
-                    cambiarFijado
-                  }
+                  onClick={cambiarFijado}
                   title={
                     fijado
                       ? "Liberar menú"
@@ -331,71 +375,40 @@ export function Sidebar({
                       : "Fijar menú abierto"
                   }
                   style={{
-                    position:
-                      "absolute",
-
-                    top: "2px",
-                    right: "0",
-
-                    width: "26px",
-                    height: "26px",
+                    width: "30px",
+                    height: "30px",
+                    flexShrink: 0,
 
                     display: "flex",
-
-                    alignItems:
-                      "center",
-
-                    justifyContent:
-                      "center",
+                    alignItems: "center",
+                    justifyContent: "center",
 
                     padding: 0,
 
                     border:
-                      "1px solid rgba(255, 255, 255, 0.2)",
-
-                    borderRadius:
-                      "6px",
+                      "1px solid rgba(255, 255, 255, 0.14)",
+                    borderRadius: "8px",
 
                     background: fijado
                       ? "#2563eb"
-                      : "rgba(255, 255, 255, 0.08)",
+                      : "rgba(255, 255, 255, 0.07)",
 
-                    color:
-                      "#ffffff",
+                    color: "#ffffff",
+                    cursor: "pointer",
 
-                    cursor:
-                      "pointer",
+                    boxShadow: fijado
+                      ? "0 4px 10px rgba(37, 99, 235, 0.28)"
+                      : "none",
 
                     transition:
-                      "background-color 180ms ease",
+                      "background-color 180ms ease, transform 180ms ease",
                   }}
                 >
-                  <PinIcon
-                    fijado={fijado}
-                  />
+                  <PinIcon fijado={fijado} />
                 </button>
               )}
-
-
             </div>
-
-            <div
-              style={{
-                width: "45px",
-                height: "3px",
-
-                margin:
-                  "12px auto 0",
-
-                borderRadius:
-                  "999px",
-
-                background:
-                  "#60a5fa",
-              }}
-            />
           </div>
-
           <nav
             style={{
               width:
@@ -403,18 +416,28 @@ export function Sidebar({
                   ? "280px"
                   : "260px",
 
+              // Ocupa el espacio disponible.
+              flex: "1 1 auto",
+              minHeight: 0,
+
               display: "flex",
-
-              flexDirection:
-                "column",
-
+              flexDirection: "column",
               gap: "7px",
 
               padding:
-                "10px 18px 20px",
+                "10px 18px 24px",
 
               boxSizing:
                 "border-box",
+
+              // Solo el menú se desplaza.
+              overflowY: "auto",
+              overflowX: "hidden",
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "thin",
+              scrollbarColor:
+                "#60a5fa transparent",
             }}
           >
             <span
@@ -422,7 +445,7 @@ export function Sidebar({
                 sectionStyle
               }
             >
-              GENERAL
+              NAVEGACION
             </span>
 
             <Link
@@ -510,13 +533,27 @@ export function Sidebar({
                   ? "280px"
                   : "260px",
 
-              marginTop:
-                "auto",
+              // Empuja este bloque hasta el fondo.
+              marginTop: "auto",
 
-              padding: "18px",
+              flex: "0 0 auto",
+              flexShrink: 0,
 
-              boxSizing:
-                "border-box",
+              // Mantiene el cierre de sesión visible.
+              position: "sticky",
+              bottom: 0,
+
+              padding: "14px 18px 18px",
+
+              boxSizing: "border-box",
+
+              background:
+                "linear-gradient(180deg, #0b2148 0%, #081a3a 100%)",
+
+              boxShadow:
+                "0 -8px 18px rgba(7, 20, 45, 0.22)",
+
+              zIndex: 5,
             }}
           >
             <div
@@ -592,40 +629,46 @@ export function Sidebar({
                 }
                 style={{
                   width: "100%",
-                  minHeight: "43px",
+                  minHeight: "44px",
 
-                  padding:
-                    "10px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+
+                  padding: "10px 14px",
 
                   border:
-                    "1px solid rgba(255, 255, 255, 0.12)",
+                    "1px solid rgba(255, 255, 255, 0.18)",
 
-                  borderRadius:
-                    "9px",
+                  borderRadius: "9px",
 
                   background:
-                    "#c62828",
+                    "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
 
-                  color:
-                    "#ffffff",
+                  color: "#ffffff",
+                  fontSize: "14px",
+                  fontWeight: "700",
 
-                  fontSize:
-                    "14px",
+                  cursor: "pointer",
 
-                  fontWeight:
-                    "700",
+                  boxShadow:
+                    "0 5px 12px rgba(127, 29, 29, 0.28)",
 
-                  cursor:
-                    "pointer",
+                  boxSizing: "border-box",
+
+                  transition:
+                    "transform 160ms ease, background-color 160ms ease",
                 }}
+
               >
                 Cerrar sesión
               </button>
             </div>
           </div>
         </>
-      )}
-    </aside>
+      )
+      }
+    </aside >
   );
 }
 
@@ -662,12 +705,18 @@ function PinIcon({
 }
 
 const sectionStyle = {
-  display: "block",
-  marginTop: "18px",
-  marginBottom: "5px",
-  color: "#9fb4d4",
-  fontSize: "12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+
+  marginTop: "8px",
+  marginBottom: "6px",
+  padding: "0 10px",
+
+  color: "#7fa2cf",
+  fontSize: "10px",
   fontWeight: "800",
-  letterSpacing: "2px",
-  textAlign: "center" as const,
+
+  letterSpacing: "1.8px",
+  textTransform: "uppercase" as const,
 };

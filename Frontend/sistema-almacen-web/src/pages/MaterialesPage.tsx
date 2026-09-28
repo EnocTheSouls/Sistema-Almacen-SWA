@@ -33,6 +33,8 @@ import type {
   ResultadoImportacionBom,
 } from "../services/bomImportService";
 
+
+
 import {
   importarFiveMf,
 } from "../services/fiveMfImportService";
@@ -1005,12 +1007,6 @@ export function MaterialesPage() {
     }
   };
 
-
-
-
-
-
-
   const abrirImportacionBom = () => {
     setArchivoBom(null);
     setResultadoImportacion(null);
@@ -1079,96 +1075,96 @@ export function MaterialesPage() {
   };
 
   // Descarga el Excel con todos los códigos de barras.
-const exportarCodigosCsv = async () => {
-  try {
-    setErrorCarga("");
-    setMensajeExito("");
+  const exportarCodigosCsv = async () => {
+    try {
+      setErrorCarga("");
+      setMensajeExito("");
 
-    const token =
-      localStorage.getItem("token");
+      const token =
+        localStorage.getItem("token");
 
-    const respuesta =
-      await fetch(
-        "http://localhost:5042/api/materiales/exportar-codigos-barras",
-        {
-          method: "GET",
-          headers: token
-            ? {
+      const respuesta =
+        await fetch(
+          "http://localhost:5042/api/materiales/exportar-codigos-barras",
+          {
+            method: "GET",
+            headers: token
+              ? {
                 Authorization:
                   `Bearer ${token}`,
               }
-            : undefined,
-        }
-      );
+              : undefined,
+          }
+        );
 
-    if (!respuesta.ok) {
-      const contenido =
-        await respuesta.text();
+      if (!respuesta.ok) {
+        const contenido =
+          await respuesta.text();
 
-      throw new Error(
-        contenido ||
+        throw new Error(
+          contenido ||
           `No fue posible generar el Excel. Código ${respuesta.status}.`
+        );
+      }
+
+      const archivo =
+        await respuesta.blob();
+
+      if (archivo.size === 0) {
+        throw new Error(
+          "El archivo Excel generado está vacío."
+        );
+      }
+
+      const url =
+        window.URL.createObjectURL(
+          archivo
+        );
+
+      const enlace =
+        document.createElement("a");
+
+      enlace.href = url;
+
+      enlace.download =
+        `CODIGOS_BARRAS_MATERIALES_${new Date()
+          .toISOString()
+          .slice(0, 10)}.xlsx`;
+
+      enlace.style.display = "none";
+
+      document.body.appendChild(
+        enlace
+      );
+
+      enlace.click();
+
+      setTimeout(() => {
+        enlace.remove();
+
+        window.URL.revokeObjectURL(
+          url
+        );
+      }, 1000);
+
+      setMensajeExito(
+        "El Excel con los códigos de barras se generó correctamente."
+      );
+    } catch (error) {
+      console.error(
+        "Error al exportar códigos de barras:",
+        error
+      );
+
+      setErrorCarga(
+        error instanceof Error
+          ? error.message
+          : "No fue posible exportar los códigos de barras."
       );
     }
+  };
 
-    const archivo =
-      await respuesta.blob();
 
-    if (archivo.size === 0) {
-      throw new Error(
-        "El archivo Excel generado está vacío."
-      );
-    }
-
-    const url =
-      window.URL.createObjectURL(
-        archivo
-      );
-
-    const enlace =
-      document.createElement("a");
-
-    enlace.href = url;
-
-    enlace.download =
-      `CODIGOS_BARRAS_MATERIALES_${new Date()
-        .toISOString()
-        .slice(0, 10)}.xlsx`;
-
-    enlace.style.display = "none";
-
-    document.body.appendChild(
-      enlace
-    );
-
-    enlace.click();
-
-    setTimeout(() => {
-      enlace.remove();
-
-      window.URL.revokeObjectURL(
-        url
-      );
-    }, 1000);
-
-    setMensajeExito(
-      "El Excel con los códigos de barras se generó correctamente."
-    );
-  } catch (error) {
-    console.error(
-      "Error al exportar códigos de barras:",
-      error
-    );
-
-    setErrorCarga(
-      error instanceof Error
-        ? error.message
-        : "No fue posible exportar los códigos de barras."
-    );
-  }
-};
-
-  
 
   return (
     <Layout>

@@ -37,13 +37,18 @@ import {
   cambiarEstadoEstacion,
   crearEstacion,
   eliminarEstacion,
-  importarEstaciones,
   obtenerEstaciones,
 } from "../services/estacionService";
 
+import {
+  importarEstacionesMateriales,
+} from "../services/materialStationImportService";
+
 import type {
-  ResultadoImportacionEstacion,
-} from "../services/estacionService";
+  ResultadoImportacionEstaciones as ResultadoAsignacionMateriales,
+} from "../services/materialStationImportService";
+
+
 
 import {
   EstacionFormModal,
@@ -142,43 +147,31 @@ export function EstructuraPage() {
     useState<Estacion[]>([]);
 
 
-
+  // Controla la importación que asigna
+  // materiales del BOM a estaciones existentes.
   const [
-    mostrarImportacionEstaciones,
-    setMostrarImportacionEstaciones,
+    mostrarAsignacionMateriales,
+    setMostrarAsignacionMateriales,
   ] = useState(false);
 
   const [
-    familiaImportacion,
-    setFamiliaImportacion,
-  ] = useState<Familia | null>(
-    null
-  );
-
-  const [
-    archivoEstaciones,
-    setArchivoEstaciones,
+    archivoAsignacionMateriales,
+    setArchivoAsignacionMateriales,
   ] = useState<File | null>(
     null
   );
 
   const [
-    importandoEstaciones,
-    setImportandoEstaciones,
+    asignandoMateriales,
+    setAsignandoMateriales,
   ] = useState(false);
 
   const [
-    resultadoImportacionEstaciones,
-    setResultadoImportacionEstaciones,
+    resultadoAsignacionMateriales,
+    setResultadoAsignacionMateriales,
   ] = useState<
-    ResultadoImportacionEstacion | null
+    ResultadoAsignacionMateriales | null
   >(null);
-
-  // Controla el detalle desplegable de la importación.
-  const [
-    mostrarDetalleImportacion,
-    setMostrarDetalleImportacion,
-  ] = useState(false);
 
   const [
     mostrarFormularioEstacion,
@@ -945,85 +938,78 @@ export function EstructuraPage() {
       }
     };
 
-  const abrirImportacionEstaciones = (
-    familia: Familia
-  ) => {
+
+
+
+  // Abre la asignación de materiales a estaciones.
+  const abrirAsignacionMateriales = () => {
     limpiarMensajes();
 
-    setFamiliaImportacion(
-      familia
-    );
-
-    setArchivoEstaciones(null);
-
-    setResultadoImportacionEstaciones(
+    setArchivoAsignacionMateriales(
       null
     );
 
-    setMostrarImportacionEstaciones(
+    setResultadoAsignacionMateriales(
+      null
+    );
+
+    setMostrarAsignacionMateriales(
       true
     );
-    setMostrarDetalleImportacion(false);
   };
 
-  const cerrarImportacionEstaciones = () => {
-    if (importandoEstaciones) {
+  // Cierra la ventana de asignación.
+  const cerrarAsignacionMateriales = () => {
+    if (asignandoMateriales) {
       return;
     }
 
-    setMostrarImportacionEstaciones(
+    setMostrarAsignacionMateriales(
       false
     );
 
-    setFamiliaImportacion(null);
-    setArchivoEstaciones(null);
+    setArchivoAsignacionMateriales(
+      null
+    );
 
-    setResultadoImportacionEstaciones(
+    setResultadoAsignacionMateriales(
       null
     );
 
     setErrorFormulario("");
-
-    setMostrarDetalleImportacion(false);
   };
 
-  const ejecutarImportacionEstaciones =
+  // Importa el Excel que relaciona
+  // arnés, material y estación.
+  const ejecutarAsignacionMateriales =
     async (
       event: FormEvent<HTMLFormElement>
     ) => {
       event.preventDefault();
 
-      if (!familiaImportacion) {
+      if (!archivoAsignacionMateriales) {
         setErrorFormulario(
-          "No se seleccionó una familia."
-        );
-
-        return;
-      }
-
-      if (!archivoEstaciones) {
-        setErrorFormulario(
-          "Selecciona el archivo de estaciones."
+          "Selecciona el archivo de asignación de materiales."
         );
 
         return;
       }
 
       try {
-        setImportandoEstaciones(true);
+        setAsignandoMateriales(true);
         setErrorFormulario("");
 
-        setResultadoImportacionEstaciones(
+        setResultadoAsignacionMateriales(
           null
         );
 
         const respuesta =
-          await importarEstaciones(
-            familiaImportacion.idFamilia,
-            archivoEstaciones
-          );
+          await importarEstacionesMateriales({
+            archivo:
+              archivoAsignacionMateriales,
+          });
 
-        setResultadoImportacionEstaciones(
+        setResultadoAsignacionMateriales(
           respuesta.resultado
         );
 
@@ -1031,19 +1017,16 @@ export function EstructuraPage() {
           respuesta.mensaje
         );
 
-        const estacionesActualizadas =
-          await obtenerEstaciones();
-
-        setEstaciones(
-          estacionesActualizadas
-        );
+        // Actualiza la información visible
+        // después de realizar las relaciones.
+        await cargarEstructura();
       } catch (error) {
         mostrarErrorBackend(
           error,
-          "No se pudo importar el archivo de estaciones."
+          "No se pudieron asignar los materiales a las estaciones."
         );
       } finally {
-        setImportandoEstaciones(false);
+        setAsignandoMateriales(false);
       }
     };
 
@@ -1613,42 +1596,10 @@ export function EstructuraPage() {
                 gap: "10px",
               }}
             >
-              {tabActiva === "estaciones" && (
-                <button
-                  type="button"
-                  title={
-                    filtroFamilia <= 0
-                      ? "Para importar estaciones, primero selecciona un proyecto y una familia."
-                      : "Importar las estaciones del archivo Excel en la familia seleccionada."
-                  }
-                  disabled={filtroFamilia <= 0}
-                  onClick={() => {
-                    const familiaSeleccionada =
-                      familias.find(
-                        (familia) =>
-                          familia.idFamilia ===
-                          filtroFamilia
-                      );
 
-                    if (familiaSeleccionada) {
-                      abrirImportacionEstaciones(
-                        familiaSeleccionada
-                      );
-                    }
-                  }}
-                  style={{
-                    ...secondaryButtonStyle,
-                    opacity:
-                      filtroFamilia <= 0 ? 0.6 : 1,
-                    cursor:
-                      filtroFamilia <= 0
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
-                >
-                  Importar estaciones
-                </button>
-              )}
+
+
+
 
               <button
                 type="button"
@@ -1674,11 +1625,12 @@ export function EstructuraPage() {
               {mensajeExito}
             </div>
           )}
+
           {errorFormulario &&
             !mostrarFormularioProyecto &&
             !mostrarFormularioFamilia &&
             !mostrarFormularioEstacion &&
-            !mostrarImportacionEstaciones &&
+            !mostrarAsignacionMateriales &&
             !mostrarConfirmacionEliminar &&
             !mostrarConfirmacionEliminarFamilia &&
             !mostrarConfirmacionEliminarEstacion && (
@@ -1687,51 +1639,64 @@ export function EstructuraPage() {
               </div>
             )}
 
+          <div style={tabsRowStyle}>
+            <div style={tabsContainerStyle}>
+              <button
+                type="button"
+                onClick={() =>
+                  cambiarPestana("proyectos")
+                }
+                style={
+                  tabActiva === "proyectos"
+                    ? activeTabStyle
+                    : tabStyle
+                }
+              >
+                Proyectos
+              </button>
 
+              <button
+                type="button"
+                onClick={() =>
+                  cambiarPestana("familias")
+                }
+                style={
+                  tabActiva === "familias"
+                    ? activeTabStyle
+                    : tabStyle
+                }
+              >
+                Familias
+              </button>
 
-          <div style={tabsContainerStyle}>
+              <button
+                type="button"
+                onClick={() =>
+                  cambiarPestana("estaciones")
+                }
+                style={
+                  tabActiva === "estaciones"
+                    ? activeTabStyle
+                    : tabStyle
+                }
+              >
+                Estaciones
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() =>
-                cambiarPestana("proyectos")
+              onClick={
+                abrirAsignacionMateriales
               }
-              style={
-                tabActiva === "proyectos"
-                  ? activeTabStyle
-                  : tabStyle
-              }
+              style={assignMaterialsButtonStyle}
             >
-              Proyectos
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                cambiarPestana("familias")
-              }
-              style={
-                tabActiva === "familias"
-                  ? activeTabStyle
-                  : tabStyle
-              }
-            >
-              Familias
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                cambiarPestana("estaciones")
-              }
-              style={
-                tabActiva === "estaciones"
-                  ? activeTabStyle
-                  : tabStyle
-              }
-            >
-              Estaciones
+              Asignar estaciones
             </button>
           </div>
+
+
+
 
           {cargando && (
             <div style={messageStyle}>
@@ -1966,9 +1931,7 @@ export function EstructuraPage() {
                 onCambiarEstado={
                   cambiarEstadoFamilia
                 }
-                onImportarEstaciones={
-                  abrirImportacionEstaciones
-                }
+
                 numeroInicial={
                   (paginaFamilias - 1) *
                   REGISTROS_POR_PAGINA +
@@ -2192,316 +2155,288 @@ export function EstructuraPage() {
         )
       }
 
-      {
-        mostrarImportacionEstaciones &&
-        familiaImportacion && (
-          <div style={modalOverlayStyle}>
-            <section style={modalStyle}>
-              <h2 style={modalTitleStyle}>
-                Importar estaciones
-              </h2>
+      {mostrarAsignacionMateriales && (
+        <div style={modalOverlayStyle}>
+          <section style={modalStyle}>
+            <h2 style={modalTitleStyle}>
+              Asignar materiales a estaciones
+            </h2>
 
-              <p style={modalDescriptionStyle}>
-                Familia:{" "}
-                <strong>
-                  {familiaImportacion.nombre}
-                </strong>
+            <p style={modalDescriptionStyle}>
+              Importa el archivo que relaciona
+              cada arnés y material con su
+              estación.
+            </p>
 
-                <br />
+            <form
+              onSubmit={
+                ejecutarAsignacionMateriales
+              }
+            >
+              <div style={formGroupStyle}>
+                <label
+                  htmlFor="archivoAsignacionMateriales"
+                  style={labelStyle}
+                >
+                  Archivo Excel *
+                </label>
 
-                Proyecto:{" "}
-                <strong>
-                  {
-                    familiaImportacion
-                      .nombreProyecto
+                <input
+                  id="archivoAsignacionMateriales"
+                  type="file"
+                  accept=".xlsx"
+                  disabled={
+                    asignandoMateriales
                   }
-                </strong>
-              </p>
+                  onChange={(event) => {
+                    const archivo =
+                      event.target.files?.[0] ??
+                      null;
 
-              <form
-                onSubmit={
-                  ejecutarImportacionEstaciones
-                }
-              >
-                <div style={formGroupStyle}>
-                  <label
-                    htmlFor="archivoEstaciones"
-                    style={labelStyle}
-                  >
-                    Archivo Excel *
-                  </label>
+                    setArchivoAsignacionMateriales(
+                      archivo
+                    );
 
-                  <input
-                    id="archivoEstaciones"
-                    type="file"
-                    accept=".xlsx"
-                    disabled={
-                      importandoEstaciones
+                    setResultadoAsignacionMateriales(
+                      null
+                    );
+
+                    setErrorFormulario("");
+                  }}
+                  style={inputStyle}
+                />
+
+                <small style={helpTextStyle}>
+                  Debe incluir Product Number,
+                  Cust. Dsg.1, Cust. Dsg.2,
+                  Int. Dsg., Material Number y
+                  Estacion. Std pack es opcional.
+                </small>
+              </div>
+
+              {archivoAsignacionMateriales && (
+                <div style={selectedFileStyle}>
+                  Archivo seleccionado:{" "}
+                  <strong>
+                    {
+                      archivoAsignacionMateriales
+                        .name
                     }
-                    onChange={(event) => {
-                      const archivo =
-                        event.target.files?.[0] ??
-                        null;
-
-                      setArchivoEstaciones(
-                        archivo
-                      );
-
-                      setResultadoImportacionEstaciones(
-                        null
-                      );
-
-                      setErrorFormulario("");
-                    }}
-                    style={inputStyle}
-                  />
-
-                  <small style={helpTextStyle}>
-                    Debe incluir Product Number,
-                    diseño, Material Number,
-                    Estacion y opcionalmente
-                    Std pack.
-                  </small>
+                  </strong>
                 </div>
+              )}
 
-                {archivoEstaciones && (
-                  <div style={selectedFileStyle}>
-                    Archivo seleccionado:{" "}
-                    <strong>
-                      {archivoEstaciones.name}
-                    </strong>
-                  </div>
-                )}
+              {errorFormulario && (
+                <div style={errorStyle}>
+                  {errorFormulario}
+                </div>
+              )}
 
-                {errorFormulario && (
-                  <div style={errorStyle}>
-                    {errorFormulario}
-                  </div>
-                )}
+              {resultadoAsignacionMateriales && (
+                <div style={importResultStyle}>
+                  <strong>
+                    Resultado de la asignación
+                  </strong>
 
-                {resultadoImportacionEstaciones && (
-                  <div style={importResultStyle}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                      }}
-                    >
+                  <div style={importSummaryStyle}>
+                    <span>
+                      Total:{" "}
                       <strong>
-                        Resultado de la importación
-                      </strong>
-
-                      <button
-                        type="button"
-                        title="Ver detalle de la importación"
-                        aria-label="Ver detalle de la importación"
-                        aria-expanded={mostrarDetalleImportacion}
-                        onClick={() =>
-                          setMostrarDetalleImportacion(
-                            (valorActual) => !valorActual
-                          )
-                        }
-                        style={{
-                          width: "34px",
-                          height: "34px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 0,
-                          border: "1px solid #bbf7d0",
-                          borderRadius: "8px",
-                          background: "#ffffff",
-                          color: "#166534",
-                          fontSize: "20px",
-                          fontWeight: "700",
-                          lineHeight: 1,
-                          cursor: "pointer",
-                        }}
-                      >
-                        ⋮
-                      </button>
-                    </div>
-                    <div style={importSummaryStyle}>
-                      <span>
-                        Total:{" "}
                         {
-                          resultadoImportacionEstaciones
+                          resultadoAsignacionMateriales
                             .totalFilas
                         }
-                      </span>
+                      </strong>
+                    </span>
 
-                      <span>
-                        Correctas:{" "}
+                    <span>
+                      Correctas:{" "}
+                      <strong>
                         {
-                          resultadoImportacionEstaciones
+                          resultadoAsignacionMateriales
                             .filasCorrectas
                         }
-                      </span>
+                      </strong>
+                    </span>
 
-                      <span>
-                        Estaciones creadas:{" "}
+                    <span>
+                      Asignaciones:{" "}
+                      <strong>
                         {
-                          resultadoImportacionEstaciones
-                            .estacionesCreadas
-                        }
-                      </span>
-
-                      <span>
-                        Estaciones existentes:{" "}
-                        {
-                          resultadoImportacionEstaciones
-                            .estacionesExistentes
-                        }
-                      </span>
-
-                      <span>
-                        Asignaciones:{" "}
-                        {
-                          resultadoImportacionEstaciones
+                          resultadoAsignacionMateriales
                             .asignacionesRealizadas
                         }
-                      </span>
+                      </strong>
+                    </span>
 
-                      <span>
-                        Advertencias:{" "}
+                    <span>
+                      Sin estación:{" "}
+                      <strong>
                         {
-                          resultadoImportacionEstaciones
-                            .filasConAdvertencia
+                          resultadoAsignacionMateriales
+                            .filasSinEstacion
                         }
-                      </span>
+                      </strong>
+                    </span>
 
-                      <span>
-                        Errores:{" "}
+                    <span>
+                      Errores:{" "}
+                      <strong>
                         {
-                          resultadoImportacionEstaciones
+                          resultadoAsignacionMateriales
                             .filasConError
                         }
-                      </span>
-                    </div>
-                    {mostrarDetalleImportacion && (
-                      <div
+                      </strong>
+                    </span>
+                  </div>
+
+                  {resultadoAsignacionMateriales
+                    .errores.length > 0 && (
+                      <details
                         style={{
                           marginTop: "14px",
-                          paddingTop: "14px",
-                          borderTop: "1px solid #bbf7d0",
-                          display: "grid",
-                          gap: "14px",
-                          fontSize: "13px",
+                          paddingTop: "12px",
+                          borderTop:
+                            "1px solid #bbf7d0",
                         }}
                       >
-                        <div>
-                          <strong>
-                            Estaciones creadas
-                          </strong>
+                        <summary
+                          style={{
+                            cursor: "pointer",
+                            fontWeight: "700",
+                          }}
+                        >
+                          Ver errores (
+                          {
+                            resultadoAsignacionMateriales
+                              .errores.length
+                          }
+                          )
+                        </summary>
 
-                          {resultadoImportacionEstaciones
-                            .estacionesCreadasDetalle
-                            .length > 0 ? (
-                            <ul
-                              style={{
-                                margin: "8px 0 0",
-                                paddingLeft: "20px",
-                              }}
-                            >
-                              {resultadoImportacionEstaciones
-                                .estacionesCreadasDetalle
-                                .map((nombreEstacion) => (
-                                  <li key={nombreEstacion}>
-                                    {nombreEstacion}
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <p
-                              style={{
-                                margin: "6px 0 0",
-                              }}
-                            >
-                              No se crearon estaciones nuevas.
-                            </p>
-                          )}
+                        <div
+                          style={{
+                            maxHeight: "220px",
+                            overflowY: "auto",
+                            marginTop: "10px",
+                          }}
+                        >
+                          {resultadoAsignacionMateriales
+                            .errores
+                            .map(
+                              (
+                                errorFila,
+                                indice
+                              ) => (
+                                <div
+                                  key={
+                                    `${errorFila.numeroFila}-` +
+                                    `${errorFila.numeroMaterial}-` +
+                                    `${indice}`
+                                  }
+                                  style={{
+                                    marginBottom:
+                                      "9px",
+                                    padding: "9px",
+                                    borderRadius:
+                                      "7px",
+                                    background:
+                                      "#fef2f2",
+                                    color:
+                                      "#991b1b",
+                                    fontSize:
+                                      "12px",
+                                  }}
+                                >
+                                  <strong>
+                                    Fila{" "}
+                                    {
+                                      errorFila.numeroFila
+                                    }
+                                  </strong>
+
+                                  <div>
+                                    Arnés:{" "}
+                                    {
+                                      errorFila.numeroArnes ||
+                                      "N/A"
+                                    }
+                                  </div>
+
+                                  <div>
+                                    Material:{" "}
+                                    {
+                                      errorFila.numeroMaterial ||
+                                      "N/A"
+                                    }
+                                  </div>
+
+                                  <div>
+                                    Estación:{" "}
+                                    {
+                                      errorFila.estacion ||
+                                      "N/A"
+                                    }
+                                  </div>
+
+                                  <div>
+                                    {
+                                      errorFila.mensaje
+                                    }
+                                  </div>
+                                </div>
+                              )
+                            )}
                         </div>
-
-                        <div>
-                          <strong>
-                            Estaciones existentes
-                          </strong>
-
-                          {resultadoImportacionEstaciones
-                            .estacionesExistentesDetalle
-                            .length > 0 ? (
-                            <ul
-                              style={{
-                                margin: "8px 0 0",
-                                paddingLeft: "20px",
-                              }}
-                            >
-                              {resultadoImportacionEstaciones
-                                .estacionesExistentesDetalle
-                                .map((nombreEstacion) => (
-                                  <li key={nombreEstacion}>
-                                    {nombreEstacion}
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <p
-                              style={{
-                                margin: "6px 0 0",
-                              }}
-                            >
-                              No se encontraron estaciones existentes.
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      </details>
                     )}
-                  </div>
-                )}
-
-                <div style={modalActionsStyle}>
-                  <button
-                    type="button"
-                    onClick={
-                      cerrarImportacionEstaciones
-                    }
-                    disabled={
-                      importandoEstaciones
-                    }
-                    style={secondaryButtonStyle}
-                  >
-                    Cerrar
-                  </button>
-
-                  {!resultadoImportacionEstaciones && (
-                    <button
-                      type="submit"
-                      disabled={
-                        importandoEstaciones ||
-                        !archivoEstaciones
-                      }
-                      style={{
-                        ...primaryButtonStyle,
-                        opacity:
-                          importandoEstaciones ||
-                            !archivoEstaciones
-                            ? 0.65
-                            : 1,
-                      }}
-                    >
-                      {importandoEstaciones
-                        ? "Importando..."
-                        : "Importar estaciones"}
-                    </button>
-                  )}
                 </div>
-              </form>
-            </section>
-          </div>
-        )
-      }
+              )}
+
+              <div style={modalActionsStyle}>
+                <button
+                  type="button"
+                  onClick={
+                    cerrarAsignacionMateriales
+                  }
+                  disabled={
+                    asignandoMateriales
+                  }
+                  style={secondaryButtonStyle}
+                >
+                  Cerrar
+                </button>
+
+                {!resultadoAsignacionMateriales && (
+                  <button
+                    type="submit"
+                    disabled={
+                      asignandoMateriales ||
+                      !archivoAsignacionMateriales
+                    }
+                    style={{
+                      ...primaryButtonStyle,
+
+                      opacity:
+                        asignandoMateriales ||
+                          !archivoAsignacionMateriales
+                          ? 0.65
+                          : 1,
+                    }}
+                  >
+                    {asignandoMateriales
+                      ? "Asignando..."
+                      : "Asignar materiales"}
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+
+
 
       {
         mostrarFormularioEstacion && (
@@ -2918,10 +2853,6 @@ interface FamiliasTableProps {
   ) => void;
 
   onCambiarEstado: (
-    familia: Familia
-  ) => void;
-
-  onImportarEstaciones: (
     familia: Familia
   ) => void;
 
@@ -3366,12 +3297,36 @@ const descriptionStyle = {
 
 const tabsContainerStyle = {
   display: "flex",
+  alignItems: "center",
   gap: "10px",
+  flexWrap: "wrap" as const,
+};
+
+const tabsRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  gap: "10px",
+  flexWrap: "wrap" as const,
   marginBottom: "25px",
   paddingBottom: "18px",
   borderBottom:
     "1px solid #e2e8f0",
 };
+
+const assignMaterialsButtonStyle = {
+  minHeight: "40px",
+  padding: "9px 16px",
+  border: "1px solid #1c4e9c",
+  borderRadius: "8px",
+  background: "#eff6ff",
+  color: "#1c4e9c",
+  fontSize: "14px",
+  fontWeight: "700",
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
+};
+
 
 const primaryButtonStyle = {
   minHeight: "42px",
