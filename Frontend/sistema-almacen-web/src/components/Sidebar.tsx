@@ -207,30 +207,38 @@ export function Sidebar({
         position:
           modoMovil
             ? "fixed"
-            : "sticky",
+            : "relative",
 
-        top: 0,
+        top:
+          modoMovil
+            ? 0
+            : undefined,
 
-        left: modoMovil
-          ? 0
-          : undefined,
+        left:
+          modoMovil
+            ? 0
+            : undefined,
 
-        height: modoMovil
-          ? "100dvh"
-          : "100vh",
+        height:
+          modoMovil
+            ? "100dvh"
+            : "auto",
 
-        maxHeight: modoMovil
-          ? "100dvh"
-          : "100vh",
+        maxHeight:
+          modoMovil
+            ? "100dvh"
+            : "none",
 
-        minHeight: modoMovil
-          ? "100dvh"
-          : "100vh",
+        minHeight:
+          modoMovil
+            ? "100dvh"
+            : "100%",
 
         alignSelf:
           modoMovil
             ? undefined
-            : "flex-start",
+            : "stretch",
+
 
         transform:
           modoMovil &&
@@ -244,7 +252,12 @@ export function Sidebar({
         flexDirection:
           "column",
 
-        overflow: "hidden",
+        overflowX: "hidden",
+
+        overflowY:
+          modoMovil
+            ? "auto"
+            : "visible",
 
         boxSizing:
           "border-box",
@@ -351,13 +364,13 @@ export function Sidebar({
                     fontWeight: "800",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
-                    
+
                   }}
                 >
                   MENU
                 </strong>
 
-               
+
               </div>
 
               {!modoMovil && (
@@ -409,14 +422,14 @@ export function Sidebar({
               )}
             </div>
           </div>
+
           <nav
             style={{
               width:
                 modoMovil
                   ? "280px"
-                  : "260px",
+                  : "225px",
 
-              // Ocupa el espacio disponible.
               flex: "1 1 auto",
               minHeight: 0,
 
@@ -424,22 +437,15 @@ export function Sidebar({
               flexDirection: "column",
               gap: "7px",
 
-              padding:
-                "10px 18px 24px",
+              padding: "10px 18px 24px",
 
-              boxSizing:
-                "border-box",
+              boxSizing: "border-box",
 
-              // Solo el menú se desplaza.
-              overflowY: "auto",
-              overflowX: "hidden",
-              overscrollBehavior: "contain",
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "thin",
-              scrollbarColor:
-                "#60a5fa transparent",
+              overflow: "visible",
             }}
           >
+
+
             <span
               style={
                 sectionStyle
@@ -533,15 +539,15 @@ export function Sidebar({
                   ? "280px"
                   : "260px",
 
-              // Empuja este bloque hasta el fondo.
+              // Forma parte del contenido del menú.
               marginTop: "auto",
 
               flex: "0 0 auto",
               flexShrink: 0,
 
-              // Mantiene el cierre de sesión visible.
-              position: "sticky",
-              bottom: 0,
+              position: "relative",
+
+
 
               padding: "14px 18px 18px",
 

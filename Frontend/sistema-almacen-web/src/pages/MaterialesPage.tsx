@@ -2790,13 +2790,26 @@ function obtenerMensajeError(
 const pageContainerStyle = {
   width: "100%",
   maxWidth: "1400px",
+  minWidth: 0,
   margin: "0 auto",
+  boxSizing: "border-box" as const,
+  overflowX: "hidden" as const,
 };
 
 const cardStyle = {
-  padding: "30px",
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+
+  padding:
+    "clamp(12px, 3vw, 30px)",
+
+  boxSizing: "border-box" as const,
+  overflowX: "hidden" as const,
+
   borderRadius: "16px",
   background: "#ffffff",
+
   boxShadow:
     "0 4px 15px rgba(0, 0, 0, 0.08)",
 };
@@ -2844,12 +2857,22 @@ const secondaryButtonStyle = {
 
 const filtersStyle = {
   display: "grid",
+
   gridTemplateColumns:
-    "minmax(280px, 2fr) minmax(155px, 1fr) minmax(155px, 1fr) auto",
+    "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
+
   alignItems: "end",
   gap: "13px",
+
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+
   marginBottom: "23px",
   padding: "17px",
+
+  boxSizing: "border-box" as const,
+
   border: "1px solid #e2e8f0",
   borderRadius: "10px",
   background: "#f8fafc",
@@ -2859,6 +2882,10 @@ const filterGroupStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: "7px",
+
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
 };
 
 const labelStyle = {
@@ -2896,7 +2923,13 @@ const resultsHeaderStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "15px",
+  flexWrap: "wrap" as const,
+
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+
+  gap: "10px",
   marginBottom: "13px",
 };
 
@@ -2914,19 +2947,32 @@ const counterStyle = {
   fontSize: "12px",
   fontWeight: "800",
 };
-
 const tableContainerStyle = {
+  display: "block",
+
   width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+
   overflowX: "auto" as const,
+  overflowY: "hidden" as const,
+
+  WebkitOverflowScrolling:
+    "touch" as const,
+
+  boxSizing: "border-box" as const,
+
   border: "1px solid #e2e8f0",
   borderRadius: "10px",
 };
 
 const tableStyle = {
   width: "100%",
-  borderCollapse: "collapse" as const,
-};
+  minWidth: "1050px",
 
+  borderCollapse:
+    "collapse" as const,
+};
 const tableHeaderStyle = {
   background: "#f8fafc",
 };
@@ -2943,11 +2989,21 @@ const thStyle = {
 
 const tdStyle = {
   padding: "13px",
+
   borderBottom:
     "1px solid #e5e7eb",
+
   color: "#334155",
   fontSize: "14px",
+
+  verticalAlign:
+    "middle" as const,
+
+  overflowWrap:
+    "anywhere" as const,
 };
+
+
 
 const genericCodeStyle = {
   minWidth: "31px",
@@ -3066,8 +3122,14 @@ const closeButtonStyle = {
 
 const formGridStyle = {
   display: "grid",
+
   gridTemplateColumns:
-    "repeat(2, minmax(0, 1fr))",
+    "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+
   gap: "16px",
 };
 
@@ -3328,3 +3390,4 @@ const importTableCellStyle = {
   fontSize: "12px",
   verticalAlign: "top" as const,
 };
+

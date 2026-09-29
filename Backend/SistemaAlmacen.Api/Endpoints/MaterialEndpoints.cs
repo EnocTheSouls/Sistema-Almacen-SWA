@@ -222,6 +222,55 @@ public static class MaterialEndpoints
         .WithName(
             "ValidarMaterialQr"
         );
+        // Obtiene el contexto BOM de un material
+        // para la estación seleccionada.
+        grupo.MapGet(
+            "/{idMaterial:int}/contexto-estacion/{idEstacion:int}",
+            async (
+                int idMaterial,
+                int idEstacion,
+                BomRepository bomRepository) =>
+            {
+                if (
+                    idMaterial <= 0 ||
+                    idEstacion <= 0
+                )
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "El material o la estación no son válidos."
+                        }
+                    );
+                }
+
+                var contexto =
+                    await bomRepository
+                        .ObtenerContextoMaterialAsync(
+                            idMaterial,
+                            idEstacion
+                        );
+
+                if (contexto is null)
+                {
+                    return Results.NotFound(
+                        new
+                        {
+                            mensaje =
+                                "El material no pertenece a la estación seleccionada."
+                        }
+                    );
+                }
+
+                return Results.Ok(
+                    contexto
+                );
+            }
+        )
+        .WithName(
+            "ObtenerContextoMaterialEstacion"
+        );
 
         // Crea un material nuevo.
         grupo.MapPost(
@@ -1034,17 +1083,20 @@ public static class MaterialEndpoints
     // al interpretar la etiqueta QR.
     private sealed class ResultadoLecturaQr
     {
-        public bool EsValido {
+        public bool EsValido
+        {
             get;
             init;
         }
 
-        public string Mensaje {
+        public string Mensaje
+        {
             get;
             init;
         } = string.Empty;
 
-        public MaterialQrDataDto? Datos {
+        public MaterialQrDataDto? Datos
+        {
             get;
             init;
         }

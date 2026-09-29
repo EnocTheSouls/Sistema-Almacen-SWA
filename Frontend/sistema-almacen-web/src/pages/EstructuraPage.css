@@ -613,4 +613,41 @@
   .estructura-modal-actions button {
     width: 100%;
   }
+}/* Señal visual para solicitudes pendientes. */
+.kpi-pendientes-alerta {
+  animation: alerta-pendientes-emergencia 1.15s ease-in-out infinite;
+  border: 3px solid #7f1d1d;
+  box-shadow:
+    0 0 0 4px rgba(220, 38, 38, 0.2),
+    0 0 24px rgba(220, 38, 38, 0.75);
+}
+
+/* Alterna entre rojo oscuro y rojo intenso. */
+@keyframes alerta-pendientes-emergencia {
+  0%,
+  100% {
+    background: #991b1b;
+    border-color: #7f1d1d;
+    box-shadow:
+      0 0 0 3px rgba(220, 38, 38, 0.2),
+      0 0 12px rgba(220, 38, 38, 0.45);
+    transform: scale(1);
+  }
+
+  50% {
+    background: #ef4444;
+    border-color: #fecaca;
+    box-shadow:
+      0 0 0 7px rgba(239, 68, 68, 0.3),
+      0 0 34px rgba(239, 68, 68, 0.95);
+    transform: scale(1.015);
+  }
+}
+
+/* Respeta la configuración de movimiento reducido. */
+@media (prefers-reduced-motion: reduce) {
+  .kpi-pendientes-alerta {
+    animation: none;
+    background: #dc2626 !important;
+  }
 }

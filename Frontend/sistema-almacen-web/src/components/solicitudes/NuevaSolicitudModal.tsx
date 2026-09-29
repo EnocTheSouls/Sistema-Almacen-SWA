@@ -24,6 +24,7 @@ import {
 } from "../../services/estacionService";
 
 import {
+  obtenerContextoMaterialEstacion,
   obtenerMateriales,
   validarMaterialQr,
 } from "../../services/materialService";
@@ -56,6 +57,7 @@ import type {
   Solicitud,
 } from "../../types/solicitud";
 
+
 interface NuevaSolicitudModalProps {
   onCerrar: () => void;
 
@@ -78,6 +80,16 @@ interface MaterialSeleccionado {
   nombreEstacion: string | null;
 
   origen: "MANUAL" | "ESCANEO";
+
+  requiereCantidad: boolean;
+
+  cantidadBolsas: number | null;
+
+  stdPackHistorico: number | null;
+
+  bolsasCalculadas: number | null;
+
+  maximoBolsas: number | null;
 }
 
 export function NuevaSolicitudModal({
@@ -89,6 +101,7 @@ export function NuevaSolicitudModal({
 
   const [familias, setFamilias] =
     useState<Familia[]>([]);
+
 
   const [estaciones, setEstaciones] =
     useState<Estacion[]>([]);
@@ -155,11 +168,6 @@ export function NuevaSolicitudModal({
 
   // Referencias para devolver el foco.
   const inputEscaneoRef =
-    useRef<HTMLInputElement | null>(
-      null
-    );
-
-  const inputCantidadRef =
     useRef<HTMLInputElement | null>(
       null
     );
@@ -305,7 +313,6 @@ export function NuevaSolicitudModal({
         idFamilia,
       ]
     );
-
   const materialesEncontrados =
     useMemo(() => {
       const termino =
@@ -378,7 +385,6 @@ export function NuevaSolicitudModal({
     setIdFamilia(
       nuevoIdFamilia
     );
-
     setIdEstacion(0);
     setError("");
   };
@@ -496,14 +502,15 @@ export function NuevaSolicitudModal({
         materialCatalogo
       );
 
-      setCantidadPendiente("1");
+      setCantidadPendiente(
+        contexto.maximoBolsas != null &&
+          contexto.maximoBolsas > 0
+          ? "1"
+          : "0"
+      );
+
       setBusquedaMaterial("");
       setError("");
-
-      window.setTimeout(() => {
-        inputCantidadRef.current?.focus();
-        inputCantidadRef.current?.select();
-      }, 0);
 
       return true;
     } catch (errorQr) {
@@ -531,29 +538,84 @@ export function NuevaSolicitudModal({
       setValidandoQr(false);
     }
   };
-  // Selecciona el material y solicita su cantidad.
-  const agregarMaterial = (
+
+  // Consulta el contexto BOM del material
+  // para la estación seleccionada.
+  const agregarMaterial = async (
     material: MaterialCatalogo
   ) => {
-    // Una selección manual no conserva
-    // el contexto del QR anterior.
-    setContextoQrPendiente(
-      null
-    );
+    if (idEstacion <= 0) {
+      setError(
+        "Primero selecciona una estación."
+      );
 
-    setMaterialPendiente(
-      material
-    );
+      return;
+    }
 
-    setCantidadPendiente("1");
-    setBusquedaMaterial("");
-    setError("");
+    try {
+      setValidandoQr(true);
+      setError("");
 
-    window.setTimeout(() => {
-      inputCantidadRef.current?.focus();
-      inputCantidadRef.current?.select();
-    }, 50);
+      const contexto =
+        await obtenerContextoMaterialEstacion(
+          material.idMaterial,
+          idEstacion
+        );
+
+      setContextoQrPendiente(
+        contexto
+      );
+
+      setMaterialPendiente(
+        material
+      );
+      setCantidadPendiente(
+        contexto.maximoBolsas != null &&
+          contexto.maximoBolsas > 0
+          ? "1"
+          : "0"
+      );
+
+      setBusquedaMaterial("");
+
+
+    } catch (errorContexto) {
+      console.error(
+        "Error al obtener contexto BOM:",
+        errorContexto
+      );
+
+      setContextoQrPendiente(null);
+      setMaterialPendiente(null);
+      setBusquedaMaterial("");
+
+      if (
+        axios.isAxiosError(
+          errorContexto
+        )
+      ) {
+        const mensaje =
+          errorContexto.response
+            ?.data?.mensaje;
+
+        if (
+          typeof mensaje === "string"
+        ) {
+          setError(mensaje);
+          return;
+        }
+      }
+
+      setError(
+        "El material no pertenece a la estación seleccionada."
+      );
+    } finally {
+      setValidandoQr(false);
+    }
   };
+
+
+
   // Descarta el material escaneado o seleccionado
   // antes de agregarlo a la solicitud.
   const cancelarMaterialPendiente = () => {
@@ -586,18 +648,45 @@ export function NuevaSolicitudModal({
     const cantidad =
       Number(cantidadPendiente);
 
-    if (
-      !Number.isInteger(cantidad) ||
-      cantidad <= 0
-    ) {
-      setError(
-        "La cantidad debe ser un número entero mayor que cero."
+    const stdPackDisponible =
+      Number(
+        contextoQrPendiente
+          ?.stdPack ??
+        materialPendiente.stdPack ??
+        0
       );
 
-      inputCantidadRef.current?.focus();
-      inputCantidadRef.current?.select();
+    const requiereCantidad =
+      stdPackDisponible > 0;
+
+    if (
+      requiereCantidad &&
+      (
+        !Number.isInteger(cantidad) ||
+        cantidad <= 0
+      )
+    ) {
+      setError(
+        "La cantidad de bolsas debe ser un número entero mayor que cero."
+      );
       return;
     }
+
+    if (
+      requiereCantidad &&
+      contextoQrPendiente
+        ?.maximoBolsas != null &&
+      cantidad >
+      contextoQrPendiente.maximoBolsas
+    ) {
+      setError(
+        `Solo quedan disponibles ${contextoQrPendiente.maximoBolsas} bolsas para hoy.`
+      );
+
+      return;
+    }
+
+
 
     setMateriales(
       (materialesActuales) => {
@@ -621,6 +710,43 @@ export function NuevaSolicitudModal({
           );
 
         if (materialExistente) {
+          if (!requiereCantidad) {
+            return materialesActuales;
+          }
+
+          const bolsasActuales =
+            materialExistente
+              .cantidadBolsas ?? 0;
+
+          const nuevasBolsas =
+            bolsasActuales +
+            cantidad;
+
+          const maximoBolsas =
+            contextoQrPendiente
+              ?.maximoBolsas ??
+            materialExistente
+              .maximoBolsas;
+
+          if (
+            maximoBolsas != null &&
+            nuevasBolsas >
+            maximoBolsas
+          ) {
+            setError(
+              `El máximo permitido para este material es ${maximoBolsas} bolsas.`
+            );
+
+            return materialesActuales;
+          }
+
+          const stdPack =
+            contextoQrPendiente
+              ?.stdPack ??
+            materialExistente
+              .stdPackHistorico ??
+            0;
+
           return materialesActuales.map(
             (material) =>
               material.idMaterial ===
@@ -631,11 +757,15 @@ export function NuevaSolicitudModal({
                 idEstacionPendiente
                 ? {
                   ...material,
-                  cantidad: String(
-                    Number(
-                      material.cantidad || "0"
-                    ) + cantidad
-                  ),
+
+                  cantidadBolsas:
+                    nuevasBolsas,
+
+                  cantidad:
+                    String(
+                      nuevasBolsas *
+                      stdPack
+                    ),
                 }
                 : material
           );
@@ -654,8 +784,15 @@ export function NuevaSolicitudModal({
             descripcion:
               materialPendiente.descripcion,
 
+            // Para materiales con empaque guarda
+            // las piezas equivalentes.
             cantidad:
-              String(cantidad),
+              requiereCantidad
+                ? String(
+                  cantidad *
+                  stdPackDisponible
+                )
+                : "0",
 
             idBomDetalle:
               contextoQrPendiente
@@ -681,7 +818,28 @@ export function NuevaSolicitudModal({
               contextoQrPendiente
                 ? "ESCANEO"
                 : "MANUAL",
+
+            requiereCantidad,
+
+            cantidadBolsas:
+              requiereCantidad
+                ? cantidad
+                : null,
+
+            stdPackHistorico:
+              requiereCantidad
+                ? stdPackDisponible
+                : null,
+
+            bolsasCalculadas:
+              contextoQrPendiente
+                ?.bolsasCalculadas ?? null,
+
+            maximoBolsas:
+              contextoQrPendiente
+                ?.maximoBolsas ?? null,
           },
+
         ];
       }
     );
@@ -691,6 +849,8 @@ export function NuevaSolicitudModal({
     setCantidadPendiente("1");
     setBusquedaMaterial("");
     setError("");
+    setBusquedaMaterial("");
+    setError("");
 
     // Recupera el foco para continuar escaneando.
     window.setTimeout(() => {
@@ -698,33 +858,6 @@ export function NuevaSolicitudModal({
     }, 0);
   };
 
-
-
-
-  const cambiarCantidad = (
-    idMaterial: number,
-    idBomDetalle: number | null,
-    idEstacion: number | null,
-    cantidad: string
-  ) => {
-    setMateriales(
-      (materialesActuales) =>
-        materialesActuales.map(
-          (material) =>
-            material.idMaterial ===
-              idMaterial &&
-              material.idBomDetalle ===
-              idBomDetalle &&
-              material.idEstacion ===
-              idEstacion
-              ? {
-                ...material,
-                cantidad,
-              }
-              : material
-        )
-    );
-  };
 
   const quitarMaterial = (
     idMaterial: number,
@@ -855,51 +988,58 @@ export function NuevaSolicitudModal({
     const cantidadInvalida =
       materiales.some(
         (material) => {
-          const cantidad =
-            Number(
-              material.cantidad
-            );
+          if (
+            !material.requiereCantidad
+          ) {
+            return false;
+          }
+
+          const bolsas =
+            material.cantidadBolsas;
 
           return (
+            bolsas == null ||
             !Number.isInteger(
-              cantidad
+              bolsas
             ) ||
-            cantidad <= 0
+            bolsas <= 0 ||
+            (
+              material.maximoBolsas !=
+              null &&
+              bolsas >
+              material.maximoBolsas
+            )
           );
-
         }
       );
 
     if (cantidadInvalida) {
       setError(
-        "Todas las cantidades solicitadas deben ser números enteros mayores que cero."
+        "Las bolsas deben ser números enteros y respetar el máximo permitido."
       );
+
       return;
     }
 
     try {
       setEnviando(true);
 
-
       const solicitudCreada =
         await crearSolicitud({
           idProyecto,
           idFamilia,
           idEstacion,
+
           origenSolicitud:
             solicitudConQr
               ? "ESCANEO"
               : "MANUAL",
+
           materiales:
             materiales.map(
               (material) => ({
                 idMaterial:
                   material.idMaterial,
-
-                cantidadSolicitada:
-                  Number(
-                    material.cantidad
-                  ),
 
                 idBomDetalle:
                   material.idBomDetalle,
@@ -909,6 +1049,28 @@ export function NuevaSolicitudModal({
 
                 idEstacion:
                   material.idEstacion,
+
+                requiereCantidad:
+                  material.requiereCantidad,
+
+                cantidadBolsas:
+                  material.requiereCantidad
+                    ? material
+                      .cantidadBolsas
+                    : null,
+
+                stdPackHistorico:
+                  material.requiereCantidad
+                    ? material
+                      .stdPackHistorico
+                    : null,
+
+                cantidadSolicitada:
+                  material.requiereCantidad
+                    ? Number(
+                      material.cantidad
+                    )
+                    : 0,
               })
             ),
         });
@@ -931,6 +1093,10 @@ export function NuevaSolicitudModal({
       setEnviando(false);
     }
   };
+
+
+
+
 
   const cerrarModal = () => {
     if (enviando) {
@@ -1129,7 +1295,6 @@ export function NuevaSolicitudModal({
                       ? "Seleccionar familia"
                       : "Selecciona un proyecto"}
                   </option>
-
                   {familiasDisponibles.map(
                     (familia) => (
                       <option
@@ -1146,7 +1311,6 @@ export function NuevaSolicitudModal({
                   )}
                 </select>
               </div>
-
               <div style={formGroupStyle}>
                 <label
                   htmlFor="nuevaEstacion"
@@ -1162,17 +1326,24 @@ export function NuevaSolicitudModal({
                       ? idEstacion
                       : ""
                   }
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setIdEstacion(
                       Number(
                         event.target.value
                       )
-                    )
-                  }
+                    );
+
+                    setMaterialPendiente(null);
+                    setContextoQrPendiente(null);
+                    setCantidadPendiente("1");
+                    setBusquedaMaterial("");
+                    setError("");
+                    setBusquedaMaterial("");
+                    setError("");
+                  }}
                   disabled={
                     enviando ||
-                    idFamilia <= 0 ||
-                    materiales.length > 0
+                    idFamilia <= 0
                   }
                   style={inputStyle}
                 >
@@ -1305,9 +1476,8 @@ export function NuevaSolicitudModal({
                         ) ===
                         contenidoNormalizado
                     );
-
                   if (materialExacto) {
-                    agregarMaterial(
+                    await agregarMaterial(
                       materialExacto
                     );
 
@@ -1349,8 +1519,8 @@ export function NuevaSolicitudModal({
                             enviando ||
                             validandoQr
                           }
-                          onClick={() => {
-                            agregarMaterial(
+                          onClick={async () => {
+                            await agregarMaterial(
                               material
                             );
                           }}
@@ -1423,87 +1593,6 @@ export function NuevaSolicitudModal({
                       .numeroParteMaterial
                   }
                 </strong>
-                {contextoQrPendiente && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        modoMovil
-                          ? "1fr"
-                          : "repeat(2, minmax(0, 1fr))",
-                      gap: "7px 14px",
-                      marginBottom: "14px",
-                      padding: "12px",
-                      border:
-                        "1px solid #bfdbfe",
-                      borderRadius: "8px",
-                      background: "#ffffff",
-                      color: "#334155",
-                      fontSize: "13px",
-                    }}
-                  >
-                    <span>
-                      Proyecto:{" "}
-                      <strong>
-                        {
-                          contextoQrPendiente
-                            .proyecto
-                        }
-                      </strong>
-                    </span>
-
-                    <span>
-                      Familia:{" "}
-                      <strong>
-                        {
-                          contextoQrPendiente
-                            .familia
-                        }
-                      </strong>
-                    </span>
-
-                    <span>
-                      Arnés:{" "}
-                      <strong>
-                        {
-                          contextoQrPendiente
-                            .numeroArnes
-                        }
-                      </strong>
-                    </span>
-
-                    <span>
-                      Diseño:{" "}
-                      <strong>
-                        {
-                          contextoQrPendiente
-                            .disenoArnes
-                        }
-                      </strong>
-                    </span>
-
-                    <span>
-                      Estación:{" "}
-                      <strong>
-                        {
-                          contextoQrPendiente
-                            .estacion
-                        }
-                      </strong>
-                    </span>
-
-                    <span>
-                      Detalle BOM:{" "}
-                      <strong>
-                        {
-                          contextoQrPendiente
-                            .idBomDetalle
-                        }
-                      </strong>
-                    </span>
-                  </div>
-                )}
-
                 <p
                   style={{
                     margin: "5px 0 14px",
@@ -1526,37 +1615,161 @@ export function NuevaSolicitudModal({
                   }}
                 >
                   <div style={formGroupStyle}>
-                    <label
-                      htmlFor="cantidadMaterialPendiente"
-                      style={labelStyle}
-                    >
-                      Cantidad solicitada *
-                    </label>
+                    {Number(
+                      contextoQrPendiente
+                        ?.stdPack ??
+                      materialPendiente.stdPack ??
+                      0
+                    ) > 0 ? (
+                      <>
+                        <label
+                          htmlFor="cantidadMaterialPendiente"
+                          style={labelStyle}
+                        >
+                          Seleccionar cantidad de bolsas *
+                        </label>
 
-                    <input
-                      ref={inputCantidadRef}
-                      id="cantidadMaterialPendiente"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={cantidadPendiente}
-                      onChange={(event) => {
-                        setCantidadPendiente(
-                          event.target.value
-                        );
+                        {contextoQrPendiente
+                          ?.maximoBolsas != null &&
+                          contextoQrPendiente.maximoBolsas > 0 ? (
+                          <>
+                            <select
+                              id="cantidadMaterialPendiente"
+                              value={cantidadPendiente}
+                              onChange={(event) => {
+                                setCantidadPendiente(
+                                  event.target.value
+                                );
 
-                        setError("");
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
+                                setError("");
+                              }}
+                              disabled={enviando}
+                              style={inputStyle}
+                            >
+                              {Array.from(
+                                {
+                                  length:
+                                    contextoQrPendiente
+                                      .maximoBolsas,
+                                },
+                                (_, indice) =>
+                                  indice + 1
+                              ).map((bolsas) => (
+                                <option
+                                  key={bolsas}
+                                  value={bolsas}
+                                >
+                                  {bolsas}{" "}
+                                  {bolsas === 1
+                                    ? "bolsa"
+                                    : "bolsas"}
+                                </option>
+                              ))}
+                            </select>
 
-                          confirmarMaterialPendiente();
-                        }
-                      }}
-                      disabled={enviando}
-                      style={inputStyle}
-                    />
+                            <div
+                              style={{
+                                padding: "10px 12px",
+                                borderRadius: "8px",
+                                background: "#dbeafe",
+                                color: "#1e3a8a",
+                                fontSize: "13px",
+                                fontWeight: "700",
+                              }}
+                            >
+                              Selección:{" "}
+                              {cantidadPendiente}{" "}
+                              {Number(
+                                cantidadPendiente
+                              ) === 1
+                                ? "bolsa"
+                                : "bolsas"}
+
+                              {" = "}
+
+                              {Number(
+                                cantidadPendiente
+                              ) *
+                                Number(
+                                  contextoQrPendiente
+                                    ?.stdPack ??
+                                  materialPendiente
+                                    .stdPack ??
+                                  0
+                                )}{" "}
+                              piezas
+                            </div>
+
+                            <small
+                              style={{
+                                color: "#475569",
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              Plan diario:{" "}
+                              <strong>
+                                {contextoQrPendiente
+                                  ?.plan ??
+                                  "Sin plan"}
+                              </strong>
+
+                              {" · "}
+
+                              BOM Qty:{" "}
+                              <strong>
+                                {contextoQrPendiente
+                                  ?.bomQty ??
+                                  "Sin BOM"}
+                              </strong>
+
+                              {" · "}
+
+                              Std Pack:{" "}
+                              <strong>
+                                {contextoQrPendiente
+                                  ?.stdPack ??
+                                  materialPendiente
+                                    .stdPack ??
+                                  "Sin Standard Pack"}
+                              </strong>
+
+                              {" · "}
+
+                              Disponible hoy:{" "}
+                              <strong>
+                                {contextoQrPendiente
+                                  .maximoBolsas}{" "}
+                                {contextoQrPendiente
+                                  .maximoBolsas === 1
+                                  ? "bolsa"
+                                  : "bolsas"}
+                              </strong>
+                            </small>
+                          </>
+                        ) : (
+                          <div style={warningStyle}>
+                            El requerimiento diario de este
+                            material ya fue solicitado.
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div
+                        style={{
+                          padding: "12px",
+                          border:
+                            "1px solid #fed7aa",
+                          borderRadius: "8px",
+                          background: "#fff7ed",
+                          color: "#9a3412",
+                          fontSize: "13px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        Material sin Standard Pack.
+                        Se agregará sin cantidad.
+                      </div>
+                    )}
                   </div>
                   <div
                     style={{
@@ -1578,7 +1791,18 @@ export function NuevaSolicitudModal({
                       disabled={
                         enviando ||
                         validandoQr ||
-                        !cantidadPendiente
+                        (
+                          Number(
+                            contextoQrPendiente
+                              ?.stdPack ?? 0
+                          ) > 0 &&
+                          (
+                            contextoQrPendiente
+                              ?.maximoBolsas == null ||
+                            contextoQrPendiente
+                              .maximoBolsas <= 0
+                          )
+                        )
                       }
                       style={{
                         ...primaryButtonStyle,
@@ -1589,14 +1813,36 @@ export function NuevaSolicitudModal({
                         opacity:
                           enviando ||
                             validandoQr ||
-                            !cantidadPendiente
+                            (
+                              Number(
+                                contextoQrPendiente
+                                  ?.stdPack ?? 0
+                              ) > 0 &&
+                              (
+                                contextoQrPendiente
+                                  ?.maximoBolsas == null ||
+                                contextoQrPendiente
+                                  .maximoBolsas <= 0
+                              )
+                            )
                             ? 0.65
                             : 1,
 
                         cursor:
                           enviando ||
                             validandoQr ||
-                            !cantidadPendiente
+                            (
+                              Number(
+                                contextoQrPendiente
+                                  ?.stdPack ?? 0
+                              ) > 0 &&
+                              (
+                                contextoQrPendiente
+                                  ?.maximoBolsas == null ||
+                                contextoQrPendiente
+                                  .maximoBolsas <= 0
+                              )
+                            )
                             ? "not-allowed"
                             : "pointer",
                       }}
@@ -1683,41 +1929,46 @@ export function NuevaSolicitudModal({
                       >
                         {material.descripcion}
                       </p>
+                      <div style={labelStyle}>
+                        {material.requiereCantidad
+                          ? "Bolsas solicitadas"
+                          : "Solicitud"}
+                      </div>
 
-                      <label
-                        htmlFor={
-                          `cantidad-${material.idMaterial}`
-                        }
-                        style={labelStyle}
-                      >
-                        Cantidad solicitada *
-                      </label>
-
-                      <input
-                        id={
-                          `cantidad-${material.idMaterial}`
-                        }
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={material.cantidad}
-                        onChange={(event) =>
-                          cambiarCantidad(
-                            material.idMaterial,
-                            material.idBomDetalle,
-                            material.idEstacion,
-                            event.target.value
-                          )
-                        }
-                        disabled={enviando}
-                        placeholder="Cantidad requerida"
-                        required
+                      <div
                         style={{
-                          ...inputStyle,
                           marginTop: "7px",
+                          padding: "10px 12px",
+                          border:
+                            "1px solid #cbd5e1",
+                          borderRadius: "8px",
+                          background: "#f8fafc",
+                          color: "#102957",
+                          fontWeight: "700",
                         }}
-                      />
+                      >
+                        {material.requiereCantidad
+                          ? `${material.cantidadBolsas} bolsa${material.cantidadBolsas === 1
+                            ? ""
+                            : "s"
+                          }`
+                          : "Sin cantidad"}
+                      </div>
 
+                      {material.requiereCantidad && (
+                        <small
+                          style={{
+                            display: "block",
+                            marginTop: "5px",
+                            color: "#64748b",
+                          }}
+                        >
+                          {material.cantidad} piezas
+                          {" · "}
+                          Std Pack:{" "}
+                          {material.stdPackHistorico}
+                        </small>
+                      )}
                       <button
                         type="button"
                         disabled={enviando}
@@ -1755,7 +2006,7 @@ export function NuevaSolicitudModal({
                       </th>
 
                       <th style={thStyle}>
-                        Cantidad solicitada *
+                        Bolsas / piezas
                       </th>
 
                       <th
@@ -1788,24 +2039,34 @@ export function NuevaSolicitudModal({
                           </td>
 
                           <td style={tdStyle}>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={material.cantidad}
-                              onChange={(event) =>
-                                cambiarCantidad(
-                                  material.idMaterial,
-                                  material.idBomDetalle,
-                                  material.idEstacion,
-                                  event.target.value
-                                )
-                              }
-                              disabled={enviando}
-                              placeholder="Cantidad requerida"
-                              required
-                              style={quantityInputStyle}
-                            />
+                            <div
+                              style={{
+                                fontWeight: "700",
+                                color: "#102957",
+                              }}
+                            >
+                              {material.requiereCantidad
+                                ? `${material.cantidadBolsas} bolsa${material.cantidadBolsas === 1
+                                  ? ""
+                                  : "s"
+                                }`
+                                : "Sin cantidad"}
+                            </div>
+
+                            {material.requiereCantidad && (
+                              <small
+                                style={{
+                                  display: "block",
+                                  marginTop: "4px",
+                                  color: "#64748b",
+                                }}
+                              >
+                                {material.cantidad} piezas
+                                {" · "}
+                                Std Pack:{" "}
+                                {material.stdPackHistorico}
+                              </small>
+                            )}
                           </td>
 
                           <td
@@ -2116,15 +2377,7 @@ const tdStyle = {
   fontSize: "14px",
 };
 
-const quantityInputStyle = {
-  width: "105px",
-  minHeight: "37px",
-  boxSizing: "border-box" as const,
-  padding: "7px 9px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "7px",
-  color: "#102957",
-};
+
 
 const removeButtonStyle = {
   padding: "7px 11px",

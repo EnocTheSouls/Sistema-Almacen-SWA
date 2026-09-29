@@ -402,17 +402,26 @@ function GearIcon() {
 const layoutStyle = {
   width: "100%",
   minHeight: "100vh",
-  display: "flex",
-  overflowX: "hidden" as const,
-};
 
+  display: "flex",
+  alignItems: "stretch",
+
+  overflowX: "hidden" as const,
+
+  background: "#f1f5f9",
+};
 const contentContainerStyle = {
-  flex: 1,
+  flex: "1 1 auto",
+
   display: "flex",
   flexDirection: "column" as const,
+
+  width: "100%",
   minWidth: 0,
   minHeight: "100vh",
-  width: "100%",
+
+  alignSelf: "stretch",
+
   overflowX: "hidden" as const,
 };
 
@@ -463,8 +472,14 @@ const settingsButtonStyle = {
 };
 
 const mainStyle = {
-  flex: 1,
+  flex: "1 1 auto",
+
+  width: "100%",
+  minWidth: 0,
+
   padding: "30px",
+  boxSizing: "border-box" as const,
+
   background: "#f1f5f9",
 };
 

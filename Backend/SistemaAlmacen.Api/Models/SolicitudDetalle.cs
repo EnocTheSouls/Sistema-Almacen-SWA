@@ -19,6 +19,14 @@ public sealed class SolicitudDetalle
     public int? IdEstacion { get; set; }
 
     public string? NombreEstacion { get; set; }
+    // Indica si el material maneja cantidad.
+    public bool RequiereCantidad { get; set; }
+
+    // Cantidad de bolsas completas solicitadas.
+    public int? CantidadBolsas { get; set; }
+
+    // Standard Pack utilizado al crear la solicitud.
+    public decimal? StdPackHistorico { get; set; }
 
     // Número de parte que verá el usuario.
     public string NumeroParteMaterial { get; set; } =

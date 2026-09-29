@@ -662,8 +662,6 @@ public sealed class BomRepository
 
         return relaciones;
     }
-
-
     // Obtiene y valida el contexto real
     // relacionado con un detalle del BOM.
     public async Task<MaterialQrContextoDto?>
@@ -681,7 +679,8 @@ public sealed class BomRepository
 
         command.CommandText = """
         SELECT
-            bd.id_detalle AS id_bom_detalle,
+            bd.id_detalle
+                AS id_bom_detalle,
 
             p.id_proyecto,
 
@@ -736,11 +735,122 @@ public sealed class BomRepository
             m.unidad_medida,
             m.tipo_empaque,
 
-            COALESCE(
-                bd.std_pack_bom,
-                m.std_pack
-            ) AS std_pack
+            bd.cantidad_requerida
+                AS bom_qty,
 
+            COALESCE(
+                NULLIF(
+                    bd.std_pack_bom,
+                    0
+                ),
+                NULLIF(
+                    m.std_pack,
+                    0
+                )
+            ) AS std_pack,
+            bd.plan_diario
+                AS plan,
+        CASE
+            WHEN COALESCE(
+                NULLIF(
+                    bd.std_pack_bom,
+                    0
+                ),
+                NULLIF(
+                    m.std_pack,
+                    0
+                )
+            ) IS NOT NULL
+            THEN TRUE
+            ELSE FALSE
+        END AS requiere_cantidad,
+
+        CASE
+            WHEN
+                bd.plan_diario > 0
+                AND COALESCE(
+                    NULLIF(
+                        bd.std_pack_bom,
+                        0
+                    ),
+                    NULLIF(
+                        m.std_pack,
+                        0
+                    )
+                ) IS NOT NULL
+            THEN
+                bd.plan_diario /
+                COALESCE(
+                    NULLIF(
+                    bd.std_pack_bom,
+                    0
+                    ),
+                    NULLIF(
+                        m.std_pack,
+                        0
+                    )
+                )
+            ELSE NULL
+        END AS bolsas_calculadas,
+
+            CASE
+            WHEN
+                bd.plan_diario > 0
+                AND COALESCE(
+                    NULLIF(
+                        bd.std_pack_bom,
+                        0
+                    ),
+                    NULLIF(
+                        m.std_pack,
+                        0
+                    )
+                ) IS NOT NULL
+            THEN GREATEST(
+                CEILING(
+                    bd.plan_diario /
+                    COALESCE(
+                        NULLIF(
+                            bd.std_pack_bom,
+                            0
+                        ),
+                        NULLIF(
+                            m.std_pack,
+                            0
+                        )
+                    )
+                )
+                -
+                COALESCE(
+                    (
+                        SELECT
+                            SUM(
+                                sd.cantidad_bolsas
+                            )
+                        FROM solicitud_detalle AS sd
+
+                        INNER JOIN solicitudes AS s
+                            ON s.id_solicitud =
+                            sd.id_solicitud
+
+                        WHERE sd.id_bom_detalle =
+                            bd.id_detalle
+
+                        AND sd.requiere_cantidad =
+                            TRUE
+
+                        AND DATE(
+                            s.fecha_solicitud
+                        ) = CURRENT_DATE
+
+                        AND s.id_estado <> 8
+                    ),
+                    0
+                ),
+                0
+            )
+            ELSE NULL
+        END AS maximo_bolsas
         FROM bom_detalle AS bd
 
         INNER JOIN bom AS b
@@ -897,11 +1007,151 @@ public sealed class BomRepository
                     ? null
                     : reader.GetDecimal(
                         "std_pack"
+                    ),
+
+            Plan =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "plan"
+                    )
+                )
+                    ? null
+                    : reader.GetDecimal(
+                        "plan"
+                    ),
+
+            BomQty =
+                reader.GetDecimal(
+                    "bom_qty"
+                ),
+
+            RequiereCantidad =
+                reader.GetBoolean(
+                    "requiere_cantidad"
+                ),
+
+            BolsasCalculadas =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "bolsas_calculadas"
+                    )
+                )
+                    ? null
+                    : reader.GetDecimal(
+                        "bolsas_calculadas"
+                    ),
+
+            MaximoBolsas =
+                reader.IsDBNull(
+                    reader.GetOrdinal(
+                        "maximo_bolsas"
+                    )
+                )
+                    ? null
+                    : Convert.ToInt32(
+                        reader.GetDecimal(
+                            "maximo_bolsas"
+                        )
                     )
         };
     }
+    // Obtiene el contexto BOM de un material
+    // según la estación seleccionada.
+    public async Task<MaterialQrContextoDto?>
+        ObtenerContextoMaterialAsync(
+            int idMaterial,
+            int idEstacion)
+    {
+        await using var connection =
+            _connectionFactory
+                .CreateConnection();
 
+        await connection.OpenAsync();
 
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            bd.id_detalle
+        FROM bom_detalle AS bd
+
+        INNER JOIN bom AS b
+            ON b.id_bom =
+               bd.id_bom
+
+        INNER JOIN arneses AS a
+            ON a.id_arnes =
+               b.id_arnes
+
+        INNER JOIN familias AS f
+            ON f.id_familia =
+               a.id_familia
+
+        INNER JOIN proyectos AS p
+            ON p.id_proyecto =
+               f.id_proyecto
+
+        INNER JOIN materiales AS m
+            ON m.id_material =
+               bd.id_material
+
+        INNER JOIN estaciones AS e
+            ON e.id_estacion =
+               bd.id_estacion
+
+        WHERE bd.id_material =
+              @idMaterial
+
+          AND bd.id_estacion =
+              @idEstacion
+
+          AND b.vigente = TRUE
+          AND a.activo = TRUE
+          AND f.activo = TRUE
+          AND p.activo = TRUE
+          AND m.activo = TRUE
+          AND e.activo = TRUE
+
+        ORDER BY
+            b.id_bom DESC,
+            bd.id_detalle DESC
+
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idMaterial",
+            idMaterial
+        );
+
+        command.Parameters.AddWithValue(
+            "@idEstacion",
+            idEstacion
+        );
+
+        var resultado =
+            await command
+                .ExecuteScalarAsync();
+
+        if (
+            resultado is null ||
+            resultado is DBNull
+        )
+        {
+            return null;
+        }
+
+        var idBomDetalle =
+            Convert.ToInt64(
+                resultado
+            );
+
+        // Reutiliza la consulta contextual del QR.
+        return await ObtenerContextoQrAsync(
+            idBomDetalle
+        );
+    }
 
 
 

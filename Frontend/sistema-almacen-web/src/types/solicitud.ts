@@ -5,6 +5,10 @@ export interface CrearSolicitudDetalleRequest {
   idBomDetalle: number | null;
   idArnes: number | null;
   idEstacion: number | null;
+
+  requiereCantidad: boolean;
+  cantidadBolsas: number | null;
+  stdPackHistorico: number | null;
 }
 export interface CrearSolicitudRequest {
   idProyecto: number;
@@ -36,6 +40,10 @@ export interface SolicitudDetalle {
 
   idEstacion: number | null;
   nombreEstacion: string | null;
+
+  requiereCantidad: boolean;
+  cantidadBolsas: number | null;
+  stdPackHistorico: number | null;
 }
 
 

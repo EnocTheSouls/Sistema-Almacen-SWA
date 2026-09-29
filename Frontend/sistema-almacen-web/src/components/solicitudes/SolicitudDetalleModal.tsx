@@ -366,38 +366,115 @@ export function SolicitudDetalleModal({
             );
         }
     };
+
+    // Registra bolsas, pero envía al backend
+    // la cantidad equivalente en piezas.
     const registrarSurtido = async (
         idDetalle: number
     ) => {
         setError("");
         setMensajeExito("");
 
-        const cantidadTexto =
-            cantidadesSurtir[idDetalle] ?? "";
+        const material =
+            solicitudActual.materiales.find(
+                (item) =>
+                    item.idDetalle ===
+                    idDetalle
+            );
 
-        const cantidad =
-            Number(cantidadTexto);
-
-        if (
-            !Number.isInteger(cantidad) ||
-            cantidad <= 0
-        ) {
+        if (!material) {
             setError(
-                "Captura una cantidad surtida mayor que cero."
+                "No se encontró el material seleccionado."
             );
 
             return;
         }
 
+        const cantidadBolsas =
+            Number(
+                cantidadesSurtir[
+                idDetalle
+                ] ?? ""
+            );
+
+        const stdPack =
+            Number(
+                material.stdPackHistorico ??
+                0
+            );
+
+        if (
+            !Number.isInteger(
+                cantidadBolsas
+            ) ||
+            cantidadBolsas <= 0
+        ) {
+            setError(
+                "Selecciona una cantidad de bolsas mayor que cero."
+            );
+
+            return;
+        }
+
+        if (stdPack <= 0) {
+            setError(
+                "El material no tiene Standard Pack válido."
+            );
+
+            return;
+        }
+
+        const bolsasSolicitadas =
+            Number(
+                material.cantidadBolsas ??
+                Math.ceil(
+                    material.cantidadSolicitada /
+                    stdPack
+                )
+            );
+
+        const bolsasSurtidas =
+            Math.floor(
+                material.cantidadSurtida /
+                stdPack
+            );
+
+        const bolsasPendientes =
+            Math.max(
+                bolsasSolicitadas -
+                bolsasSurtidas,
+                0
+            );
+
+        if (
+            cantidadBolsas >
+            bolsasPendientes
+        ) {
+            setError(
+                `Solo quedan ${bolsasPendientes} bolsas pendientes.`
+            );
+
+            return;
+        }
+
+        // El backend sigue recibiendo piezas.
+        const cantidadPiezas =
+            cantidadBolsas *
+            stdPack;
+
         try {
-            setDetalleProcesando(idDetalle);
+            setDetalleProcesando(
+                idDetalle
+            );
 
             const respuesta =
                 await surtirMaterialSolicitud(
                     solicitudActual.idSolicitud,
                     {
                         idDetalle,
-                        cantidad,
+
+                        cantidad:
+                            cantidadPiezas,
                     }
                 );
 
@@ -405,8 +482,19 @@ export function SolicitudDetalleModal({
                 respuesta.solicitud
             );
 
-            setCantidadesSurtir({});
+            setCantidadesSurtir(
+                (cantidadesActuales) => {
+                    const nuevasCantidades = {
+                        ...cantidadesActuales,
+                    };
 
+                    delete nuevasCantidades[
+                        idDetalle
+                    ];
+
+                    return nuevasCantidades;
+                }
+            );
 
             setMensajeExito(
                 respuesta.mensaje
@@ -446,10 +534,12 @@ export function SolicitudDetalleModal({
             }
 
             setError(
-                "No se pudo registrar la cantidad surtida."
+                "No se pudo registrar el surtido de bolsas."
             );
         } finally {
-            setDetalleProcesando(null);
+            setDetalleProcesando(
+                null
+            );
         }
     };
 
@@ -680,9 +770,45 @@ export function SolicitudDetalleModal({
                             ) : (
                                 materialesOrdenados.map(
                                     (material) => {
+                                        const stdPack =
+                                            Number(
+                                                material.stdPackHistorico ??
+                                                0
+                                            );
+
+                                        const bolsasSolicitadas =
+                                            Number(
+                                                material.cantidadBolsas ??
+                                                (
+                                                    stdPack > 0
+                                                        ? Math.ceil(
+                                                            material
+                                                                .cantidadSolicitada /
+                                                            stdPack
+                                                        )
+                                                        : 0
+                                                )
+                                            );
+
+                                        const bolsasSurtidas =
+                                            stdPack > 0
+                                                ? Math.floor(
+                                                    material.cantidadSurtida /
+                                                    stdPack
+                                                )
+                                                : 0;
+
+                                        const bolsasPendientes =
+                                            Math.max(
+                                                bolsasSolicitadas -
+                                                bolsasSurtidas,
+                                                0
+                                            );
+
                                         const pendiente =
                                             material.cantidadSolicitada -
                                             material.cantidadSurtida;
+
 
                                         return (
                                             <tr
@@ -705,19 +831,41 @@ export function SolicitudDetalleModal({
                                                 </td>
 
                                                 <td style={tdStyle}>
-                                                    {
-                                                        material.cantidadSolicitada
-                                                    }
+                                                    <strong>
+                                                        {bolsasSolicitadas}{" "}
+                                                        {bolsasSolicitadas === 1
+                                                            ? "bolsa"
+                                                            : "bolsas"}
+                                                    </strong>
+
+                                                    <small
+                                                        style={{
+                                                            display: "block",
+                                                            marginTop: "3px",
+                                                            color: "#64748b",
+                                                        }}
+                                                    >
+                                                        {material.cantidadSolicitada}{" "}
+                                                        piezas
+                                                    </small>
                                                 </td>
 
                                                 <td style={tdStyle}>
-                                                    {
-                                                        material.cantidadSurtida
-                                                    }
+                                                    <strong>
+                                                        {bolsasSurtidas}{" "}
+                                                        {bolsasSurtidas === 1
+                                                            ? "bolsa"
+                                                            : "bolsas"}
+                                                    </strong>
                                                 </td>
 
                                                 <td style={tdStyle}>
-                                                    {pendiente}
+                                                    <strong>
+                                                        {bolsasPendientes}{" "}
+                                                        {bolsasPendientes === 1
+                                                            ? "bolsa"
+                                                            : "bolsas"}
+                                                    </strong>
                                                 </td>
                                                 <td style={tdStyle}>
                                                     <strong
@@ -732,42 +880,58 @@ export function SolicitudDetalleModal({
                                                     </strong>
                                                 </td>
                                                 <td style={tdStyle}>
-                                                    {pendiente > 0 &&
+                                                    {bolsasPendientes > 0 &&
                                                         solicitudActual.idEstado !== 6 &&
                                                         solicitudActual.idEstado !== 7 &&
                                                         solicitudActual.idEstado !== 8 ? (
                                                         <div style={supplyControlsStyle}>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                step="1"
-                                                                max={pendiente}
+                                                            <select
                                                                 value={
                                                                     cantidadesSurtir[
                                                                     material.idDetalle
                                                                     ] ?? ""
                                                                 }
                                                                 onChange={(event) => {
-                                                                    const valor =
-                                                                        event.target.value;
-
                                                                     setCantidadesSurtir(
-                                                                        (cantidadesActuales) => ({
+                                                                        (
+                                                                            cantidadesActuales
+                                                                        ) => ({
                                                                             ...cantidadesActuales,
+
                                                                             [material.idDetalle]:
-                                                                                valor,
+                                                                                event.target.value,
                                                                         })
                                                                     );
 
                                                                     setError("");
                                                                 }}
                                                                 disabled={
-                                                                    detalleProcesando !== null
+                                                                    detalleProcesando !==
+                                                                    null ||
+                                                                    bolsasPendientes <= 0
                                                                 }
-                                                                placeholder={`Máx. ${pendiente}`}
                                                                 style={supplyInputStyle}
-                                                            />
+                                                            >
+                                                                <option value="">
+                                                                    Bolsas
+                                                                </option>
 
+                                                                {Array.from(
+                                                                    {
+                                                                        length:
+                                                                            bolsasPendientes,
+                                                                    },
+                                                                    (_, indice) =>
+                                                                        indice + 1
+                                                                ).map((bolsas) => (
+                                                                    <option
+                                                                        key={bolsas}
+                                                                        value={bolsas}
+                                                                    >
+                                                                        {bolsas}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
@@ -776,7 +940,10 @@ export function SolicitudDetalleModal({
                                                                     )
                                                                 }
                                                                 disabled={
-                                                                    detalleProcesando !== null
+                                                                    detalleProcesando !== null ||
+                                                                    !cantidadesSurtir[
+                                                                    material.idDetalle
+                                                                    ]
                                                                 }
                                                                 style={{
                                                                     ...supplyButtonStyle,
@@ -823,17 +990,20 @@ export function SolicitudDetalleModal({
 
                                                                 opacity:
                                                                     detalleProcesando !== null ||
-                                                                        detalleEliminando !== null ||
-                                                                        actualizando
+                                                                        !cantidadesSurtir[
+                                                                        material.idDetalle
+                                                                        ]
                                                                         ? 0.65
                                                                         : 1,
-
                                                                 cursor:
                                                                     detalleProcesando !== null ||
-                                                                        detalleEliminando !== null ||
-                                                                        actualizando
+                                                                        !cantidadesSurtir[
+                                                                        material.idDetalle
+                                                                        ]
                                                                         ? "not-allowed"
                                                                         : "pointer",
+
+
                                                             }}
                                                         >
                                                             {detalleEliminando ===
@@ -1120,12 +1290,13 @@ const supplyControlsStyle = {
 };
 
 const supplyInputStyle = {
-    width: "76px",
+    width: "90px",
     minHeight: "34px",
     boxSizing: "border-box" as const,
     padding: "5px 7px",
     border: "1px solid #cbd5e1",
     borderRadius: "7px",
+    background: "#ffffff",
     color: "#102957",
     fontSize: "12px",
 };

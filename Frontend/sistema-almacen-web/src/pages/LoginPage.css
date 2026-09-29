@@ -1,118 +1,191 @@
+
 .login-page {
-  display: flex;
   width: 100%;
   min-height: 100vh;
+
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+
+  padding: 24px;
+  box-sizing: border-box;
+
   background:
     radial-gradient(
       circle at top,
-      rgba(104, 148, 235, 0.22),
+      rgba(79, 120, 190, 0.16),
       transparent 38%
     ),
     linear-gradient(
-      145deg,
-      #173b7a 0%,
-      #102957 100%
+      180deg,
+      #102957 0%,
+      #0b2148 58%,
+      #081a39 100%
     );
+
+  font-family:
+    "Trebuchet MS",
+    "Segoe UI",
+    Arial,
+    sans-serif;
 }
 
 .login-card {
   width: 100%;
-  max-width: 500px;
+  max-width: 460px;
+  min-height: 630px;
+
+  display: flex;
+  flex-direction: column;
+
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 26px;
+  box-sizing: border-box;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.22);
+
+  border-radius: 14px;
+
   background: #ffffff;
-  box-shadow: 0 28px 70px rgba(3, 18, 48, 0.38);
+
+  box-shadow:
+    0 25px 65px rgba(3, 18, 48, 0.38);
 }
 
 .login-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 40px 24px;
+
+  padding: 46px 36px 28px;
+
   text-align: center;
 }
 
 .login-logo {
+  width: 62px;
+  height: 62px;
+
   display: flex;
-  width: 78px;
-  height: 78px;
   align-items: center;
   justify-content: center;
-  border-radius: 22px;
-  background: linear-gradient(
-    145deg,
-    #4d7fdf,
-    #1c4e9c
-  );
+
+  border:
+    1px solid rgba(255, 255, 255, 0.2);
+
+  border-radius: 10px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #173b78 0%,
+      #102957 100%
+    );
+
   color: #ffffff;
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
-  box-shadow: 0 14px 30px rgba(35, 91, 183, 0.3);
+
+  font-family:
+    "Trebuchet MS",
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+
+  box-shadow:
+    0 10px 22px rgba(8, 26, 57, 0.35);
 }
 
 .login-eyebrow {
-  margin: 18px 0 7px;
-  color: #3569cc;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
+  margin: 18px 0 8px;
+
+  color: #3569b8;
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
   text-transform: uppercase;
 }
 
 .login-header h1 {
   margin: 0;
+
   color: #102957;
-  font-size: 32px;
-  font-weight: 850;
-  line-height: 1.2;
-  letter-spacing: -0.7px;
+
+  font-family:
+    "Trebuchet MS",
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.25px;
 }
 
 .login-description {
-  max-width: 370px;
-  margin: 12px auto 0;
+  max-width: 340px;
+
+  margin: 10px auto 0;
+
   color: #64748b;
-  font-size: 16px;
-  line-height: 1.6;
+
+  font-size: 13px;
+  line-height: 1.55;
   text-align: center;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 12px 40px 40px;
+  gap: 20px;
+
+  padding: 14px 36px 38px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 7px;
 }
 
 .form-group label {
   color: #17335f;
-  font-size: 19px;
-  font-weight: 800;
-  text-align: center;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  text-align: left;
 }
 
 .form-group input {
   width: 100%;
-  min-height: 58px;
-  border: 2px solid #ccd7e8;
-  border-radius: 14px;
-  padding: 0 17px;
+  min-height: 46px;
+
+  padding: 10px 13px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+
   background: #ffffff;
   color: #102957;
-  font-size: 17px;
-  text-align: center;
+
+  font-family:
+    "Trebuchet MS",
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 14px;
+  text-align: left;
+
   outline: none;
+
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -121,57 +194,100 @@
 
 .form-group input::placeholder {
   color: #94a3b8;
-  text-align: center;
+  text-align: left;
+}
+
+.form-group input:hover:not(:disabled) {
+  border-color: #94a3b8;
 }
 
 .form-group input:focus {
-  border-color: #3f73d8;
-  background: #fbfdff;
-  box-shadow: 0 0 0 5px rgba(63, 115, 216, 0.14);
+  border-color: #3569b8;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 3px rgba(53, 105, 184, 0.13);
 }
 
 .form-group input:disabled {
   cursor: not-allowed;
   background: #f1f5f9;
-  opacity: 0.75;
+  opacity: 0.8;
 }
 
 .login-error {
-  border: 1px solid #f2b8b8;
-  border-radius: 12px;
-  padding: 13px 15px;
-  background: #fff3f3;
-  color: #a82323;
-  font-size: 15px;
-  font-weight: 650;
+  padding: 11px 13px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: #fef2f2;
+  color: #991b1b;
+
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.45;
-  text-align: center;
+  text-align: left;
 }
 
 .login-button {
   width: 100%;
-  min-height: 58px;
+  min-height: 46px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  padding: 10px 16px;
+
   border: 0;
-  border-radius: 14px;
-  background: linear-gradient(
-    135deg,
-    #4d7fdf,
-    #1c4e9c
-  );
+  border-radius: 7px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #173b78 0%,
+      #102957 100%
+    );
+
   color: #ffffff;
-  font-size: 18px;
-  font-weight: 850;
+
+  font-family:
+    "Trebuchet MS",
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+
   cursor: pointer;
-  box-shadow: 0 13px 26px rgba(30, 78, 156, 0.27);
+
+  box-shadow:
+    0 8px 18px rgba(16, 41, 87, 0.22);
+
   transition:
+    background-color 150ms ease,
     transform 150ms ease,
     box-shadow 150ms ease,
     opacity 150ms ease;
 }
 
 .login-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 17px 32px rgba(30, 78, 156, 0.34);
+  background:
+    linear-gradient(
+      180deg,
+      #1d4f99 0%,
+      #173b78 100%
+    );
+
+  box-shadow:
+    0 10px 22px rgba(8, 26, 57, 0.32);
+
+  transform: translateY(-1px);
 }
 
 .login-button:active:not(:disabled) {
@@ -183,44 +299,116 @@
   opacity: 0.7;
 }
 
+.login-spinner {
+  width: 15px;
+  height: 15px;
+
+  border:
+    2px solid rgba(255, 255, 255, 0.38);
+
+  border-top-color: #ffffff;
+  border-radius: 50%;
+
+  animation:
+    login-spinner-animation
+    750ms
+    linear
+    infinite;
+}
+
+@keyframes login-spinner-animation {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pie legal centrado en la parte inferior. */
 .login-footer {
-  border-top: 1px solid #dce4ef;
-  padding: 18px 30px;
-  background: #f5f8fc;
-  color: #60718a;
-  font-size: 14px;
-  font-weight: 550;
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  margin-top: auto;
+  padding: 18px 24px;
+
+  box-sizing: border-box;
+
+  border-top: 1px solid #e2e8f0;
+
+  background: #f8fafc;
+  color: #64748b;
+
+  font-family:
+    "Trebuchet MS",
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
   text-align: center;
 }
 
-@media (max-width: 560px) {
+.login-footer span {
+  display: block;
+  width: 100%;
+}
+
+/* Adaptación móvil. */
+@media screen and (max-width: 560px) {
   .login-page {
-    padding: 20px 14px;
+    align-items: flex-start;
+    padding: 12px;
   }
 
   .login-card {
-    border-radius: 21px;
+    max-width: 100%;
+    min-height: calc(100vh - 24px);
+    border-radius: 10px;
   }
 
   .login-header {
-    padding: 32px 24px 20px;
-  }
-
-  .login-header h1 {
-    font-size: 27px;
-  }
-
-  .login-description {
-    font-size: 15px;
-  }
-
-  .login-form {
-    padding: 10px 24px 32px;
+    padding: 34px 22px 22px;
   }
 
   .login-logo {
-    width: 70px;
-    height: 70px;
-    font-size: 22px;
+    width: 54px;
+    height: 54px;
+    font-size: 17px;
   }
-}
+
+  .login-eyebrow {
+    margin-top: 15px;
+  }
+
+  .login-header h1 {
+    font-size: 23px;
+  }
+
+  .login-description {
+    font-size: 12px;
+  }
+
+  .login-form {
+    padding: 10px 22px 30px;
+  }
+
+  .form-group input {
+    min-height: 45px;
+    font-size: 14px;
+  }
+
+  .login-button {
+    min-height: 45px;
+  }
+
+  .login-footer {
+    padding: 16px 18px;
+    font-size: 10px;
+  }
+} 

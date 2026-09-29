@@ -238,17 +238,9 @@ public sealed class SolicitudRepository
         if (idEstado.HasValue)
         {
             condiciones.Add(
-    """
-    EXISTS (
-        SELECT 1
-        FROM solicitud_detalle AS sdFiltro
-        WHERE sdFiltro.id_solicitud =
-              s.id_solicitud
-          AND sdFiltro.id_estacion =
-              @idEstacion
-    )
-    """
-);
+                "s.id_estado = @idEstado"
+            );
+
             command.Parameters.AddWithValue(
                 "@idEstado",
                 idEstado.Value
@@ -282,7 +274,16 @@ public sealed class SolicitudRepository
         if (idEstacion.HasValue)
         {
             condiciones.Add(
-                "s.id_estacion = @idEstacion"
+                """
+        EXISTS (
+            SELECT 1
+            FROM solicitud_detalle AS sdFiltro
+            WHERE sdFiltro.id_solicitud =
+                  s.id_solicitud
+              AND sdFiltro.id_estacion =
+                  @idEstacion
+        )
+        """
             );
 
             command.Parameters.AddWithValue(
@@ -540,18 +541,81 @@ public sealed class SolicitudRepository
                     );
                 }
 
-                if (
-                    detalle.CantidadSolicitada <= 0 ||
-                    detalle.CantidadSolicitada !=
-                        decimal.Truncate(
-                            detalle.CantidadSolicitada
-                        )
-                )
-                {
-                    throw new InvalidOperationException(
-                        "Todas las cantidades solicitadas deben ser números enteros mayores que cero."
-                    );
-                }
+                if (detalle.RequiereCantidad)
+{
+    if (
+        !detalle.CantidadBolsas.HasValue ||
+        detalle.CantidadBolsas.Value <= 0
+    )
+    {
+        throw new InvalidOperationException(
+            "La cantidad de bolsas debe ser un número entero mayor que cero."
+        );
+    }
+
+    if (
+        !detalle.StdPackHistorico.HasValue ||
+        detalle.StdPackHistorico.Value <= 0
+    )
+    {
+        throw new InvalidOperationException(
+            "El material no tiene un Standard Pack válido."
+        );
+    }
+
+    var cantidadCalculada =
+        detalle.CantidadBolsas.Value *
+        detalle.StdPackHistorico.Value;
+
+    if (
+        detalle.CantidadSolicitada !=
+        cantidadCalculada
+    )
+    {
+        throw new InvalidOperationException(
+            $"La cantidad del material {detalle.IdMaterial} no coincide con las bolsas y el Standard Pack."
+        );
+    }
+
+    if (
+        detalle.CantidadSolicitada <= 0 ||
+        detalle.CantidadSolicitada !=
+            decimal.Truncate(
+                detalle.CantidadSolicitada
+            )
+    )
+    {
+        throw new InvalidOperationException(
+            "La cantidad calculada en piezas debe ser un número entero mayor que cero."
+        );
+    }
+}
+else
+{
+    if (detalle.CantidadSolicitada != 0)
+    {
+        throw new InvalidOperationException(
+            "Los materiales sin Standard Pack deben enviarse sin cantidad."
+        );
+    }
+
+    if (detalle.CantidadBolsas.HasValue)
+    {
+        throw new InvalidOperationException(
+            "Los materiales sin Standard Pack no deben incluir bolsas."
+        );
+    }
+
+    if (detalle.StdPackHistorico.HasValue)
+    {
+        throw new InvalidOperationException(
+            "Los materiales sin Standard Pack no deben incluir un Standard Pack."
+        );
+    }
+}
+
+
+                
 
                 // El escaneo QR requiere el contexto completo.
                 if (origenLimpio == "ESCANEO")
@@ -778,7 +842,6 @@ public sealed class SolicitudRepository
 
                 detalleCommand.Transaction = transaction;
 
-
                 detalleCommand.CommandText = """
     INSERT INTO solicitud_detalle (
         id_solicitud,
@@ -786,6 +849,9 @@ public sealed class SolicitudRepository
         id_bom_detalle,
         id_arnes,
         id_estacion,
+        requiere_cantidad,
+        cantidad_bolsas,
+        std_pack_historico,
         cantidad_solicitada,
         cantidad_surtida
     )
@@ -795,11 +861,13 @@ public sealed class SolicitudRepository
         @idBomDetalle,
         @idArnes,
         @idEstacion,
+        @requiereCantidad,
+        @cantidadBolsas,
+        @stdPackHistorico,
         @cantidadSolicitada,
         0
     );
     """;
-
 
                 detalleCommand.Parameters.AddWithValue(
                     "@idSolicitud",
@@ -810,6 +878,7 @@ public sealed class SolicitudRepository
                     "@idMaterial",
                     detalle.IdMaterial
                 );
+
                 detalleCommand.Parameters.AddWithValue(
                     "@idBomDetalle",
                     (object?)detalle.IdBomDetalle ??
@@ -828,12 +897,27 @@ public sealed class SolicitudRepository
                     DBNull.Value
                 );
 
+                detalleCommand.Parameters.AddWithValue(
+                    "@requiereCantidad",
+                    detalle.RequiereCantidad
+                );
+
+                detalleCommand.Parameters.AddWithValue(
+                    "@cantidadBolsas",
+                    (object?)detalle.CantidadBolsas ??
+                    DBNull.Value
+                );
+
+                detalleCommand.Parameters.AddWithValue(
+                    "@stdPackHistorico",
+                    (object?)detalle.StdPackHistorico ??
+                    DBNull.Value
+                );
 
                 detalleCommand.Parameters.AddWithValue(
                     "@cantidadSolicitada",
                     detalle.CantidadSolicitada
                 );
-
                 await detalleCommand.ExecuteNonQueryAsync();
             }
 
@@ -1662,6 +1746,10 @@ public sealed class SolicitudRepository
         e.nombre
             AS nombre_estacion,
 
+            sd.requiere_cantidad,
+            sd.cantidad_bolsas,
+            sd.std_pack_historico,
+
         m.numero_parte_material,
 
         m.descripcion
@@ -1908,6 +1996,32 @@ public sealed class SolicitudRepository
                     : reader.GetString(
                         "nombre_estacion"
                     ),
+    RequiereCantidad =
+        reader.GetBoolean(
+            "requiere_cantidad"
+    ),
+
+    CantidadBolsas =
+        reader.IsDBNull(
+            reader.GetOrdinal(
+                "cantidad_bolsas"
+        )
+    )
+        ? null
+        : reader.GetInt32(
+            "cantidad_bolsas"
+        ),
+
+            StdPackHistorico =
+    reader.IsDBNull(
+        reader.GetOrdinal(
+            "std_pack_historico"
+        )
+    )
+        ? null
+        : reader.GetDecimal(
+            "std_pack_historico"
+        ),
 
             NumeroParteMaterial =
                 reader.GetString(

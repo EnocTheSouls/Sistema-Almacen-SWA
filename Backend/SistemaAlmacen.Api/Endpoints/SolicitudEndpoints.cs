@@ -457,21 +457,85 @@ public static class SolicitudEndpoints
                             "Todos los materiales deben tener un identificador válido."
                     });
                 }
-
-                if (
-    detalle.CantidadSolicitada <= 0 ||
-    detalle.CantidadSolicitada !=
-    decimal.Truncate(
-        detalle.CantidadSolicitada
-    )
-)
+                if (detalle.RequiereCantidad)
                 {
-                    return Results.BadRequest(new
+                    if (
+                        !detalle.CantidadBolsas.HasValue ||
+                        detalle.CantidadBolsas.Value <= 0
+                    )
                     {
-                        mensaje =
-                            $"La cantidad solicitada del material {detalle.IdMaterial} debe ser un número entero mayor que cero."
-                    });
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"Debes seleccionar al menos una bolsa para el material {detalle.IdMaterial}."
+                        });
+                    }
+
+                    if (
+                        !detalle.StdPackHistorico.HasValue ||
+                        detalle.StdPackHistorico.Value <= 0
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"El material {detalle.IdMaterial} no tiene un Standard Pack válido."
+                        });
+                    }
+
+                    var cantidadCalculada =
+                        detalle.CantidadBolsas.Value *
+                        detalle.StdPackHistorico.Value;
+
+                    if (
+                        detalle.CantidadSolicitada !=
+                        cantidadCalculada
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"La cantidad del material {detalle.IdMaterial} no coincide con las bolsas seleccionadas."
+                        });
+                    }
+
+                    if (
+                        detalle.CantidadSolicitada <= 0 ||
+                        detalle.CantidadSolicitada !=
+                            decimal.Truncate(
+                                detalle.CantidadSolicitada
+                            )
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"La cantidad calculada del material {detalle.IdMaterial} debe ser un número entero mayor que cero."
+                        });
+                    }
                 }
+                else
+                {
+                    if (
+                        detalle.CantidadSolicitada != 0 ||
+                        detalle.CantidadBolsas.HasValue ||
+                        detalle.StdPackHistorico.HasValue
+                    )
+                    {
+                        return Results.BadRequest(new
+                        {
+                            mensaje =
+                                $"El material {detalle.IdMaterial} no utiliza cantidad ni bolsas."
+                        });
+                    }
+                }
+
+
+
+
+
+
+
 
                 // Los materiales escaneados deben incluir
                 // el contexto completo obtenido del QR.

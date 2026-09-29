@@ -13,25 +13,31 @@ export interface MaterialQrContexto {
 
   idProyecto: number;
   proyecto: string;
-
   idFamilia: number;
-  familia: string;
 
+  familia: string;
   idArnes: number;
   numeroArnes: string;
-  disenoArnes: string;
 
+  disenoArnes: string;
   idEstacion: number;
   estacion: string;
 
   idMaterial: number;
   numeroParteMaterial: string;
   descripcion: string;
-  genericCode: string;
 
+  genericCode: string;
   unidadMedida: string | null;
   tipoEmpaque: string | null;
+
   stdPack: number | null;
+
+  plan: number | null;
+  bomQty: number;
+  requiereCantidad: boolean;
+  bolsasCalculadas: number | null;
+  maximoBolsas: number | null;
 }
 
 export interface ValidarMaterialQrRequest {
@@ -156,3 +162,20 @@ export async function validarMaterialQr(
 
   return respuesta.data;
 }
+// Obtiene el contexto BOM de un material
+// según la estación seleccionada.
+export async function obtenerContextoMaterialEstacion(
+  idMaterial: number,
+  idEstacion: number
+): Promise<MaterialQrContexto> {
+  const respuesta =
+    await apiClient.get<
+      MaterialQrContexto
+    >(
+      `/materiales/${idMaterial}/contexto-estacion/${idEstacion}`
+    );
+
+  return respuesta.data;
+}
+
+

@@ -52,8 +52,8 @@ interface ConfiguracionDashboard {
 }
 
 const configuracionInicial: ConfiguracionDashboard = {
-  actualizacionAutomatica: false,
-  segundosActualizacion: 20,
+  actualizacionAutomatica: true,
+  segundosActualizacion: 2,
   limiteAmarillo: 10,
   limiteNaranja: 20,
   limiteRojo: 30,
@@ -68,6 +68,12 @@ export function DashboardPage() {
   // Evita ejecutar varias actualizaciones al mismo tiempo.
   const consultaEnProceso =
     useRef(false);
+
+  // Elemento que entrará en modo de monitoreo.
+  const dashboardRef =
+    useRef<HTMLElement | null>(
+      null
+    );
 
   const [
     dashboard,
@@ -127,6 +133,17 @@ export function DashboardPage() {
     fechaHoraActual,
     setFechaHoraActual,
   ] = useState(new Date());
+
+  // Controla la vista ampliada del Dashboard.
+  const [
+    esPantallaCompleta,
+    setEsPantallaCompleta,
+  ] = useState(
+    Boolean(
+      document.fullscreenElement
+    )
+  );
+
 
   // Detecta pantallas móviles.
   const [
@@ -221,6 +238,33 @@ export function DashboardPage() {
       );
     };
   }, []);
+  // Detecta la entrada y salida de pantalla completa,
+  // incluso cuando se utiliza la tecla Esc.
+  useEffect(() => {
+    const actualizarPantallaCompleta =
+      () => {
+        setEsPantallaCompleta(
+          Boolean(
+            document.fullscreenElement
+          )
+        );
+      };
+
+    document.addEventListener(
+      "fullscreenchange",
+      actualizarPantallaCompleta
+    );
+
+    return () => {
+      document.removeEventListener(
+        "fullscreenchange",
+        actualizarPantallaCompleta
+      );
+    };
+  }, []);
+
+
+
 
   // Actualiza el diseño al cambiar
   // el tamaño de la pantalla.
@@ -265,7 +309,7 @@ export function DashboardPage() {
 
     const segundos =
       Math.max(
-        5,
+        2,
         configuracion.segundosActualizacion
       );
 
@@ -360,6 +404,12 @@ export function DashboardPage() {
     ]);
 
 
+  // Incluye solicitudes pendientes y parciales.
+  const totalSolicitudesPendientes =
+    (dashboard?.pendientes ?? 0) +
+    (dashboard?.parciales ?? 0);
+
+
 
   const solicitudesSurtidas =
     useMemo(() => {
@@ -444,14 +494,15 @@ export function DashboardPage() {
     cargarDatos(false);
   };
 
+  
   const activarPantallaCompleta =
     async () => {
       try {
         if (
           !document.fullscreenElement
         ) {
-          await document.documentElement
-            .requestFullscreen();
+          await dashboardRef.current
+            ?.requestFullscreen();
 
           return;
         }
@@ -465,22 +516,105 @@ export function DashboardPage() {
       }
     };
 
+    // Amplía los encabezados en modo de monitoreo.
+const encabezadoTablaStyle =
+  esPantallaCompleta
+    ? {
+        ...thStyle,
+
+        padding:
+          "18px 16px",
+
+        fontSize:
+          "17px",
+
+        fontWeight:
+          "800",
+
+        verticalAlign:
+          "middle" as const,
+      }
+    : thStyle;
+
+// Amplía las celdas en modo de monitoreo.
+const celdaTablaStyle =
+  esPantallaCompleta
+    ? {
+        ...tdStyle,
+
+        padding:
+          "20px 16px",
+
+        fontSize:
+          "17px",
+
+        lineHeight:
+          1.45,
+
+        verticalAlign:
+          "middle" as const,
+      }
+    : tdStyle;
+
+// Amplía la descripción del material.
+const descripcionMaterialMonitoreoStyle =
+  esPantallaCompleta
+    ? {
+        ...materialDescriptionStyle,
+
+        fontSize:
+          "14px",
+
+        marginTop:
+          "4px",
+      }
+    : materialDescriptionStyle;
+
+// Amplía la celda completa del material.
+const celdaMaterialMonitoreoStyle =
+  esPantallaCompleta
+    ? {
+        ...materialCellStyle,
+
+        minWidth:
+          "240px",
+
+        maxWidth:
+          "340px",
+
+        gap:
+          "5px",
+      }
+    : materialCellStyle;
+
+
+
   return (
     <Layout>
       <div style={pageContainerStyle}>
         <section
+          ref={dashboardRef}
           style={{
             ...dashboardContainerStyle,
 
             padding:
               modoMovil
                 ? "14px"
-                : "30px",
+                : esPantallaCompleta
+                  ? "24px 34px"
+                  : "30px",
 
             borderRadius:
               modoMovil
                 ? "10px"
-                : "16px",
+                : esPantallaCompleta
+                  ? 0
+                  : "16px",
+
+            minHeight:
+              esPantallaCompleta
+                ? "100vh"
+                : undefined,
 
             width: "100%",
             maxWidth: "100%",
@@ -663,25 +797,20 @@ export function DashboardPage() {
                 onClick={
                   activarPantallaCompleta
                 }
-                title="Pantalla completa"
-                aria-label="Pantalla completa"
-                style={{
-                  ...iconButtonStyle,
-
-                  width:
-                    modoMovil
-                      ? "40px"
-                      : "44px",
-
-                  height:
-                    modoMovil
-                      ? "40px"
-                      : "44px",
-
-                  flexShrink: 0,
-                }}
+                title={
+                  esPantallaCompleta
+                    ? "Salir de pantalla completa"
+                    : "Modo de monitoreo"
+                }
+                aria-label={
+                  esPantallaCompleta
+                    ? "Salir de pantalla completa"
+                    : "Activar modo de monitoreo"
+                }
               >
-                ⛶
+                {esPantallaCompleta
+                  ? "×"
+                  : "⛶"}
               </button>
             </div>
           </header>
@@ -724,15 +853,21 @@ export function DashboardPage() {
                   <KpiCard
                     titulo="Pendientes"
                     cantidad={
-                      (dashboard?.pendientes ?? 0) +
-                      (dashboard?.parciales ?? 0)
+                      totalSolicitudesPendientes
                     }
                     color="#ffffff"
-                    fondo="#ea580c"
+                    fondo="#dc2626"
                     descripcion="Solicitudes esperando atención"
                     compacto={modoMovil}
-                  />
+                    alerta={
+                      totalSolicitudesPendientes > 0
+                    }
+                    pantallaCompleta={
+                      esPantallaCompleta
+                    }
 
+
+                  />
                   <KpiCard
                     titulo="Surtidas"
                     cantidad={
@@ -742,6 +877,9 @@ export function DashboardPage() {
                     fondo="#16a34a"
                     descripcion="Material descontado y preparado"
                     compacto={modoMovil}
+                    pantallaCompleta={
+                      esPantallaCompleta
+                    }
                   />
 
                   <KpiCard
@@ -753,12 +891,25 @@ export function DashboardPage() {
                     fondo="#2563eb"
                     descripcion="Solicitudes registradas"
                     compacto={modoMovil}
+                    pantallaCompleta={
+                      esPantallaCompleta
+                    }
                   />
                 </div>
                 <section
-                  style={
-                    pendingSectionStyle
-                  }
+                  style={{
+                    ...pendingSectionStyle,
+
+                    padding:
+                      esPantallaCompleta
+                        ? "30px"
+                        : "22px",
+
+                    minHeight:
+                      esPantallaCompleta
+                        ? "430px"
+                        : undefined,
+                  }}
                 >
                   <div
                     style={
@@ -767,9 +918,14 @@ export function DashboardPage() {
                   >
                     <div>
                       <h2
-                        style={
-                          sectionTitleStyle
-                        }
+                        style={{
+                          ...sectionTitleStyle,
+
+                          fontSize:
+                            esPantallaCompleta
+                              ? "30px"
+                              : "22px",
+                        }}
                       >
                         Solicitudes pendientes
                       </h2>
@@ -785,12 +941,21 @@ export function DashboardPage() {
                     </div>
 
                     <div
-                      style={
-                        pendingCounterStyle
-                      }
+                      style={{
+                        ...pendingCounterStyle,
+
+                        padding:
+                          esPantallaCompleta
+                            ? "12px 20px"
+                            : "9px 14px",
+
+                        fontSize:
+                          esPantallaCompleta
+                            ? "18px"
+                            : "14px",
+                      }}
                     >
-                      {(dashboard?.pendientes ?? 0) +
-                        (dashboard?.parciales ?? 0)}{" "}
+                      {totalSolicitudesPendientes}{" "}
                       pendientes
                     </div>
                   </div>
@@ -971,36 +1136,35 @@ export function DashboardPage() {
                                       {solicitud.nombreProyecto}
                                     </div>
                                   </td>
-
                                   <td style={tdStyle}>
                                     <div
                                       style={familyTextStyle}
-                                      title={solicitud.nombreFamilia}
+                                      title={
+                                        solicitud.nombreFamilia
+                                      }
                                     >
                                       {solicitud.nombreFamilia}
-                                      <td style={tdStyle}>
-                                        <div
-                                          style={stationTextStyle}
-                                          title={
-                                            materialPrincipal
-                                              ?.nombreEstacion ??
-                                            "Sin estación"
-                                          }
-                                        >
-                                          <strong>
-                                            {materialPrincipal
-                                              ?.nombreEstacion ??
-                                              "Sin estación"}
-                                          </strong>
-                                        </div>
-                                      </td>
-                                      <strong>
-                                        {solicitud.nombreEstacion}
-                                      </strong>
                                     </div>
                                   </td>
 
-
+                                  <td style={tdStyle}>
+                                    <div
+                                      style={stationTextStyle}
+                                      title={
+                                        materialPrincipal
+                                          ?.nombreEstacion ??
+                                        solicitud.nombreEstacion ??
+                                        "Sin estación"
+                                      }
+                                    >
+                                      <strong>
+                                        {materialPrincipal
+                                          ?.nombreEstacion ??
+                                          solicitud.nombreEstacion ??
+                                          "Sin estación"}
+                                      </strong>
+                                    </div>
+                                  </td>
                                   <td style={tdStyle}>
                                     <div style={materialCellStyle}>
                                       <strong
@@ -1086,156 +1250,162 @@ export function DashboardPage() {
                       </table>
                     </div>
                   )}
-
-                  <div
-                    style={
-                      sectionActionsStyle
-                    }
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.location.href =
-                          "/solicitudes";
-                      }}
+                  {!esPantallaCompleta && (
+                    <div
                       style={
-                        viewAllButtonStyle
+                        sectionActionsStyle
                       }
                     >
-                      Ver todas las solicitudes
-                    </button>
-                  </div>
-                </section>
-                <section
-                  style={{
-                    ...pendingSectionStyle,
-                    marginTop: "20px",
-                    cursor: "pointer",
-                  }}
-                  onClick={() =>
-                    setMostrarAlertasDiseno(true)
-                  }
-                >
-                  <div style={pendingHeaderStyle}>
-                    <div>
-                      <h2 style={sectionTitleStyle}>
-                        Próximos Cambios de Diseño
-                      </h2>
-
-                      <p style={sectionDescriptionStyle}>
-                        Cambios detectados automáticamente
-                        desde el 5MF.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setMostrarAlertasDiseno(true)
-                      }
-                      style={viewAllButtonStyle}
-                    >
-                      Ver todos
-                    </button>
-                  </div>
-
-                  {alertasDiseno.length === 0 ? (
-                    <div style={emptyStyle}>
-                      No hay cambios próximos.
-                    </div>
-                  ) : (
-                    <div style={tableContainerStyle}>
-                      <table style={tableStyle}>
-                        <thead>
-                          <tr style={tableHeaderStyle}>
-                            <th style={thStyle}>
-                              Proyecto
-                            </th>
-
-                            <th style={thStyle}>
-                              Familia
-                            </th>
-
-                            <th style={thStyle}>
-                              Cambio
-                            </th>
-
-                            <th style={thStyle}>
-                              Fecha
-                            </th>
-
-                            <th style={thStyle}>
-                              Días
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {alertasResumen.map(
-                            (alerta) => (
-                              <tr
-                                key={
-                                  alerta.arnesActual +
-                                  alerta.disenoSiguiente
-                                }
-                              >
-                                <td style={tdStyle}>
-                                  {alerta.proyecto}
-                                </td>
-
-                                <td style={tdStyle}>
-                                  {alerta.familia}
-                                </td>
-
-                                <td style={tdStyle}>
-                                  <strong>
-                                    {alerta.disenoActual}
-                                  </strong>
-                                  {" → "}
-                                  <strong>
-                                    {alerta.disenoSiguiente}
-                                  </strong>
-                                </td>
-
-                                <td style={tdStyle}>
-                                  {alerta.fechaCambio}
-                                </td>
-
-                                <td style={tdStyle}>
-                                  <span
-                                    style={{
-                                      padding:
-                                        "6px 10px",
-                                      borderRadius:
-                                        "999px",
-                                      background:
-                                        alerta.diasRestantes <= 7
-                                          ? "#fecaca"
-                                          : alerta.diasRestantes <= 14
-                                            ? "#fed7aa"
-                                            : "#dcfce7",
-
-                                      color:
-                                        alerta.diasRestantes <= 7
-                                          ? "#991b1b"
-                                          : alerta.diasRestantes <= 14
-                                            ? "#9a3412"
-                                            : "#166534",
-                                    }}
-                                  >
-                                    {alerta.diasRestantes === 0
-                                      ? "Hoy"
-                                      : `${alerta.diasRestantes} días`}
-                                  </span>
-                                </td>
-                              </tr>
-                            )
-                          )}
-                        </tbody>
-                      </table>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.href =
+                            "/solicitudes";
+                        }}
+                        style={
+                          viewAllButtonStyle
+                        }
+                      >
+                        Ver todas las solicitudes
+                      </button>
                     </div>
                   )}
+
+
                 </section>
+                {!esPantallaCompleta && (
+
+                  <section
+                    style={{
+                      ...pendingSectionStyle,
+                      marginTop: "20px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() =>
+                      setMostrarAlertasDiseno(true)
+                    }
+                  >
+                    <div style={pendingHeaderStyle}>
+                      <div>
+                        <h2 style={sectionTitleStyle}>
+                          Próximos Cambios de Diseño
+                        </h2>
+
+                        <p style={sectionDescriptionStyle}>
+                          Cambios detectados automáticamente
+                          desde el 5MF.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMostrarAlertasDiseno(true)
+                        }
+                        style={viewAllButtonStyle}
+                      >
+                        Ver todos
+                      </button>
+                    </div>
+
+                    {alertasDiseno.length === 0 ? (
+                      <div style={emptyStyle}>
+                        No hay cambios próximos.
+                      </div>
+                    ) : (
+                      <div style={tableContainerStyle}>
+                        <table style={tableStyle}>
+                          <thead>
+                            <tr style={tableHeaderStyle}>
+                              <th style={thStyle}>
+                                Proyecto
+                              </th>
+
+                              <th style={thStyle}>
+                                Familia
+                              </th>
+
+                              <th style={thStyle}>
+                                Cambio
+                              </th>
+
+                              <th style={thStyle}>
+                                Fecha
+                              </th>
+
+                              <th style={thStyle}>
+                                Días
+                              </th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {alertasResumen.map(
+                              (alerta) => (
+                                <tr
+                                  key={
+                                    alerta.arnesActual +
+                                    alerta.disenoSiguiente
+                                  }
+                                >
+                                  <td style={tdStyle}>
+                                    {alerta.proyecto}
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    {alerta.familia}
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    <strong>
+                                      {alerta.disenoActual}
+                                    </strong>
+                                    {" → "}
+                                    <strong>
+                                      {alerta.disenoSiguiente}
+                                    </strong>
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    {alerta.fechaCambio}
+                                  </td>
+
+                                  <td style={tdStyle}>
+                                    <span
+                                      style={{
+                                        padding:
+                                          "6px 10px",
+                                        borderRadius:
+                                          "999px",
+                                        background:
+                                          alerta.diasRestantes <= 7
+                                            ? "#fecaca"
+                                            : alerta.diasRestantes <= 14
+                                              ? "#fed7aa"
+                                              : "#dcfce7",
+
+                                        color:
+                                          alerta.diasRestantes <= 7
+                                            ? "#991b1b"
+                                            : alerta.diasRestantes <= 14
+                                              ? "#9a3412"
+                                              : "#166534",
+                                      }}
+                                    >
+                                      {alerta.diasRestantes === 0
+                                        ? "Hoy"
+                                        : `${alerta.diasRestantes} días`}
+                                    </span>
+                                  </td>
+                                </tr>
+                              )
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                )}
 
 
               </>
@@ -1406,6 +1576,11 @@ interface KpiCardProps {
   fondo: string;
   descripcion: string;
   compacto: boolean;
+
+  alerta?: boolean;
+
+  // Amplía la tarjeta en modo de monitoreo.
+  pantallaCompleta?: boolean;
 }
 
 function KpiCard({
@@ -1415,9 +1590,16 @@ function KpiCard({
   fondo,
   descripcion,
   compacto,
+  alerta = false,
+  pantallaCompleta = false,
 }: KpiCardProps) {
   return (
     <article
+      className={
+        alerta
+          ? "kpi-pendientes-alerta"
+          : undefined
+      }
       style={{
         ...kpiCardStyle,
         background: fondo,
@@ -1428,12 +1610,15 @@ function KpiCard({
         minHeight:
           compacto
             ? "82px"
-            : "155px",
-
+            : pantallaCompleta
+              ? "190px"
+              : "155px",
         padding:
           compacto
             ? "13px 16px"
-            : "22px",
+            : pantallaCompleta
+              ? "28px"
+              : "22px",
 
         flexDirection:
           compacto
@@ -1471,7 +1656,10 @@ function KpiCard({
           fontSize:
             compacto
               ? "31px"
-              : "46px",
+              : pantallaCompleta
+                ? "64px"
+                : "46px",
+
 
           textAlign:
             compacto
@@ -1503,7 +1691,10 @@ function KpiCard({
             fontSize:
               compacto
                 ? "16px"
-                : "20px",
+                : pantallaCompleta
+                  ? "26px"
+                  : "20px",
+
           }}
         >
           {titulo}
@@ -1517,7 +1708,9 @@ function KpiCard({
             fontSize:
               compacto
                 ? "11px"
-                : "13px",
+                : pantallaCompleta
+                  ? "16px"
+                  : "13px",
 
             lineHeight: 1.35,
           }}
@@ -1767,8 +1960,8 @@ const sectionDescriptionStyle = {
 const pendingCounterStyle = {
   padding: "9px 14px",
   borderRadius: "999px",
-  background: "#ffedd5",
-  color: "#c2410c",
+  background: "#fee2e2",
+  color: "#b91c1c",
   fontWeight: "800",
 };
 
