@@ -45,6 +45,12 @@ export function Sidebar({
   const esAdministrador =
     currentUser?.role === "ADMIN";
 
+  const esMaterialista =
+    currentUser?.role
+      ?.trim()
+      .toUpperCase() ===
+    "MATERIALISTA";
+
 
   // Recupera la preferencia guardada en el navegador.
   const [
@@ -454,16 +460,17 @@ export function Sidebar({
               NAVEGACION
             </span>
 
-            <Link
-              to="/dashboard"
-              onClick={cerrarMenuMovil}
-              style={linkStyle(
-                "/dashboard"
-              )}
-            >
-              Dashboard
-            </Link>
-
+            {!esMaterialista && (
+              <Link
+                to="/dashboard"
+                onClick={cerrarMenuMovil}
+                style={linkStyle(
+                  "/dashboard"
+                )}
+              >
+                Inicio
+              </Link>
+            )}
             {esAdministrador && (
               <>
                 <Link

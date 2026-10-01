@@ -1,0 +1,13 @@
+Pendientes
+
+Preguntar sobre el Sistema que usa AGV y su lenguaje con el fin de programar diferentes rutas de surtido.
+
+Continuar con la seccion de inventario la cual sera visible para el preparador de AGV, este se cargara con el archivo MPS del IPS --> Plan --> Semana --> Requicion --> Surtido 
+
+Cargar el Sistema localmente a produccion mediante IIS 
+
+Cargar el Plan semanal del MPS 
+
+Simplificar el display 
+
+Prepara los codigo qr de rivian

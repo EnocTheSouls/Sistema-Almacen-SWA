@@ -50,21 +50,14 @@ interface ConfiguracionDashboard {
   limiteRojo: number;
   solicitudesVisibles: number;
 }
-type VistaTarjetas =
-  | "mosaico"
-  | "horizontal"
-  | "compacta";
 
-const VISTA_TARJETAS_KEY =
-  "dashboard_vista_tarjetas";
-  
 const configuracionInicial: ConfiguracionDashboard = {
   actualizacionAutomatica: true,
   segundosActualizacion: 2,
   limiteAmarillo: 10,
   limiteNaranja: 20,
   limiteRojo: 30,
-  solicitudesVisibles: 8,
+  solicitudesVisibles: 15,
 };
 
 
@@ -72,6 +65,13 @@ export function DashboardPage() {
   // Lee el usuario autenticado desde el JWT.
   const currentUser =
     obtenerUsuarioActual();
+
+  const esAdministrador =
+    currentUser?.role
+      ?.toUpperCase()
+      .includes("ADMIN") ?? false;
+
+
 
   // Evita ejecutar varias actualizaciones al mismo tiempo.
   const consultaEnProceso =
@@ -151,26 +151,7 @@ export function DashboardPage() {
       document.fullscreenElement
     )
   );
-  // Vista elegida para acomodar las solicitudes.
-  const [
-    vistaTarjetas,
-    setVistaTarjetas,
-  ] = useState<VistaTarjetas>(() => {
-    const vistaGuardada =
-      localStorage.getItem(
-        VISTA_TARJETAS_KEY
-      );
 
-    if (
-      vistaGuardada === "mosaico" ||
-      vistaGuardada === "horizontal" ||
-      vistaGuardada === "compacta"
-    ) {
-      return vistaGuardada;
-    }
-
-    return "mosaico";
-  });
 
 
   // Detecta pantallas móviles.
@@ -521,19 +502,6 @@ export function DashboardPage() {
 
     cargarDatos(false);
   };
-  // Guarda la distribución seleccionada.
-  const cambiarVistaTarjetas = (
-    nuevaVista: VistaTarjetas
-  ) => {
-    setVistaTarjetas(
-      nuevaVista
-    );
-
-    localStorage.setItem(
-      VISTA_TARJETAS_KEY,
-      nuevaVista
-    );
-  };
 
   const activarPantallaCompleta =
     async () => {
@@ -556,113 +524,51 @@ export function DashboardPage() {
       }
     };
 
-  const configuracionTarjeta =
-    useMemo(() => {
-      // Tres mosaicos compactos.
-      if (
-        vistaTarjetas === "compacta"
-      ) {
-        return {
-          columnas:
-            "repeat(auto-fit, minmax(280px, 1fr))",
+  // Tamaños adaptados al dispositivo y al modo de monitoreo.
+  const tamanoTextoTabla =
+    modoMovil
+      ? "13px"
+      : esPantallaCompleta
+        ? "27px"
+        : "16px";
 
-          alturaMinima:
-            "auto",
+  const tamanoEncabezadoTabla =
+    modoMovil
+      ? "11px"
+      : esPantallaCompleta
+        ? "20px"
+        : "14px";
 
-          padding:
-            "12px",
+  const tamanoNumeroSolicitud =
+    modoMovil
+      ? "15px"
+      : esPantallaCompleta
+        ? "23px"
+        : "18px";
 
-          separacion:
-            "5px",
+  const tamanoEstado =
+    modoMovil
+      ? "11px"
+      : esPantallaCompleta
+        ? "17px"
+        : "13px";
 
-          materialesVisibles:
-            1,
+  const tamanoBotonAbrir =
+    modoMovil
+      ? "12px"
+      : esPantallaCompleta
+        ? "18px"
+        : "14px";
 
-          mostrarDescripcion:
-            true,
-
-          columnasInformacion:
-            "repeat(2, minmax(0, 1fr))",
-
-          tamanoSolicitud:
-            "18px",
-
-          tamanoTotal:
-            "18px",
-        };
-      }
-
-      // Una tarjeta por fila.
-      if (
-        vistaTarjetas === "horizontal"
-      ) {
-        return {
-          columnas:
-            "minmax(0, 1fr)",
-
-          alturaMinima:
-            "auto",
-
-          padding:
-            "10px 13px",
-
-          separacion:
-            "7px",
-
-          materialesVisibles:
-            1,
-
-          mostrarDescripcion:
-            true,
-
-          columnasInformacion:
-            "repeat(2, minmax(0, 1fr))",
-
-          tamanoSolicitud:
-            "20px",
-
-          tamanoTotal:
-            "19px",
-        };
-      }
-
-      // Dos mosaicos por fila.
-      return {
-        columnas:
-          "repeat(2, minmax(0, 1fr))",
-
-        alturaMinima:
-          "auto",
-
-        padding:
-          "14px",
-
-        separacion:
-          "10px",
-
-        materialesVisibles:
-          2,
-
-        mostrarDescripcion:
-          true,
-
-        columnasInformacion:
-          "repeat(2, minmax(0, 1fr))",
-
-        tamanoSolicitud:
-          "20px",
-
-        tamanoTotal:
-          "19px",
-      };
-    }, [vistaTarjetas]);
+  const paddingFila =
+    modoMovil
+      ? "10px"
+      : esPantallaCompleta
+        ? "21px 18px"
+        : "20px";
 
 
 
-
-  // Indica si la solicitud debe ocupar una fila completa.
-  const esVistaHorizontal =
-    vistaTarjetas === "horizontal";
 
   return (
     <Layout>
@@ -748,7 +654,7 @@ export function DashboardPage() {
                       : "30px",
                 }}
               >
-                Centro de solicitudes
+                Centro de peticiones
               </h1>
 
               <p style={welcomeStyle}>
@@ -957,7 +863,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#dc2626"
-                    descripcion="Solicitudes esperando atención"
+                    descripcion="Petciones esperando atención"
                     compacto={modoMovil}
                     alerta={
                       totalSolicitudesPendientes > 0
@@ -975,7 +881,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#16a34a"
-                    descripcion="Material descontado y preparado"
+                    descripcion="Peticiones preparadas"
                     compacto={modoMovil}
                     pantallaCompleta={
                       esPantallaCompleta
@@ -989,7 +895,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#2563eb"
-                    descripcion="Solicitudes registradas"
+                    descripcion="Peticiones registradas"
                     compacto={modoMovil}
                     pantallaCompleta={
                       esPantallaCompleta
@@ -1008,60 +914,57 @@ export function DashboardPage() {
                     minHeight: 0,
                   }}
                 >
+                  <div
+                    style={{
+                      ...pendingHeaderStyle,
 
-                  <div style={pendingHeaderStyle}>
+                      flexDirection:
+                        modoMovil
+                          ? "column"
+                          : "row",
+
+                      alignItems:
+                        modoMovil
+                          ? "stretch"
+                          : "center",
+                    }}
+                  >
                     <div>
                       <h2
                         style={{
                           ...sectionTitleStyle,
 
                           fontSize:
-                            esPantallaCompleta
-                              ? "30px"
-                              : "22px",
+                            modoMovil
+                              ? "20px"
+                              : esPantallaCompleta
+                                ? "30px"
+                                : "22px",
                         }}
                       >
-                        Solicitudes pendientes
+                        Peticiones pendientes
                       </h2>
 
                       <p style={sectionDescriptionStyle}>
-                        Las solicitudes más antiguas aparecen primero.
+                        Selecciona para ver detalles.
                       </p>
                     </div>
 
-                    <div style={pendingHeaderControlsStyle}>
-                      <div style={cardSizeControlStyle}>
-                        <label
-                          htmlFor="vistaTarjetas"
-                          style={cardSizeLabelStyle}
-                        >
-                          Vista
-                        </label>
-                        <select
-                          id="vistaTarjetas"
-                          value={vistaTarjetas}
-                          onChange={(event) => {
-                            cambiarVistaTarjetas(
-                              event.target
-                                .value as VistaTarjetas
-                            );
-                          }}
-                          style={cardSizeSelectStyle}
-                        >
-                          <option value="mosaico">
-                            Dos columnas
-                          </option>
+                    <div
+                      style={{
+                        display: "flex",
 
-                          <option value="horizontal">
-                            Una por fila
-                          </option>
+                        width:
+                          modoMovil
+                            ? "100%"
+                            : "auto",
 
-                          <option value="compacta">
-                            Tres columnas
-                          </option>
-                        </select>
-                      </div>
-
+                        justifyContent:
+                          modoMovil
+                            ? "flex-start"
+                            : "flex-end",
+                      }}
+                    >
                       <div
                         style={{
                           ...pendingCounterStyle,
@@ -1074,7 +977,7 @@ export function DashboardPage() {
                           fontSize:
                             esPantallaCompleta
                               ? "16px"
-                              : "13px",
+                              : "22px",
                         }}
                       >
                         {totalSolicitudesPendientes}{" "}
@@ -1090,504 +993,379 @@ export function DashboardPage() {
                       No hay solicitudes pendientes.
                     </div>
                   ) : (
-                    <div
-                      style={{
-                        ...pendingCardsGridStyle,
+                    <div style={operationalTableContainerStyle}>
+                      <table style={operationalTableStyle}>
 
-                        gridTemplateColumns:
-                          modoMovil
-                            ? "minmax(0, 1fr)"
-                            : configuracionTarjeta.columnas,
-
-                        gap:
-                          configuracionTarjeta.separacion,
-                      }}
-                    >
-                      {solicitudesPendientes.map(
-                        (solicitud) => {
-                          const minutos =
-                            calcularMinutosEspera(
-                              solicitud.fechaSolicitud,
-                              fechaHoraActual
-                            );
-
-                          const alerta =
-                            obtenerAlertaEspera(
-                              minutos,
-                              configuracion
-                            );
-
-                          const materialesPendientes =
-                            [...(solicitud.materiales ?? [])]
-                              .filter(
-                                (material) =>
-                                  material.cantidadSurtida <
-                                  material.cantidadSolicitada
-                              )
-                              .sort(
-                                (
-                                  materialA,
-                                  materialB
-                                ) => {
-                                  const prioridadA =
-                                    materialA.cantidadSurtida === 0
-                                      ? 1
-                                      : 2;
-
-                                  const prioridadB =
-                                    materialB.cantidadSurtida === 0
-                                      ? 1
-                                      : 2;
-
-                                  return (
-                                    prioridadA -
-                                    prioridadB
-                                  );
-                                }
-                              );
-
-                          const cantidadTotalPendiente =
-                            materialesPendientes.reduce(
-                              (
-                                acumulado,
-                                material
-                              ) =>
-                                acumulado +
-                                Math.max(
-                                  0,
-                                  material.cantidadSolicitada -
-                                  material.cantidadSurtida
-                                ),
-                              0
-                            );
-
-                          const esParcial =
-                            solicitud.nombreEstado
-                              .trim()
-                              .toLowerCase() ===
-                            "parcial";
-
-                          return (
-                            <article
-                              key={
-                                solicitud.idSolicitud
-                              }
-                              onClick={() => {
-                                abrirDetalle(
-                                  solicitud
-                                );
-                              }}
+                        <thead>
+                          <tr
+                            style={{
+                              ...operationalTableHeaderStyle,
+                            }}
+                          >
+                            <th
                               style={{
-                                ...pendingRequestCardStyle,
-
-                                minHeight:
-                                  configuracionTarjeta
-                                    .alturaMinima,
-
-                                padding:
-                                  esVistaHorizontal
-                                    ? "8px 12px"
-                                    : configuracionTarjeta.padding,
-
-                                gap:
-                                  esVistaHorizontal
-                                    ? "5px"
-                                    : configuracionTarjeta.separacion,
-                                background: "#ffffff",
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
                               }}
                             >
-                              <div
-                                style={
-                                  pendingRequestCardHeaderStyle
-                                }
-                              >
-                                <div>
-                                  <span
-                                    style={
-                                      requestLabelStyle
+                              No.
+                            </th>
+
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Proyecto
+                            </th>
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Familia
+                            </th>
+
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Estación
+                            </th>
+
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Materiales
+                            </th>
+
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Estado
+                            </th>
+
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Tiempo
+                            </th>
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                fontSize:
+                                  tamanoEncabezadoTabla,
+                              }}
+                            >
+
+                            </th>
+
+
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {solicitudesPendientes.map(
+                            (solicitud, indice) => {
+                              const minutos =
+                                calcularMinutosEspera(
+                                  solicitud.fechaSolicitud,
+                                  fechaHoraActual
+                                );
+
+                              const alerta =
+                                obtenerAlertaEspera(
+                                  minutos,
+                                  configuracion
+                                );
+
+                              const materialesPendientes =
+                                (
+                                  solicitud.materiales ?? []
+                                ).filter(
+                                  (material) =>
+                                    material.cantidadSurtida <
+                                    material.cantidadSolicitada
+                                );
+
+                              const estiloCeldaOperacional = {
+                                ...operationalTdStyle,
+                                padding: paddingFila,
+                                fontSize: tamanoTextoTabla,
+                              };
+
+                              return (
+                                <tr
+                                  key={
+                                    solicitud.idSolicitud
+                                  }
+                                  tabIndex={0}
+                                  role="button"
+
+                                  aria-label={
+                                    `Abrir solicitud ${solicitud.idSolicitud}`
+                                  }
+                                  onClick={() => {
+                                    abrirDetalle(
+                                      solicitud
+                                    );
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (
+                                      event.key === "Enter" ||
+                                      event.key === " "
+                                    ) {
+                                      event.preventDefault();
+
+                                      abrirDetalle(
+                                        solicitud
+                                      );
                                     }
-                                  >
-                                    Solicitud
-                                  </span>
+                                  }}
+                                  style={{
+                                    ...operationalRowStyle,
 
-                                  <strong
+                                  }}
+                                  onMouseEnter={(event) => {
+                                    const celdas =
+                                      event.currentTarget.querySelectorAll(
+                                        "td"
+                                      );
+
+                                    celdas.forEach((celda) => {
+                                      celda.style.background =
+                                        "#eff6ff";
+                                    });
+                                  }}
+                                  onMouseLeave={(event) => {
+                                    const celdas =
+                                      event.currentTarget.querySelectorAll(
+                                        "td"
+                                      );
+
+                                    celdas.forEach((celda) => {
+                                      celda.style.background =
+                                        "#ffffff";
+                                    });
+                                  }}
+                                >
+                                  <td
                                     style={{
-                                      ...requestNumberStyle,
+                                      ...estiloCeldaOperacional,
 
-                                      fontSize:
-                                        configuracionTarjeta
-                                          .tamanoSolicitud,
+                                      borderLeft:
+                                        `5px solid ${alerta.color}`,
+
+                                      borderTopLeftRadius:
+                                        "9px",
+
+                                      borderBottomLeftRadius:
+                                        "9px",
+
+                                      textAlign:
+                                        "center",
                                     }}
                                   >
-                                    #
+                                    <strong
+                                      style={{
+                                        color: "#102957",
+
+                                        fontSize:
+                                          tamanoNumeroSolicitud,
+
+                                        fontWeight:
+                                          "900",
+                                      }}
+                                    >
+                                      {indice + 1}
+                                    </strong>
+                                  </td>
+
+                                  <td style={estiloCeldaOperacional}>
                                     {
-                                      solicitud.idSolicitud
+                                      solicitud.nombreProyecto
                                     }
-                                  </strong>
-                                </div>
-                                <span
-                                  style={{
-                                    ...waitingBadgeStyle,
+                                  </td>
 
-                                    minWidth:
-                                      esPantallaCompleta
-                                        ? "90px"
-                                        : "70px",
-
-                                    padding:
-                                      esPantallaCompleta
-                                        ? "7px 12px"
-                                        : "5px 9px",
-
-                                    border:
-                                      `1px solid ${alerta.color}`,
-
-                                    background:
-                                      alerta.fondo,
-
-                                    color:
-                                      alerta.color,
-
-                                    fontSize:
-                                      esPantallaCompleta
-                                        ? "13px"
-                                        : "11px",
-                                  }}
-                                >
-                                  {formatearTiempoEspera(
-                                    minutos
-                                  )}
-                                </span>
-                              </div>
-                              {/* Distribuye la información según la vista elegida. */}
-                              <div
-                                style={{
-                                  display: "grid",
-
-                                  gridTemplateColumns:
-                                    esVistaHorizontal &&
-                                      !modoMovil
-                                      ? "minmax(320px, 0.75fr) minmax(0, 1.25fr)"
-                                      : "minmax(0, 1fr)",
-
-                                  alignItems: "start",
-
-                                  gap:
-                                    configuracionTarjeta
-                                      .separacion,
-
-                                  minWidth: 0,
-                                }}
-                              >
-                                {/* Información general de la solicitud. */}
-                                <div
-                                  style={{
-                                    ...requestLocationGridStyle,
-
-                                    gridTemplateColumns:
-                                      modoMovil
-                                        ? "repeat(2, minmax(0, 1fr))"
-                                        : esVistaHorizontal
-                                          ? "repeat(2, minmax(0, 1fr))"
-                                          : configuracionTarjeta
-                                            .columnasInformacion,
-                                  }}
-                                >
-                                  <div
-                                    style={
-                                      requestInformationStyle
+                                  <td style={estiloCeldaOperacional}>
+                                    {
+                                      solicitud.nombreFamilia
                                     }
-                                  >
-                                    <span
-                                      style={
-                                        requestInformationLabelStyle
-                                      }
-                                    >
-                                      Proyecto
-                                    </span>
+                                  </td>
 
-                                    <strong>
-                                      {
-                                        solicitud.nombreProyecto
-                                      }
-                                    </strong>
-                                  </div>
+                                  <td style={estiloCeldaOperacional}>
+                                    {solicitud.nombreEstacion ??
+                                      materialesPendientes[0]
+                                        ?.nombreEstacion ??
+                                      "Sin estación"}
+                                  </td>
 
-                                  <div
-                                    style={
-                                      requestInformationStyle
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        requestInformationLabelStyle
-                                      }
-                                    >
-                                      Familia
-                                    </span>
-
-                                    <strong>
-                                      {
-                                        solicitud.nombreFamilia
-                                      }
-                                    </strong>
-                                  </div>
-
-                                  <div
-                                    style={
-                                      requestInformationStyle
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        requestInformationLabelStyle
-                                      }
-                                    >
-                                      Estación
-                                    </span>
-
-                                    <strong>
-                                      {solicitud.nombreEstacion ??
-                                        materialesPendientes[0]
-                                          ?.nombreEstacion ??
-                                        "Sin estación"}
-                                    </strong>
-                                  </div>
-
-                                  <div
-                                    style={
-                                      requestInformationStyle
-                                    }
-                                  >
-                                    <span
-                                      style={
-                                        requestInformationLabelStyle
-                                      }
-                                    >
-                                      Materiales
-                                    </span>
-
+                                  <td style={estiloCeldaOperacional}>
                                     <strong>
                                       {
                                         materialesPendientes.length
                                       }
                                     </strong>
-                                  </div>
-                                </div>
+                                  </td>
 
-                                {/* Lista de materiales pendientes. */}
-                                <div
-                                  style={
-                                    requestMaterialsStyle
-                                  }
-                                >
-                                  <span
-                                    style={
-                                      requestInformationLabelStyle
-                                    }
-                                  >
-                                    Material pendiente
-                                  </span>
+                                  <td style={estiloCeldaOperacional}>
+                                    <span
+                                      style={{
+                                        ...operationalStatusStyle,
 
-                                  {materialesPendientes
-                                    .slice(
-                                      0,
-                                      configuracionTarjeta
-                                        .materialesVisibles
-                                    )
-                                    .map(
-                                      (
-                                        material,
-                                        indice
-                                      ) => {
-                                        const pendiente =
-                                          Math.max(
-                                            0,
-                                            material
-                                              .cantidadSolicitada -
-                                            material
-                                              .cantidadSurtida
-                                          );
+                                        background:
+                                          solicitud.nombreEstado
+                                            .trim()
+                                            .toLowerCase() ===
+                                            "parcial"
+                                            ? "#fef3c7"
+                                            : "#e2e8f0",
 
-                                        return (
-                                          <div
-                                            key={
-                                              `${solicitud.idSolicitud}-` +
-                                              `${material.numeroParteMaterial}-` +
-                                              `${indice}`
-                                            }
-                                            style={
-                                              requestMaterialRowStyle
-                                            }
-                                          >
-                                            <div style={requestMaterialContentStyle}>
-                                              <div style={requestMaterialHeadingStyle}>
-                                                <strong
-                                                  style={
-                                                    requestMaterialNumberStyle
-                                                  }
-                                                  title={
-                                                    material.numeroParteMaterial
-                                                  }
-                                                >
-                                                  {
-                                                    material.numeroParteMaterial
-                                                  }
-                                                </strong>
-
-                                                <span style={requestMaterialTypeStyle}>
-                                                  Material
-                                                </span>
-
-
-                                              </div>
-
-                                              <span
-                                                style={
-                                                  requestMaterialDescriptionStyle
-                                                }
-                                                title={
-                                                  material.descripcionMaterial ??
-                                                  "Sin descripción"
-                                                }
-                                              >
-                                                {material.descripcionMaterial ??
-                                                  "Sin descripción"}
-                                              </span>
-
-                                              <div style={requestMaterialBottomStyle}>
-                                                <span style={requestMaterialStationStyle}>
-                                                  {materialesPendientes.length === 1
-                                                    ? "Estación:"
-                                                    : "Estación del primer material:"}{" "}
-
-                                                  <strong>
-                                                    {materialesPendientes[0]
-                                                      ?.nombreEstacion ??
-                                                      solicitud.nombreEstacion ??
-                                                      "N/A"}
-                                                  </strong>
-                                                </span>
-
-                                                <div
-                                                  style={
-                                                    requestPendingQuantityStyle
-                                                  }
-                                                >
-                                                  <span
-                                                    style={
-                                                      requestPendingQuantityLabelStyle
-                                                    }
-                                                  >
-                                                    Pendiente
-                                                  </span>
-
-                                                  <strong
-                                                    style={
-                                                      requestQuantityStyle
-                                                    }
-                                                  >
-                                                    {pendiente}
-                                                  </strong>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-
-
-
-
-
-                                        );
+                                        color:
+                                          solicitud.nombreEstado
+                                            .trim()
+                                            .toLowerCase() ===
+                                            "parcial"
+                                            ? "#92400e"
+                                            : "#334155",
+                                      }}
+                                    >
+                                      {
+                                        solicitud.nombreEstado
                                       }
-                                    )}
+                                    </span>
+                                  </td>
 
-                                  {materialesPendientes.length >
-                                    configuracionTarjeta
-                                      .materialesVisibles && (
-                                      <span
-                                        style={
-                                          additionalMaterialsStyle
-                                        }
-                                      >
-                                        +
-                                        {materialesPendientes.length -
-                                          configuracionTarjeta
-                                            .materialesVisibles}{" "}
-                                        materiales adicionales
-                                      </span>
-                                    )}
-                                </div>
-                              </div>
+                                  <td style={estiloCeldaOperacional}>
+                                    <span
+                                      style={{
+                                        ...operationalTimeStyle,
 
+                                        minWidth:
+                                          modoMovil
+                                            ? "72px"
+                                            : esPantallaCompleta
+                                              ? "135px"
+                                              : "95px",
 
-                              <div
-                                style={
-                                  requestCardFooterStyle
-                                }
-                              >
-                                <div>
-                                  <span
-                                    style={
-                                      requestInformationLabelStyle
-                                    }
-                                  >
-                                    Total pendiente
-                                  </span>
+                                        padding:
+                                          modoMovil
+                                            ? "5px 7px"
+                                            : esPantallaCompleta
+                                              ? "10px 15px"
+                                              : "7px 10px",
 
-                                  <strong
+                                        fontSize:
+                                          tamanoEstado,
+
+                                        border:
+                                          `1px solid ${alerta.color}`,
+
+                                        background:
+                                          alerta.fondo,
+
+                                        color:
+                                          alerta.color,
+                                      }}
+                                    >
+                                      {formatearTiempoEspera(
+                                        minutos
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td
                                     style={{
-                                      ...requestTotalStyle,
+                                      ...estiloCeldaOperacional,
 
-                                      fontSize:
-                                        configuracionTarjeta
-                                          .tamanoTotal,
+                                      borderRight:
+                                        "1px solid #d8e0eb",
+
+                                      borderTopRightRadius:
+                                        "9px",
+
+                                      borderBottomRightRadius:
+                                        "9px",
+
+                                      textAlign:
+                                        "right",
+
+                                      paddingRight:
+                                        modoMovil
+                                          ? "10px"
+                                          : esPantallaCompleta
+                                            ? "22px"
+                                            : "16px",
                                     }}
                                   >
-                                    {cantidadTotalPendiente}
-                                  </strong>
-                                </div>
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        // Evita ejecutar también
+                                        // el clic general de la fila.
+                                        event.stopPropagation();
 
-                                <span
-                                  style={{
-                                    ...pendingStatusStyle,
+                                        abrirDetalle(
+                                          solicitud
+                                        );
+                                      }}
+                                      style={{
+                                        ...operationalOpenButtonStyle,
 
-                                    justifySelf: "center",
+                                        minHeight:
+                                          modoMovil
+                                            ? "34px"
+                                            : esPantallaCompleta
+                                              ? "52px"
+                                              : "42px",
 
-                                    background:
-                                      esParcial
-                                        ? "#fef3c7"
-                                        : "#eef2f7",
+                                        padding:
+                                          modoMovil
+                                            ? "6px 11px"
+                                            : esPantallaCompleta
+                                              ? "12px 24px"
+                                              : "9px 17px",
 
-                                    color:
-                                      esParcial
-                                        ? "#92400e"
-                                        : "#334155",
-                                  }}
-                                >
-                                  {solicitud.nombreEstado}
-                                </span>
+                                        fontSize:
+                                          tamanoBotonAbrir,
 
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
+                                        borderRadius:
+                                          modoMovil
+                                            ? "9px"
+                                            : esPantallaCompleta
+                                              ? "9px"
+                                              : "9px",
+                                      }}
+                                    >
+                                      Abrir
+                                    </button>
+                                  </td>
 
-                                    abrirDetalle(
-                                      solicitud
-                                    );
-                                  }}
-                                  style={
-                                    requestOpenButtonStyle
-                                  }
-                                >
-                                  Abrir
-                                </button>
-                              </div>
-                            </article>
-                          );
-                        }
-                      )}
+                                </tr>
+                              );
+                            }
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   )}
 
@@ -1612,150 +1390,164 @@ export function DashboardPage() {
                       </button>
                     </div>
                   )}
-
-
                 </section>
-                {!esPantallaCompleta && (
 
-                  <section
-                    style={{
-                      ...pendingSectionStyle,
-                      marginTop: "20px",
-                      cursor: "pointer",
-                    }}
-                    onClick={() =>
-                      setMostrarAlertasDiseno(true)
-                    }
-                  >
-                    <div style={pendingHeaderStyle}>
-                      <div>
-                        <h2 style={sectionTitleStyle}>
-                          Próximos Cambios de Diseño
-                        </h2>
+                {
+                  esAdministrador &&
+                  !esPantallaCompleta && (
 
-                        <p style={sectionDescriptionStyle}>
-                          Cambios detectados automáticamente
-                          desde el 5MF.
-                        </p>
+                    <section
+                      style={{
+                        ...pendingSectionStyle,
+                        marginTop: "20px",
+                        cursor: "pointer",
+                      }}
+                      onClick={() =>
+                        setMostrarAlertasDiseno(true)
+                      }
+                    >
+                      <div style={pendingHeaderStyle}>
+                        <div>
+                          <h2 style={sectionTitleStyle}>
+                            Próximos Cambios de Diseño
+                          </h2>
+
+                          <p style={sectionDescriptionStyle}>
+                            Cambios detectados automáticamente
+                            desde el 5MF.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMostrarAlertasDiseno(true)
+                          }
+                          style={viewAllButtonStyle}
+                        >
+                          Ver todos
+                        </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMostrarAlertasDiseno(true)
-                        }
-                        style={viewAllButtonStyle}
-                      >
-                        Ver todos
-                      </button>
-                    </div>
+                      {alertasDiseno.length === 0 ? (
+                        <div style={emptyStyle}>
+                          No hay cambios próximos.
+                        </div>
+                      ) : (
+                        <div style={tableContainerStyle}>
+                          <table style={tableStyle}>
+                            <thead>
+                              <tr style={tableHeaderStyle}>
+                                <th style={thStyle}>
+                                  Proyecto
+                                </th>
 
-                    {alertasDiseno.length === 0 ? (
-                      <div style={emptyStyle}>
-                        No hay cambios próximos.
-                      </div>
-                    ) : (
-                      <div style={tableContainerStyle}>
-                        <table style={tableStyle}>
-                          <thead>
-                            <tr style={tableHeaderStyle}>
-                              <th style={thStyle}>
-                                Proyecto
-                              </th>
+                                <th style={thStyle}>
+                                  Familia
+                                </th>
 
-                              <th style={thStyle}>
-                                Familia
-                              </th>
+                                <th style={thStyle}>
+                                  Cambio
+                                </th>
 
-                              <th style={thStyle}>
-                                Cambio
-                              </th>
+                                <th style={thStyle}>
+                                  Fecha
+                                </th>
 
-                              <th style={thStyle}>
-                                Fecha
-                              </th>
+                                <th style={thStyle}>
+                                  Días
+                                </th>
+                              </tr>
+                            </thead>
 
-                              <th style={thStyle}>
-                                Días
-                              </th>
-                            </tr>
-                          </thead>
+                            <tbody>
+                              {alertasResumen.map(
+                                (alerta) => (
+                                  <tr
+                                    key={
+                                      alerta.arnesActual +
+                                      alerta.disenoSiguiente
+                                    }
+                                  >
+                                    <td style={tdStyle}>
+                                      {alerta.proyecto}
+                                    </td>
 
-                          <tbody>
-                            {alertasResumen.map(
-                              (alerta) => (
-                                <tr
-                                  key={
-                                    alerta.arnesActual +
-                                    alerta.disenoSiguiente
-                                  }
-                                >
-                                  <td style={tdStyle}>
-                                    {alerta.proyecto}
-                                  </td>
+                                    <td style={tdStyle}>
+                                      {alerta.familia}
+                                    </td>
 
-                                  <td style={tdStyle}>
-                                    {alerta.familia}
-                                  </td>
+                                    <td style={tdStyle}>
+                                      <strong>
+                                        {alerta.disenoActual}
+                                      </strong>
+                                      {" → "}
+                                      <strong>
+                                        {alerta.disenoSiguiente}
+                                      </strong>
+                                    </td>
 
-                                  <td style={tdStyle}>
-                                    <strong>
-                                      {alerta.disenoActual}
-                                    </strong>
-                                    {" → "}
-                                    <strong>
-                                      {alerta.disenoSiguiente}
-                                    </strong>
-                                  </td>
+                                    <td style={tdStyle}>
+                                      {alerta.fechaCambio}
+                                    </td>
 
-                                  <td style={tdStyle}>
-                                    {alerta.fechaCambio}
-                                  </td>
+                                    <td style={tdStyle}>
+                                      <span
+                                        style={{
+                                          padding:
+                                            "6px 10px",
+                                          borderRadius:
+                                            "999px",
+                                          background:
+                                            alerta.diasRestantes <= 7
+                                              ? "#fecaca"
+                                              : alerta.diasRestantes <= 14
+                                                ? "#fed7aa"
+                                                : "#dcfce7",
 
-                                  <td style={tdStyle}>
-                                    <span
-                                      style={{
-                                        padding:
-                                          "6px 10px",
-                                        borderRadius:
-                                          "999px",
-                                        background:
-                                          alerta.diasRestantes <= 7
-                                            ? "#fecaca"
-                                            : alerta.diasRestantes <= 14
-                                              ? "#fed7aa"
-                                              : "#dcfce7",
-
-                                        color:
-                                          alerta.diasRestantes <= 7
-                                            ? "#991b1b"
-                                            : alerta.diasRestantes <= 14
-                                              ? "#9a3412"
-                                              : "#166534",
-                                      }}
-                                    >
-                                      {alerta.diasRestantes === 0
-                                        ? "Hoy"
-                                        : `${alerta.diasRestantes} días`}
-                                    </span>
-                                  </td>
-                                </tr>
-                              )
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-                )}
-
-
+                                          color:
+                                            alerta.diasRestantes <= 7
+                                              ? "#991b1b"
+                                              : alerta.diasRestantes <= 14
+                                                ? "#9a3412"
+                                                : "#166534",
+                                        }}
+                                      >
+                                        {alerta.diasRestantes === 0
+                                          ? "Hoy"
+                                          : `${alerta.diasRestantes} días`}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  )}
               </>
             )
           }
+
+
+          {solicitudSeleccionada && (
+            <SolicitudDetalleModal
+              solicitud={
+                solicitudSeleccionada
+              }
+              onCerrar={
+                cerrarDetalle
+              }
+              onSolicitudActualizada={
+                manejarSolicitudActualizada
+              }
+            />
+          )}
         </section >
       </div >
-      {
+      {esAdministrador &&
         mostrarAlertasDiseno && (
           <div style={modalOverlayStyle}>
             <section
@@ -1893,21 +1685,8 @@ export function DashboardPage() {
         )
       }
 
-      {
-        solicitudSeleccionada && (
-          <SolicitudDetalleModal
-            solicitud={
-              solicitudSeleccionada
-            }
-            onCerrar={
-              cerrarDetalle
-            }
-            onSolicitudActualizada={
-              manejarSolicitudActualizada
-            }
-          />
-        )
-      }
+
+
     </Layout >
   );
 }
@@ -2354,17 +2133,6 @@ const tdStyle = {
 };
 
 
-const waitingBadgeStyle = {
-  display: "inline-block",
-
-  borderRadius: "999px",
-
-  fontWeight: "800",
-
-  textAlign: "center" as const,
-
-  whiteSpace: "nowrap" as const,
-};
 
 
 
@@ -2422,20 +2190,7 @@ const errorStyle = {
   color: "#991b1b",
 };
 
-const pendingStatusStyle = {
-  display: "inline-block",
 
-  minWidth: "66px",
-
-  padding: "4px 8px",
-
-  borderRadius: "999px",
-
-  fontSize: "10px",
-  fontWeight: "800",
-
-  textAlign: "center" as const,
-};
 
 
 const modalOverlayStyle = {
@@ -2467,7 +2222,7 @@ const modalHeaderStyle = {
 const modalTitleStyle = {
   margin: 0,
   color: "#102957",
-  fontSize: "24px",
+  fontSize: "30px",
 };
 
 const modalDescriptionStyle = {
@@ -2507,353 +2262,110 @@ const paginationInfoStyle = {
   color: "#475569",
 };
 
-const pendingCardsGridStyle = {
-  display: "grid",
-  gap: "8px",
-
+const operationalTableContainerStyle = {
   width: "100%",
+  maxWidth: "100%",
   minWidth: 0,
-};
-const pendingRequestCardStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-
-  minWidth: 0,
-
-  boxSizing: "border-box" as const,
-
-  border: "1px solid #d8e0eb",
-  borderRadius: "8px",
-
-  background: "#ffffff",
-
-  boxShadow:
-    "0 3px 10px rgba(15, 23, 42, 0.06)",
-
-  cursor: "pointer",
-
-  transition:
-    "border-color 160ms ease, box-shadow 160ms ease",
-};
-const pendingRequestCardHeaderStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "8px",
-
-  padding: "0 0 6px",
-
-  borderBottom:
-    "1px solid #e2e8f0",
-};
-const requestLabelStyle = {
-  display: "block",
-
-  marginBottom: "1px",
-
-  color: "#64748b",
-
-  fontSize: "12px",
-  fontWeight: "700",
-  letterSpacing: "0.8px",
-
-  textTransform:
-    "uppercase" as const,
-};
-
-const requestNumberStyle = {
-  display: "block",
-
-  color: "#102957",
-
-  fontWeight: "800",
-  lineHeight: 1.1,
-};
-
-const requestLocationGridStyle = {
-  display: "grid",
-
-  gridTemplateColumns:
-    "repeat(2, minmax(0, 1fr))",
-
-  columnGap: "14px",
-  rowGap: "2px",
-
-  minWidth: 0,
-};
-const requestInformationStyle = {
-  minWidth: 0,
-
-  padding: "4px 8px",
-
-  boxSizing: "border-box" as const,
-
-  borderBottom:
-    "1px solid #e2e8f0",
-
-  background: "#ffffff",
-
-  color: "#102957",
-
-  fontSize: "11px",
-  lineHeight: 1.15,
-
-  overflowWrap:
-    "anywhere" as const,
-};
-
-const requestInformationLabelStyle = {
-  display: "block",
-
-  marginBottom: "2px",
-
-  color: "#64748b",
-
-  fontSize: "12px",
-  fontWeight: "800",
-
-  letterSpacing: "0.5px",
-
-  textTransform:
-    "uppercase" as const,
-};
-
-
-const requestMaterialNumberStyle = {
-  display: "block",
-
-  color: "#102957",
-
-  fontSize: "14px",
-  fontWeight: "800",
-
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-};
-
-const requestMaterialDescriptionStyle = {
-  display: "block",
-
-  marginTop: "3px",
-
-  color: "#64748b",
-
-  fontSize: "11px",
-
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-};
-
-const requestQuantityStyle = {
-  minWidth: "36px",
-
-  padding: "4px 7px",
-
-  borderRadius: "4px",
-
-  background: "#edf2f7",
-  color: "#102957",
-
-  fontSize: "12px",
-  fontWeight: "800",
-
-  textAlign: "center" as const,
-};
-
-const requestCardFooterStyle = {
-  display: "grid",
-
-  gridTemplateColumns:
-    "auto 1fr auto",
-
-  alignItems: "center",
-  gap: "10px",
-
-  marginTop: "auto",
-  paddingTop: "8px",
-
-  borderTop:
-    "1px solid #e2e8f0",
-};
-const requestTotalStyle = {
-  display: "block",
-
-  color: "#102957",
-
-  fontWeight: "800",
-  lineHeight: 1.1,
-};
-
-const requestOpenButtonStyle = {
-  minHeight: "32px",
-
-  padding: "6px 12px",
-
-  border: "1px solid #102957",
-  borderRadius: "5px",
-
-  background:
-    "linear-gradient(180deg, #102957 0%, #0b2148 100%)",
-
-  color: "#ffffff",
-
-  fontSize: "11px",
-  fontWeight: "800",
-
-  whiteSpace: "nowrap" as const,
-
-  cursor: "pointer",
-};
-
-const additionalMaterialsStyle = {
-  color: "#1d4ed8",
-  fontSize: "11px",
-  fontWeight: "800",
-  textAlign: "center" as const,
-};
-
-const pendingHeaderControlsStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  flexWrap: "wrap" as const,
-  gap: "10px",
-};
-
-const cardSizeControlStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "7px",
-};
-
-const cardSizeLabelStyle = {
-  color: "#64748b",
-
-  fontSize: "11px",
-  fontWeight: "800",
-  letterSpacing: "0.5px",
-  textTransform:
-    "uppercase" as const,
-};
-
-const cardSizeSelectStyle = {
-  minHeight: "36px",
-
-  padding: "7px 30px 7px 10px",
-
+  overflowX: "auto" as const,
   border: "1px solid #cbd5e1",
-  borderRadius: "7px",
-
+  borderRadius: "10px",
   background: "#ffffff",
+  boxSizing: "border-box" as const,
+};
+
+const operationalTableStyle = {
+  width: "100%",
+  minWidth: "900px",
+
+  // Permite dejar espacio entre solicitudes.
+  borderCollapse: "separate" as const,
+
+  // 10px de separación vertical entre filas.
+  borderSpacing: "0 15px",
+};
+
+const operationalTableHeaderStyle = {
+  background: "#dfe7f1",
+};
+
+
+const operationalThStyle = {
+  padding: "12px 14px",
+  borderBottom: "2px solid #cbd5e1",
   color: "#102957",
+  fontSize: "13px",
+  fontWeight: "800",
+  textAlign: "center" as const,
+  whiteSpace: "nowrap" as const,
+  textTransform: "uppercase" as const,
+};
 
-  fontSize: "12px",
-  fontWeight: "700",
-
+const operationalRowStyle = {
+  background: "#ffffff",
   cursor: "pointer",
   outline: "none",
+
+  boxShadow:
+    "0 2px 7px rgba(15, 23, 42, 0.10)",
+
+  transition:
+    "background 150ms ease, box-shadow 150ms ease, transform 150ms ease",
 };
-
-const requestMaterialsStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: "2px",
-
-  minWidth: 0,
-
-  padding: "5px 7px",
-
-  boxSizing: "border-box" as const,
-
-  border: "1px solid #d8e0eb",
-  borderRadius: "6px",
-
-  background: "#f8fafc",
-};
-
-const requestMaterialRowStyle = {
-  display: "flex",
-
-  minWidth: 0,
-
-  padding: "3px 5px",
-
-  borderRadius: "4px",
-
+const operationalTdStyle = {
+  padding: "14px",
+  borderTop: "1px solid #d8e0eb",
+  borderBottom: "1px solid #d8e0eb",
+  color: "#334155",
+  fontSize: "14px",
+  verticalAlign: "middle" as const,
+  whiteSpace: "nowrap" as const,
   background: "#ffffff",
+  textAlign: "center" as const,
 };
 
-const requestMaterialContentStyle = {
-  width: "100%",
-  minWidth: 0,
-
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: "5px",
-};
-
-const requestMaterialHeadingStyle = {
-  minWidth: 0,
-
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "10px",
-};
-
-const requestMaterialTypeStyle = {
-  flexShrink: 0,
-
-  padding: "3px 7px",
-
-  border: "1px solid #cbd5e1",
-  borderRadius: "4px",
-
-  background: "#edf2f7",
-  color: "#102957",
-
-  fontSize: "11px",
+const operationalStatusStyle = {
+  display: "inline-block",
+  minWidth: "78px",
+  padding: "5px 9px",
+  borderRadius: "999px",
+  fontSize: "16px",
   fontWeight: "800",
+  textAlign: "center" as const,
 };
 
-const requestMaterialBottomStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
-
-  marginTop: "2px",
-};
-
-const requestMaterialStationStyle = {
-  minWidth: 0,
-
-  color: "#475569",
-
-  fontSize: "12px",
-  fontWeight: "500",
-
-  overflow: "hidden",
-  textOverflow: "ellipsis",
+const operationalTimeStyle = {
+  display: "inline-block",
+  minWidth: "76px",
+  padding: "5px 9px",
+  borderRadius: "999px",
+  fontSize: "16px",
+  fontWeight: "800",
+  textAlign: "center" as const,
   whiteSpace: "nowrap" as const,
 };
 
-const requestPendingQuantityStyle = {
-  flexShrink: 0,
+const operationalOpenButtonStyle = {
+  border:
+    "1px solid #102957",
 
-  display: "flex",
-  alignItems: "center",
-  gap: "6px",
-};
+  background:
+    "#102957",
 
-const requestPendingQuantityLabelStyle = {
-  color: "#64748b",
+  color:
+    "#ffffff",
 
-  fontSize: "10px",
-  fontWeight: "700",
+  fontWeight:
+    "800",
 
-  textTransform:
-    "uppercase" as const,
+  whiteSpace:
+    "nowrap" as const,
+
+  cursor:
+    "pointer",
+
+  boxShadow:
+    "0 2px 5px rgba(15, 41, 87, 0.18)",
+
+  transition:
+    "background 150ms ease, transform 150ms ease",
 };

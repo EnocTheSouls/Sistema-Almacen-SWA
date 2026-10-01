@@ -177,6 +177,11 @@ export function NuevaSolicitudModal({
     setMateriales,
   ] = useState<MaterialSeleccionado[]>([]);
 
+  const [
+    mostrarBusquedaManual,
+    setMostrarBusquedaManual,
+  ] = useState(false);
+
   const [cargando, setCargando] =
     useState(true);
 
@@ -327,8 +332,13 @@ export function NuevaSolicitudModal({
       return catalogoMateriales
         .filter(
           (material) =>
-            material.activo
+            material.activo &&
+            (
+              material.genericCode === "C" ||
+              material.genericCode === "P"
+            )
         )
+
         .filter((material) => {
           const numeroParte =
             material.numeroParteMaterial
@@ -509,6 +519,20 @@ export function NuevaSolicitudModal({
           : "0"
       );
 
+      // Si solamente puede solicitar una bolsa,
+      // se agrega automáticamente.
+      if (
+        Number(contexto.stdPack ?? 0) > 0 &&
+        (contexto.maximoBolsas ?? 0) === 1
+      ) {
+        autoAgregarUnaBolsa(
+          materialCatalogo,
+          contexto
+        );
+        return;
+      }
+
+
       setBusquedaMaterial("");
       setError("");
 
@@ -569,12 +593,25 @@ export function NuevaSolicitudModal({
       setMaterialPendiente(
         material
       );
+
       setCantidadPendiente(
         contexto.maximoBolsas != null &&
           contexto.maximoBolsas > 0
           ? "1"
           : "0"
       );
+
+      if (
+        Number(contexto.stdPack ?? 0) > 0 &&
+        (contexto.maximoBolsas ?? 0) === 1
+      ) {
+        autoAgregarUnaBolsa(
+          material,
+          contexto
+        );
+
+        return;
+      }
 
       setBusquedaMaterial("");
 
@@ -632,6 +669,126 @@ export function NuevaSolicitudModal({
     window.setTimeout(() => {
       inputEscaneoRef.current?.focus();
     }, 0);
+  };
+
+  const agregarDirectamenteMaterial = (
+    materialPendiente: MaterialCatalogo,
+    contextoQrPendiente: MaterialQrContexto
+  ) => {
+    
+    const stdPackDisponible =
+      Number(
+        contextoQrPendiente.stdPack ?? 0
+      );
+
+    setMateriales((materialesActuales) => {
+
+      const materialExistente =
+        materialesActuales.find(
+          (material) =>
+            material.idMaterial ===
+            materialPendiente.idMaterial &&
+            material.idBomDetalle ===
+            contextoQrPendiente.idBomDetalle &&
+            material.idEstacion ===
+            contextoQrPendiente.idEstacion
+        );
+
+      if (materialExistente) {
+
+        const nuevasBolsas =
+          (materialExistente.cantidadBolsas ?? 0) + 1;
+
+        return materialesActuales.map(
+          (material) =>
+            material.idMaterial ===
+              materialPendiente.idMaterial &&
+              material.idBomDetalle ===
+              contextoQrPendiente.idBomDetalle &&
+              material.idEstacion ===
+              contextoQrPendiente.idEstacion
+              ? {
+                ...material,
+                cantidadBolsas: nuevasBolsas,
+                cantidad: String(
+                  nuevasBolsas *
+                  stdPackDisponible
+                ),
+              }
+              : material
+        );
+      }
+
+      return [
+        ...materialesActuales,
+        {
+          idMaterial:
+            materialPendiente.idMaterial,
+
+          numeroParte:
+            materialPendiente.numeroParteMaterial,
+
+          descripcion:
+            materialPendiente.descripcion,
+
+          cantidad: String(
+            stdPackDisponible
+          ),
+
+          idBomDetalle:
+            contextoQrPendiente.idBomDetalle,
+
+          idArnes:
+            contextoQrPendiente.idArnes,
+
+          numeroArnes:
+            contextoQrPendiente.numeroArnes,
+
+          idEstacion:
+            contextoQrPendiente.idEstacion,
+
+          nombreEstacion:
+            contextoQrPendiente.estacion,
+
+          origen: "ESCANEO",
+
+          requiereCantidad: true,
+
+          cantidadBolsas: 1,
+
+          stdPackHistorico:
+            stdPackDisponible,
+
+          bolsasCalculadas:
+            contextoQrPendiente.bolsasCalculadas,
+
+          maximoBolsas:
+            contextoQrPendiente.maximoBolsas,
+        },
+      ];
+    });
+
+    setMaterialPendiente(null);
+    setContextoQrPendiente(null);
+    setCantidadPendiente("1");
+    setBusquedaMaterial("");
+
+    window.setTimeout(() => {
+      inputEscaneoRef.current?.focus();
+      inputEscaneoRef.current?.select();
+    }, 0);
+  };
+
+  const autoAgregarUnaBolsa = (
+    material: MaterialCatalogo,
+    contexto: MaterialQrContexto
+  ) => {
+
+    agregarDirectamenteMaterial(
+      material,
+      contexto
+    );
+
   };
 
   // Confirma y agrega el material a la lista.
@@ -1500,7 +1657,20 @@ export function NuevaSolicitudModal({
                 autoComplete="off"
                 style={inputStyle}
               />
-
+              <button
+                type="button"
+                onClick={() =>
+                  setMostrarBusquedaManual(
+                    !mostrarBusquedaManual
+                  )
+                }
+                style={{
+                  ...secondaryButtonStyle,
+                  marginTop: "8px",
+                }}
+              >
+                Selección manual
+              </button>
               {busquedaMaterial.trim() &&
                 materialesEncontrados.length > 0 &&
                 !busquedaMaterial
@@ -1903,10 +2073,9 @@ export function NuevaSolicitudModal({
                       }
                       style={{
                         padding: "14px",
-                        border:
-                          "1px solid #e2e8f0",
                         borderRadius: "10px",
-                        background: "#ffffff",
+                        background: "#eef4ff",
+                        border: "1px solid #93c5fd",
                       }}
                     >
                       <strong
@@ -2276,13 +2445,13 @@ const materialsHeaderStyle = {
   gap: "15px",
 };
 
-const counterStyle = {
-  padding: "7px 12px",
-  borderRadius: "999px",
-  background: "#eff6ff",
-  color: "#1d4ed8",
-  fontSize: "12px",
-  fontWeight: "700",
+const emptyStyle = {
+  padding: "28px",
+  border: "1px dashed #93c5fd",
+  borderRadius: "9px",
+  background: "#eef4ff",
+  color: "#64748b",
+  textAlign: "center" as const,
 };
 
 const searchContainerStyle = {
@@ -2333,15 +2502,6 @@ const resultDescriptionStyle = {
 const noResultsStyle = {
   color: "#64748b",
   fontSize: "13px",
-};
-
-const emptyStyle = {
-  padding: "28px",
-  border: "1px dashed #cbd5e1",
-  borderRadius: "9px",
-  background: "#f8fafc",
-  color: "#64748b",
-  textAlign: "center" as const,
 };
 
 const tableContainerStyle = {
@@ -2443,4 +2603,13 @@ const secondaryButtonStyle = {
   color: "#334155",
   fontWeight: "700",
   cursor: "pointer",
+};
+
+const counterStyle = {
+  padding: "7px 12px",
+  borderRadius: "999px",
+  background: "#dbeafe",
+  color: "#1e40af",
+  fontSize: "12px",
+  fontWeight: "700",
 };

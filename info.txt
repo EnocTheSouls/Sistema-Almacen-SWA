@@ -1,0 +1,93 @@
+Experiencia Profesional
+
+Desarrollador Full Stack | Sistema Web de Almacén Interno
+
+Tecnologías: ASP.NET Core 10, C#, React, TypeScript, MySQL, JWT, REST API, Git
+
+Diseñé y desarrollé un sistema web integral para la gestión de almacén en entorno de manufactura.
+Implementé control de inventario con trazabilidad de movimientos (Kardex).
+Desarrollé módulo de solicitudes de materiales con flujo completo de estados:
+Pendiente
+Asignada
+En surtido
+Parcial
+Completada
+Entregada
+Implementé surtido parcial y descuento automático de inventario.
+Integré lectura de códigos de barras para consulta y surtido de materiales.
+Desarrollé dashboard operativo en tiempo real para monitoreo de solicitudes.
+Implementé autenticación y autorización mediante JWT.
+Desarrollé procesos de importación de BOM y archivos 5MF.
+Implementé alertas automáticas de cambio de diseño basadas en información de producción.
+Diseñé y administré modelo de datos relacional en MySQL.
+Configuré despliegues para ambientes de desarrollo y producción.
+Habilidades Técnicas
+
+Backend
+
+C#
+ASP.NET Core
+REST API
+JWT Authentication
+Entity Framework / ADO.NET
+Arquitectura por capas
+
+Frontend
+
+React
+TypeScript
+HTML
+CSS
+Vite
+
+Base de Datos
+
+MySQL
+Diseño de bases de datos
+Procedimientos de importación
+Optimización de consultas
+
+Infraestructura
+
+IIS
+Variables de entorno
+Git
+Publicación de aplicaciones web
+Logro Destacado
+
+Desarrollo e implementación de un sistema web de almacén para operación de manufactura, integrando inventario, surtido, solicitudes de materiales, trazabilidad y monitoreo operativo en tiempo real.
+
+Y entre nosotros, cuando termines de ponerlo en operación y tenga usuarios reales, ya puedes decir en entrevistas algo como:
+
+"Desarrollé e implementé un sistema web de almacén utilizado por personal de producción y almacén para la gestión de inventario y suministro de materiales en una planta    Desarrollo de Sistema Web de Almacén para Manufactura
+
+Diseñé y desarrollé de forma integral un sistema web de almacén orientado a procesos de manufactura, utilizando ASP.NET Core, C#, React, TypeScript y MySQL. El sistema fue creado para administrar inventario, solicitudes de materiales y operaciones de surtido en tiempo real.
+
+Implementé un módulo de gestión de solicitudes de materiales con flujo completo de operación, incluyendo los estados Pendiente, Asignada, En surtido, Parcial, Completada y Entregada. Desarrollé la lógica de surtido parcial con descuento automático de inventario y actualización de existencias en tiempo real.
+
+Diseñé y construí la base de datos relacional en MySQL, así como los servicios backend mediante API REST seguras con autenticación y autorización basada en JWT. Implementé control de sesiones y mecanismos de seguridad para el acceso al sistema.
+
+Desarrollé módulos para control de inventario, consulta de existencias, trazabilidad de movimientos mediante Kardex y monitoreo operativo a través de dashboards en tiempo real. También integré funcionalidades de escaneo de códigos de barras para agilizar las operaciones de almacén.
+
+Implementé procesos de importación masiva de información de producción mediante archivos BOM y 5MF, permitiendo la administración automática de materiales, arneses, diseños y planeación operativa. Adicionalmente desarrollé alertas automáticas para la detección de cambios de diseño y seguimiento de materiales relacionados con producción.
+
+Configuré ambientes de desarrollo y producción, aplicando prácticas de despliegue, publicación de aplicaciones, manejo de variables de entorno y preparación para hospedaje en IIS, permitiendo la puesta en marcha del sistema dentro de la red interna de la empresa.
+
+Tecnologías utilizadas
+C#
+ASP.NET Core
+React
+TypeScript
+MySQL
+JWT Authentication
+REST API
+HTML5
+CSS3
+Vite
+Git
+IIS
+Variables de entorno
+Arquitectura por capas
+Logro destacado
+
+Desarrollo completo e implementación de un sistema web de almacén para entorno de manufactura, integrando inventario, solicitudes de materiales, surtido, trazabilidad, escaneo de códigos de barras, control de producción y monitoreo operativo en tiempo real.manufacturera."

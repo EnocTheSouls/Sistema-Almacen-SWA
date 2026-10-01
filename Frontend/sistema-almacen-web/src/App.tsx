@@ -77,7 +77,9 @@ export default function App() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <RutaAdministrador>
+              <DashboardPage />
+            </RutaAdministrador>
           </ProtectedRoute>
         }
       />
@@ -156,20 +158,13 @@ export default function App() {
       <Route
         path="/"
         element={
-          <Navigate
-            to="/dashboard"
-            replace
-          />
+          <RutaInicial />
         }
       />
-
       <Route
         path="*"
         element={
-          <Navigate
-            to="/dashboard"
-            replace
-          />
+          <RutaInicial />
         }
       />
     </Routes>
@@ -201,3 +196,36 @@ function RutaAdministrador({
 
   return children;
 }
+// Envía a cada usuario a la página principal correspondiente.
+function RutaInicial() {
+  const usuario =
+    obtenerUsuarioActual();
+
+  if (!usuario) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
+
+  const esAdministrador =
+    usuario.role
+      ?.trim()
+      .toUpperCase() ===
+    "ADMIN";
+
+  return (
+    <Navigate
+      to={
+        esAdministrador
+          ? "/dashboard"
+          : "/solicitudes"
+      }
+      replace
+    />
+  );
+}
+
+
