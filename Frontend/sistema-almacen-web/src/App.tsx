@@ -72,14 +72,13 @@ export default function App() {
           <SessionExpiredPage />
         }
       />
-
       <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <RutaAdministrador>
+            <RutaAdministrativa>
               <DashboardPage />
-            </RutaAdministrador>
+            </RutaAdministrativa>
           </ProtectedRoute>
         }
       />
@@ -88,9 +87,9 @@ export default function App() {
         path="/usuarios"
         element={
           <ProtectedRoute>
-            <RutaAdministrador>
+            <RutaAdministrativa>
               <UserListPage />
-            </RutaAdministrador>
+            </RutaAdministrativa>
           </ProtectedRoute>
         }
       />
@@ -99,9 +98,9 @@ export default function App() {
         path="/usuarios/nuevo"
         element={
           <ProtectedRoute>
-            <RutaAdministrador>
+            <RutaAdministrativa>
               <CreateUserPage />
-            </RutaAdministrador>
+            </RutaAdministrativa>
           </ProtectedRoute>
         }
       />
@@ -110,9 +109,9 @@ export default function App() {
         path="/proyectos"
         element={
           <ProtectedRoute>
-            <RutaAdministrador>
+            <RutaAdministrativa>
               <EstructuraPage />
-            </RutaAdministrador>
+            </RutaAdministrativa>
           </ProtectedRoute>
         }
       />
@@ -121,7 +120,9 @@ export default function App() {
         path="/materiales"
         element={
           <ProtectedRoute>
-            <MaterialesPage />
+            <RutaMateriales>
+              <MaterialesPage />
+            </RutaMateriales>
           </ProtectedRoute>
         }
       />
@@ -134,12 +135,13 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/inventario"
         element={
           <ProtectedRoute>
-            <InventarioPage />
+            <RutaInventario>
+              <InventarioPage />
+            </RutaInventario>
           </ProtectedRoute>
         }
       />
@@ -148,9 +150,9 @@ export default function App() {
         path="/kardex"
         element={
           <ProtectedRoute>
-            <RutaAdministrador>
+            <RutaAdministrativa>
               <BitacoraPage />
-            </RutaAdministrador>
+            </RutaAdministrativa>
           </ProtectedRoute>
         }
       />
@@ -170,25 +172,41 @@ export default function App() {
     </Routes>
   );
 }
-
-interface RutaAdministradorProps {
+interface RutaAdministrativaProps {
   children: ReactNode;
 }
 
-// Lee el JWT cada vez que se renderiza una ruta administrativa.
-function RutaAdministrador({
+interface RutaMaterialesProps {
+  children: ReactNode;
+}
+
+interface RutaInventarioProps {
+  children: ReactNode;
+}
+
+
+// Permite visualizar los módulos administrativos
+// a Administrador y Supervisor.
+function RutaAdministrativa({
   children,
-}: RutaAdministradorProps) {
+}: RutaAdministrativaProps) {
   const usuario =
     obtenerUsuarioActual();
 
-  const esAdministrador =
-    usuario?.role === "ADMIN";
+  const rolActual =
+    normalizarRol(
+      usuario?.role
+    );
 
-  if (!esAdministrador) {
+  const puedeVerModulosAdministrativos =
+    rolActual === "ADMIN" ||
+    rolActual === "ADMINISTRADOR" ||
+    rolActual === "SUPERVISOR";
+
+  if (!puedeVerModulosAdministrativos) {
     return (
       <Navigate
-        to="/dashboard"
+        to="/solicitudes"
         replace
       />
     );
@@ -196,7 +214,64 @@ function RutaAdministrador({
 
   return children;
 }
-// Envía a cada usuario a la página principal correspondiente.
+
+// Impide que Producción acceda
+// al catálogo de materiales.
+function RutaMateriales({
+  children,
+}: RutaMaterialesProps) {
+  const usuario =
+    obtenerUsuarioActual();
+
+  const rolActual =
+    normalizarRol(
+      usuario?.role
+    );
+
+  if (rolActual === "PRODUCCION") {
+    return (
+      <Navigate
+        to="/solicitudes"
+        replace
+      />
+    );
+  }
+
+  return children;
+}
+
+
+// Permite Inventario a Administrador,
+// Supervisor y Surtidor.
+function RutaInventario({
+  children,
+}: RutaInventarioProps) {
+  const usuario =
+    obtenerUsuarioActual();
+
+  const rolActual =
+    normalizarRol(
+      usuario?.role
+    );
+
+  const tieneAccesoInventario =
+    rolActual === "ADMIN" ||
+    rolActual === "ADMINISTRADOR" ||
+    rolActual === "SUPERVISOR" ||
+    rolActual === "SURTIDOR";
+
+  if (!tieneAccesoInventario) {
+    return (
+      <Navigate
+        to="/solicitudes"
+        replace
+      />
+    );
+  }
+
+  return children;
+}
+// Envía a cada usuario a su página principal.
 function RutaInicial() {
   const usuario =
     obtenerUsuarioActual();
@@ -210,16 +285,20 @@ function RutaInicial() {
     );
   }
 
-  const esAdministrador =
-    usuario.role
-      ?.trim()
-      .toUpperCase() ===
-    "ADMIN";
+  const rolActual =
+    normalizarRol(
+      usuario.role
+    );
+
+  const vaAlDashboard =
+    rolActual === "ADMIN" ||
+    rolActual === "ADMINISTRADOR" ||
+    rolActual === "SUPERVISOR";
 
   return (
     <Navigate
       to={
-        esAdministrador
+        vaAlDashboard
           ? "/dashboard"
           : "/solicitudes"
       }
@@ -228,4 +307,22 @@ function RutaInicial() {
   );
 }
 
+
+
+// Normaliza el nombre del rol para hacer
+// comparaciones sin diferencias de acentos.
+function normalizarRol(
+  rol: string | null | undefined
+) {
+  return (
+    rol
+      ?.trim()
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      ) ?? ""
+  );
+}
 

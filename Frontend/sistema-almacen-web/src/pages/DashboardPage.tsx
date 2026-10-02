@@ -53,7 +53,7 @@ interface ConfiguracionDashboard {
 
 const configuracionInicial: ConfiguracionDashboard = {
   actualizacionAutomatica: true,
-  segundosActualizacion: 2,
+  segundosActualizacion: 5,
   limiteAmarillo: 10,
   limiteNaranja: 20,
   limiteRojo: 30,
@@ -70,6 +70,21 @@ export function DashboardPage() {
     currentUser?.role
       ?.toUpperCase()
       .includes("ADMIN") ?? false;
+
+
+
+  const rolActual =
+    currentUser?.role
+      ?.trim()
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      ) ?? "";
+
+  const esProduccion =
+    rolActual === "PRODUCCION";
 
 
 
@@ -188,6 +203,19 @@ export function DashboardPage() {
         }
 
         setErrorCarga("");
+        // Producción no consulta indicadores administrativos.
+        if (esProduccion) {
+          const solicitudesData =
+            await obtenerSolicitudes();
+
+          setSolicitudes(
+            solicitudesData
+          );
+
+          setAlertasDiseno([]);
+
+          return;
+        }
 
         const [
           dashboardData,
@@ -199,9 +227,6 @@ export function DashboardPage() {
           obtenerAlertasDiseno(),
         ]);
 
-        setAlertasDiseno(alertasData);
-
-
         setDashboard(
           dashboardData
         );
@@ -209,6 +234,12 @@ export function DashboardPage() {
         setSolicitudes(
           solicitudesData
         );
+
+        setAlertasDiseno(
+          alertasData
+        );
+
+
       } catch (error) {
         console.error(
           "Error al cargar el Dashboard:",
@@ -216,7 +247,9 @@ export function DashboardPage() {
         );
 
         setErrorCarga(
-          "No se pudieron cargar los indicadores y las solicitudes."
+          esProduccion
+            ? "No se pudieron cargar las peticiones."
+            : "No se pudieron cargar los indicadores y las solicitudes."
         );
       } finally {
         consultaEnProceso.current = false;
@@ -224,7 +257,7 @@ export function DashboardPage() {
         setActualizando(false);
       }
     },
-    []
+    [esProduccion]
   );
 
   // Realiza la primera carga.
@@ -318,7 +351,7 @@ export function DashboardPage() {
 
     const segundos =
       Math.max(
-        2,
+        5,
         configuracion.segundosActualizacion
       );
 
@@ -413,11 +446,23 @@ export function DashboardPage() {
     ]);
 
 
-  // Incluye solicitudes pendientes y parciales.
   const totalSolicitudesPendientes =
-    (dashboard?.pendientes ?? 0) +
-    (dashboard?.parciales ?? 0);
+    esProduccion
+      ? solicitudes.filter(
+        (solicitud) => {
+          const estado =
+            solicitud.nombreEstado
+              .trim()
+              .toLowerCase();
 
+          return (
+            estado === "pendiente" ||
+            estado === "parcial"
+          );
+        }
+      ).length
+      : (dashboard?.pendientes ?? 0) +
+      (dashboard?.parciales ?? 0);
 
 
   const solicitudesSurtidas =

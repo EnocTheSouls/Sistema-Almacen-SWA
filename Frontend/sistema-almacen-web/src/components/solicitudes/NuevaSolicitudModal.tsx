@@ -191,6 +191,40 @@ export function NuevaSolicitudModal({
   const [error, setError] =
     useState("");
 
+
+  // Devuelve el cursor al campo de escaneo.
+  const enfocarEscaneo = () => {
+    window.setTimeout(() => {
+      inputEscaneoRef.current?.focus();
+      inputEscaneoRef.current?.select();
+    }, 0);
+  };
+
+
+  // Abre o cierra Proyecto, Familia y Estación.
+  const alternarSeleccionManual = () => {
+    setMostrarBusquedaManual(
+      (estadoActual) => {
+        const nuevoEstado =
+          !estadoActual;
+
+        // Cuando se oculta Destino,
+        // regresa el cursor al escaneo.
+        if (!nuevoEstado) {
+          setBusquedaMaterial("");
+          setMaterialPendiente(null);
+          setContextoQrPendiente(null);
+          setCantidadPendiente("1");
+          setError("");
+
+          enfocarEscaneo();
+        }
+
+        return nuevoEstado;
+      }
+    );
+  };
+
   // Detecta la vista móvil del dispositivo.
   const [
     modoMovil,
@@ -244,6 +278,23 @@ export function NuevaSolicitudModal({
     cargarCatalogos();
   }, []);
 
+  useEffect(() => {
+    if (cargando) {
+      return;
+    }
+
+    const temporizador =
+      window.setTimeout(() => {
+        inputEscaneoRef.current?.focus();
+        inputEscaneoRef.current?.select();
+      }, 0);
+
+    return () => {
+      window.clearTimeout(
+        temporizador
+      );
+    };
+  }, [cargando]);
 
   useEffect(() => {
     const mediaQuery =
@@ -614,6 +665,7 @@ export function NuevaSolicitudModal({
       }
 
       setBusquedaMaterial("");
+      
 
 
     } catch (errorContexto) {
@@ -653,8 +705,8 @@ export function NuevaSolicitudModal({
 
 
 
-  // Descarta el material escaneado o seleccionado
-  // antes de agregarlo a la solicitud.
+  // Descarta el material y prepara
+  // inmediatamente el siguiente escaneo.
   const cancelarMaterialPendiente = () => {
     setMaterialPendiente(null);
 
@@ -664,18 +716,16 @@ export function NuevaSolicitudModal({
 
     setCantidadPendiente("1");
     setBusquedaMaterial("");
+    setMostrarBusquedaManual(false);
     setError("");
 
-    window.setTimeout(() => {
-      inputEscaneoRef.current?.focus();
-    }, 0);
+    enfocarEscaneo();
   };
-
   const agregarDirectamenteMaterial = (
     materialPendiente: MaterialCatalogo,
     contextoQrPendiente: MaterialQrContexto
   ) => {
-    
+
     const stdPackDisponible =
       Number(
         contextoQrPendiente.stdPack ?? 0
@@ -767,16 +817,15 @@ export function NuevaSolicitudModal({
         },
       ];
     });
-
     setMaterialPendiente(null);
     setContextoQrPendiente(null);
     setCantidadPendiente("1");
     setBusquedaMaterial("");
+    setMostrarBusquedaManual(false);
+    setError("");
 
-    window.setTimeout(() => {
-      inputEscaneoRef.current?.focus();
-      inputEscaneoRef.current?.select();
-    }, 0);
+    enfocarEscaneo();
+
   };
 
   const autoAgregarUnaBolsa = (
@@ -1006,8 +1055,7 @@ export function NuevaSolicitudModal({
     setCantidadPendiente("1");
     setBusquedaMaterial("");
     setError("");
-    setBusquedaMaterial("");
-    setError("");
+
 
     // Recupera el foco para continuar escaneando.
     window.setTimeout(() => {
@@ -1035,8 +1083,16 @@ export function NuevaSolicitudModal({
             )
         )
     );
-
+    setMaterialPendiente(null);
+    setContextoQrPendiente(null);
+    setCantidadPendiente("1");
+    setBusquedaMaterial("");
+    setMostrarBusquedaManual(false);
     setError("");
+
+    enfocarEscaneo();
+
+
   };
 
   const obtenerMensajeErrorQr = (
@@ -1356,206 +1412,6 @@ export function NuevaSolicitudModal({
               guardarSolicitud
             }
           >
-            <h3 style={sectionTitleStyle}>
-              Destino
-            </h3>
-
-            <div
-              style={{
-                ...selectorsGridStyle,
-                gridTemplateColumns:
-                  modoMovil
-                    ? "1fr"
-                    : "repeat(auto-fit, minmax(220px, 1fr))",
-                gap:
-                  modoMovil
-                    ? "12px"
-                    : "15px",
-              }}
-            >              <div style={formGroupStyle}>
-                <label
-                  htmlFor="nuevoProyecto"
-                  style={labelStyle}
-                >
-                  Proyecto *
-                </label>
-
-                <select
-                  id="nuevoProyecto"
-                  value={
-                    idProyecto > 0
-                      ? idProyecto
-                      : ""
-                  }
-                  onChange={(event) =>
-                    manejarCambioProyecto(
-                      Number(
-                        event.target.value
-                      )
-                    )
-                  }
-                  disabled={enviando}
-                  style={inputStyle}
-                >
-                  <option value="">
-                    Seleccionar proyecto
-                  </option>
-
-                  {proyectosDisponibles.map(
-                    (proyecto) => (
-                      <option
-                        key={
-                          proyecto.idProyecto
-                        }
-                        value={
-                          proyecto.idProyecto
-                        }
-                      >
-                        {proyecto.nombre}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <div style={formGroupStyle}>
-                <label
-                  htmlFor="nuevaFamilia"
-                  style={labelStyle}
-                >
-                  Familia *
-                </label>
-
-                <select
-                  id="nuevaFamilia"
-                  value={
-                    idFamilia > 0
-                      ? idFamilia
-                      : ""
-                  }
-                  onChange={(event) =>
-                    manejarCambioFamilia(
-                      Number(
-                        event.target.value
-                      )
-                    )
-                  }
-                  disabled={
-                    enviando ||
-                    idProyecto <= 0 ||
-                    materiales.length > 0
-                  }
-                  style={inputStyle}
-                >
-                  <option value="">
-                    {idProyecto > 0
-                      ? "Seleccionar familia"
-                      : "Selecciona un proyecto"}
-                  </option>
-                  {familiasDisponibles.map(
-                    (familia) => (
-                      <option
-                        key={
-                          familia.idFamilia
-                        }
-                        value={
-                          familia.idFamilia
-                        }
-                      >
-                        {familia.nombre}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-              <div style={formGroupStyle}>
-                <label
-                  htmlFor="nuevaEstacion"
-                  style={labelStyle}
-                >
-                  Estación *
-                </label>
-
-                <select
-                  id="nuevaEstacion"
-                  value={
-                    idEstacion > 0
-                      ? idEstacion
-                      : ""
-                  }
-                  onChange={(event) => {
-                    setIdEstacion(
-                      Number(
-                        event.target.value
-                      )
-                    );
-
-                    setMaterialPendiente(null);
-                    setContextoQrPendiente(null);
-                    setCantidadPendiente("1");
-                    setBusquedaMaterial("");
-                    setError("");
-                    setBusquedaMaterial("");
-                    setError("");
-                  }}
-                  disabled={
-                    enviando ||
-                    idFamilia <= 0
-                  }
-                  style={inputStyle}
-                >
-                  <option value="">
-                    {idFamilia > 0
-                      ? "Seleccionar estación"
-                      : "Selecciona una familia"}
-                  </option>
-
-                  {estacionesDisponibles.map(
-                    (estacion) => (
-                      <option
-                        key={
-                          estacion.idEstacion
-                        }
-                        value={
-                          estacion.idEstacion
-                        }
-                      >
-                        {estacion.nombre}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-            </div>
-
-            {idProyecto > 0 &&
-              familiasDisponibles.length ===
-              0 && (
-                <div style={warningStyle}>
-                  El proyecto no tiene familias
-                  activas.
-                </div>
-              )}
-
-            {idFamilia > 0 &&
-              estacionesDisponibles.length ===
-              0 && (
-                <div style={warningStyle}>
-                  La familia no tiene estaciones
-                  activas.
-                </div>
-              )}
-
-            <div
-              style={{
-                ...separatorStyle,
-                margin:
-                  modoMovil
-                    ? "20px 0"
-                    : "26px 0",
-              }}
-            />
-
             <div style={materialsHeaderStyle}>
               <h3 style={sectionTitleStyle}>
                 Materiales
@@ -1602,6 +1458,7 @@ export function NuevaSolicitudModal({
                     busquedaMaterial.trim();
 
                   if (!contenido) {
+                    enfocarEscaneo();
                     return;
                   }
 
@@ -1633,6 +1490,7 @@ export function NuevaSolicitudModal({
                         ) ===
                         contenidoNormalizado
                     );
+
                   if (materialExacto) {
                     await agregarMaterial(
                       materialExacto
@@ -1644,6 +1502,9 @@ export function NuevaSolicitudModal({
                   setError(
                     "No se encontró una coincidencia exacta para el código escaneado."
                   );
+
+                  setBusquedaMaterial("");
+                  enfocarEscaneo();
                 }}
                 disabled={
                   enviando ||
@@ -1655,23 +1516,35 @@ export function NuevaSolicitudModal({
                     : "Escanea un QR o busca un material"
                 }
                 autoComplete="off"
+                autoFocus
                 style={inputStyle}
               />
+
               <button
                 type="button"
-                onClick={() =>
-                  setMostrarBusquedaManual(
-                    !mostrarBusquedaManual
-                  )
+                onClick={
+                  alternarSeleccionManual
+                }
+                disabled={
+                  enviando ||
+                  validandoQr
+                }
+                aria-expanded={
+                  mostrarBusquedaManual
                 }
                 style={{
                   ...secondaryButtonStyle,
+                  width: "100%",
                   marginTop: "8px",
                 }}
               >
-                Selección manual
+                {mostrarBusquedaManual
+                  ? "Ocultar selección manual"
+                  : "Selección manual"}
               </button>
-              {busquedaMaterial.trim() &&
+
+              {mostrarBusquedaManual &&
+                busquedaMaterial.trim() &&
                 materialesEncontrados.length > 0 &&
                 !busquedaMaterial
                   .trim()
@@ -1726,7 +1599,8 @@ export function NuevaSolicitudModal({
                   </div>
                 )}
 
-              {busquedaMaterial.trim() &&
+              {mostrarBusquedaManual &&
+                busquedaMaterial.trim() &&
                 materialesEncontrados.length === 0 &&
                 !validandoQr &&
                 !busquedaMaterial
@@ -1734,12 +1608,231 @@ export function NuevaSolicitudModal({
                   .toUpperCase()
                   .startsWith("SWA|") && (
                   <div style={noResultsStyle}>
-                    No se encontraron materiales
-                    activos.
+                    No se encontraron materiales activos.
                   </div>
                 )}
             </div>
 
+            {mostrarBusquedaManual && (
+              <div
+                style={{
+                  marginBottom: "20px",
+                  padding: "16px",
+                  border:
+                    "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  background: "#f8fafc",
+                }}
+              >
+                <h3 style={sectionTitleStyle}>
+                  Destino
+                </h3>
+
+                <div
+                  style={{
+                    ...selectorsGridStyle,
+
+                    gridTemplateColumns:
+                      modoMovil
+                        ? "1fr"
+                        : "repeat(auto-fit, minmax(220px, 1fr))",
+
+                    gap:
+                      modoMovil
+                        ? "12px"
+                        : "15px",
+                  }}
+                >
+                  <div style={formGroupStyle}>
+                    <label
+                      htmlFor="nuevoProyecto"
+                      style={labelStyle}
+                    >
+                      Proyecto *
+                    </label>
+
+                    <select
+                      id="nuevoProyecto"
+                      value={
+                        idProyecto > 0
+                          ? idProyecto
+                          : ""
+                      }
+                      onChange={(event) =>
+                        manejarCambioProyecto(
+                          Number(
+                            event.target.value
+                          )
+                        )
+                      }
+                      disabled={enviando}
+                      style={inputStyle}
+                    >
+                      <option value="">
+                        Seleccionar proyecto
+                      </option>
+
+                      {proyectosDisponibles.map(
+                        (proyecto) => (
+                          <option
+                            key={
+                              proyecto.idProyecto
+                            }
+                            value={
+                              proyecto.idProyecto
+                            }
+                          >
+                            {proyecto.nombre}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  <div style={formGroupStyle}>
+                    <label
+                      htmlFor="nuevaFamilia"
+                      style={labelStyle}
+                    >
+                      Familia *
+                    </label>
+
+                    <select
+                      id="nuevaFamilia"
+                      value={
+                        idFamilia > 0
+                          ? idFamilia
+                          : ""
+                      }
+                      onChange={(event) =>
+                        manejarCambioFamilia(
+                          Number(
+                            event.target.value
+                          )
+                        )
+                      }
+                      disabled={
+                        enviando ||
+                        idProyecto <= 0 ||
+                        materiales.length > 0
+                      }
+                      style={inputStyle}
+                    >
+                      <option value="">
+                        {idProyecto > 0
+                          ? "Seleccionar familia"
+                          : "Selecciona un proyecto"}
+                      </option>
+
+                      {familiasDisponibles.map(
+                        (familia) => (
+                          <option
+                            key={
+                              familia.idFamilia
+                            }
+                            value={
+                              familia.idFamilia
+                            }
+                          >
+                            {familia.nombre}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  <div style={formGroupStyle}>
+                    <label
+                      htmlFor="nuevaEstacion"
+                      style={labelStyle}
+                    >
+                      Estación *
+                    </label>
+
+                    <select
+                      id="nuevaEstacion"
+                      value={
+                        idEstacion > 0
+                          ? idEstacion
+                          : ""
+                      }
+                      onChange={(event) => {
+                        setIdEstacion(
+                          Number(
+                            event.target.value
+                          )
+                        );
+
+                        setMaterialPendiente(
+                          null
+                        );
+
+                        setContextoQrPendiente(
+                          null
+                        );
+
+                        setCantidadPendiente("1");
+                        setBusquedaMaterial("");
+                        setError("");
+                      }}
+                      disabled={
+                        enviando ||
+                        idFamilia <= 0
+                      }
+                      style={inputStyle}
+                    >
+                      <option value="">
+                        {idFamilia > 0
+                          ? "Seleccionar estación"
+                          : "Selecciona una familia"}
+                      </option>
+
+                      {estacionesDisponibles.map(
+                        (estacion) => (
+                          <option
+                            key={
+                              estacion.idEstacion
+                            }
+                            value={
+                              estacion.idEstacion
+                            }
+                          >
+                            {estacion.nombre}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {idProyecto > 0 &&
+                  familiasDisponibles.length ===
+                  0 && (
+                    <div style={warningStyle}>
+                      El proyecto no tiene familias activas.
+                    </div>
+                  )}
+
+                {idFamilia > 0 &&
+                  estacionesDisponibles.length ===
+                  0 && (
+                    <div style={warningStyle}>
+                      La familia no tiene estaciones activas.
+                    </div>
+                  )}
+              </div>
+            )}
+
+            <div
+              style={{
+                ...separatorStyle,
+
+                margin:
+                  modoMovil
+                    ? "20px 0"
+                    : "26px 0",
+              }}
+            />
 
             {materialPendiente && (
               <div

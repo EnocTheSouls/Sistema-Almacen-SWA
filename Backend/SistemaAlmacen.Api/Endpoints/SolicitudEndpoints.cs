@@ -856,7 +856,10 @@ public static class SolicitudEndpoints
             policy.RequireRole(
                 "Administrador",
                 "Supervisor",
-                "Materialista"
+                "Materialista",              
+                "Produccion"
+
+                
             ));
 
         // Surte un material específico de una solicitud.

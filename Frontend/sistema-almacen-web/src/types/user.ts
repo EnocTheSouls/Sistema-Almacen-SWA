@@ -1,14 +1,31 @@
 export type UserRole =
   | "ADMIN"
+  | "ADMINISTRADOR"
   | "SUPERVISOR"
-  | "MATERIALISTA";
+  | "MATERIALISTA"
+  | "PRODUCCION"
+  | "SURTIDOR";
 
 export interface User {
-  id: number;
-  username: string;
-  fullName: string;
-  email: string;
-  role: UserRole;
-  active: boolean;
+  idUsuario: number;
+  nombre: string;
+  nombreUsuario: string;
+  idRol: number;
+  nombreRol: string;
+  activo: boolean;
+  fechaRegistro?: string;
 }
-``
+
+export interface CrearUsuarioRequest {
+  nombre: string;
+  nombreUsuario: string;
+  password: string;
+  idRol: number;
+}
+
+export interface ActualizarUsuarioRequest {
+  nombre: string;
+  nombreUsuario: string;
+  idRol: number;
+  activo: boolean;
+}

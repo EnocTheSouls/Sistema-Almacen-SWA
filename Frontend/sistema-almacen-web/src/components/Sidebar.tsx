@@ -35,21 +35,32 @@ export function Sidebar({
 
   const location =
     useLocation();
-
-
-  // Lee el usuario real desde el JWT.
+  // Lee el usuario autenticado desde el JWT.
   const currentUser =
     obtenerUsuarioActual();
 
 
-  const esAdministrador =
-    currentUser?.role === "ADMIN";
-
-  const esMaterialista =
+  const rolActual =
     currentUser?.role
       ?.trim()
-      .toUpperCase() ===
-    "MATERIALISTA";
+      .toUpperCase() ?? "";
+  const esAdministrador =
+    rolActual === "ADMIN" ||
+    rolActual === "ADMINISTRADOR";
+
+  const esSupervisor =
+    rolActual === "SUPERVISOR";
+
+  // Solo controla qué módulos son visibles.
+  const puedeVerModulosAdministrativos =
+    esAdministrador ||
+    esSupervisor;
+
+  const esProduccion =
+    rolActual === "PRODUCCION";
+
+  const esSurtidor =
+    rolActual === "SURTIDOR";
 
 
   // Recupera la preferencia guardada en el navegador.
@@ -459,8 +470,7 @@ export function Sidebar({
             >
               NAVEGACION
             </span>
-
-            {!esMaterialista && (
+            {puedeVerModulosAdministrativos && (
               <Link
                 to="/dashboard"
                 onClick={cerrarMenuMovil}
@@ -472,38 +482,28 @@ export function Sidebar({
               </Link>
             )}
             {esAdministrador && (
-              <>
-                <Link
-                  to="/usuarios"
-                  onClick={cerrarMenuMovil}
-                  style={linkStyle(
-                    "/usuarios"
-                  )}
-                >
-                  Usuarios
-                </Link>
-
-                <Link
-                  to="/proyectos"
-                  onClick={cerrarMenuMovil}
-                  style={linkStyle(
-                    "/proyectos"
-                  )}
-                >
-                  Proyectos
-                </Link>
-              </>
+              <Link
+                to="/usuarios"
+                onClick={cerrarMenuMovil}
+                style={linkStyle(
+                  "/usuarios"
+                )}
+              >
+                Usuarios
+              </Link>
             )}
 
-            <Link
-              to="/materiales"
-              onClick={cerrarMenuMovil}
-              style={linkStyle(
-                "/materiales"
-              )}
-            >
-              Materiales
-            </Link>
+            {puedeVerModulosAdministrativos && (
+              <Link
+                to="/proyectos"
+                onClick={cerrarMenuMovil}
+                style={linkStyle(
+                  "/proyectos"
+                )}
+              >
+                Proyectos
+              </Link>
+            )}
 
             <Link
               to="/solicitudes"
@@ -515,17 +515,33 @@ export function Sidebar({
               Solicitudes
             </Link>
 
-            <Link
-              to="/inventario"
-              onClick={cerrarMenuMovil}
-              style={linkStyle(
-                "/inventario"
-              )}
-            >
-              Inventario
-            </Link>
+            {!esProduccion && (
+              <Link
+                to="/materiales"
+                onClick={cerrarMenuMovil}
+                style={linkStyle(
+                  "/materiales"
+                )}
+              >
+                Materiales
+              </Link>
+            )}
 
-            {esAdministrador && (
+            {(
+              puedeVerModulosAdministrativos ||
+              esSurtidor
+            ) && (
+                <Link
+                  to="/inventario"
+                  onClick={cerrarMenuMovil}
+                  style={linkStyle(
+                    "/inventario"
+                  )}
+                >
+                  Inventario
+                </Link>
+              )}
+            {puedeVerModulosAdministrativos && (
               <Link
                 to="/kardex"
                 onClick={cerrarMenuMovil}

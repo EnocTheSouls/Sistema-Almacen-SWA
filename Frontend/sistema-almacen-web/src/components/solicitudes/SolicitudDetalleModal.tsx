@@ -15,6 +15,10 @@ import type {
     Solicitud,
 } from "../../types/solicitud";
 
+import {
+    obtenerUsuarioActual,
+} from "../../auth/userSession"; 
+
 interface SolicitudDetalleModalProps {
     solicitud: Solicitud;
 
@@ -31,6 +35,22 @@ export function SolicitudDetalleModal({
     onCerrar,
     onSolicitudActualizada,
 }: SolicitudDetalleModalProps) {
+
+    const currentUser =
+        obtenerUsuarioActual();
+
+    const rolActual =
+        currentUser?.role
+            ?.trim()
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(
+                /[\u0300-\u036f]/g,
+                ""
+            ) ?? "";
+
+    const esProduccion =
+        rolActual === "PRODUCCION";
     const [
         solicitudActual,
         setSolicitudActual,
@@ -733,15 +753,17 @@ export function SolicitudDetalleModal({
                                 <th style={thStyle}>
                                     Estación
                                 </th>
+                                {!esProduccion && (
 
-                                <th
-                                    style={{
-                                        ...thStyle,
-                                        width: "150px",
-                                    }}
-                                >
-                                    Registrar surtido
-                                </th>
+                                    <th
+                                        style={{
+                                            ...thStyle,
+                                            width: "150px",
+                                        }}
+                                    >
+                                        Registrar surtido
+                                    </th>
+                                )}
                                 <th
                                     aria-label="Estado o eliminación"
                                     style={{
@@ -879,6 +901,7 @@ export function SolicitudDetalleModal({
                                                             "Sin estación"}
                                                     </strong>
                                                 </td>
+                                                {!esProduccion && (
                                                 <td style={tdStyle}>
                                                     {bolsasPendientes > 0 &&
                                                         solicitudActual.idEstado !== 6 &&
@@ -961,7 +984,7 @@ export function SolicitudDetalleModal({
                                                         </div>
                                                     ) : (
                                                         <span
-                                                            style={{
+                                                             style={{
                                                                 color: "#94a3b8",
                                                                 fontWeight: "700",
                                                             }}
@@ -970,6 +993,7 @@ export function SolicitudDetalleModal({
                                                         </span>
                                                     )}
                                                 </td>
+                                                )}
                                                 <td style={lastColumnStyle}>
                                                     {material.cantidadSurtida === 0 ? (
                                                         <button

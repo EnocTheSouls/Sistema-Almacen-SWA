@@ -1596,65 +1596,8 @@ export function MaterialesPage() {
                           >
                             Eliminar
                           </button>
-
-                          <button
-                            type="button"
-                            title={`Ver etiqueta de ${material.numeroParteMaterial}`}
-                            aria-label={`Ver etiqueta de ${material.numeroParteMaterial}`}
-                            onClick={() => {
-                              setMaterialEtiqueta(
-                                material
-                              );
-                            }}
-                            style={{
-                              width: "34px",
-                              height: "34px",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              marginLeft: "7px",
-                              padding: 0,
-                              border: "none",
-                              borderRadius: 0,
-                              background: "transparent",
-                              color: "#2a302e",
-                              cursor: "pointer",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            <svg
-                              width="17"
-                              height="17"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M6 2h8l4 4v16H6V2Z"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinejoin="round"
-                              />
-
-                              <path
-                                d="M14 2v5h5"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinejoin="round"
-                              />
-
-                              <path
-                                d="M9 12h6M9 16h6"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          </button>
                         </td>
                       )}
-
-
                     </tr>
                   )
                   )}

@@ -21,12 +21,13 @@ export function LoginPage() {
   // Evita enviar el formulario varias veces.
   const [enviando, setEnviando] = useState(false);
 
-  // Procesa el formulario de inicio de sesion.
+  // Procesa el formulario de inicio de sesión.
   async function manejarEnvio(
     evento: FormEvent<HTMLFormElement>,
   ) {
     evento.preventDefault();
     setMensajeError("");
+
     if (!nombreUsuario.trim()) {
       setMensajeError(
         "Ingresa tu nombre de usuario."
@@ -50,7 +51,6 @@ export function LoginPage() {
         await iniciarSesion({
           nombreUsuario:
             nombreUsuario.trim(),
-
           password,
         });
 
@@ -59,13 +59,11 @@ export function LoginPage() {
         respuesta.token
       );
 
-      // Envía al usuario al Dashboard.
-      navigate(
-        "/dashboard",
-        {
-          replace: true,
-        }
-      );
+      // RutaInicial enviará a cada usuario
+      // a la página correspondiente según su rol.
+      navigate("/", {
+        replace: true,
+      });
     } catch (error) {
       if (
         axios.isAxiosError(error) &&
@@ -89,46 +87,8 @@ export function LoginPage() {
     } finally {
       setEnviando(false);
     }
-    try {
-      setEnviando(true);
-
-      // Envia las credenciales al backend.
-      const respuesta = await iniciarSesion({
-        nombreUsuario: nombreUsuario.trim(),
-        password,
-      });
-
-      // Guarda el token JWT recibido.
-      guardarToken(respuesta.token);
-
-      // Envia al usuario al dashboard.
-      navigate("/dashboard", {
-        replace: true,
-      });
-    } catch (error) {
-      if (
-        axios.isAxiosError(error) &&
-        error.response?.status === 401
-      ) {
-        setMensajeError(
-          "El usuario o la contrasena son incorrectos.",
-        );
-      } else if (
-        axios.isAxiosError(error) &&
-        !error.response
-      ) {
-        setMensajeError(
-          "No fue posible conectar con la API. Verifica que el backend este ejecutandose.",
-        );
-      } else {
-        setMensajeError(
-          "Ocurrio un error al iniciar sesion.",
-        );
-      }
-    } finally {
-      setEnviando(false);
-    }
   }
+
   return (
     <main className="login-page">
       <section className="login-card">
