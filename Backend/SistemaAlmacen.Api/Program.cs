@@ -41,6 +41,8 @@ builder.Services.AddScoped<AlertaCambioDisenoRepository>();
 builder.Services.AddScoped<EstacionImportService>();
 builder.Services.AddScoped<MaterialStationImportService>();
 builder.Services.AddControllers();
+builder.Services.AddScoped<MrpRepository>();
+
 
 
 
@@ -142,6 +144,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
 
 // Redirige las solicitudes HTTP hacia HTTPS.
 app.UseHttpsRedirection();
@@ -264,4 +267,7 @@ app.MapMaterialBarcodeExportEndpoints();
 app.MapGroup("/api").MapAlertaCambioDisenoEndpoints();
 app.MapControllers();
 app.MapMaterialStationImportEndpoints();
+app.MapMrpEndpoints();
+
+
 app.Run();

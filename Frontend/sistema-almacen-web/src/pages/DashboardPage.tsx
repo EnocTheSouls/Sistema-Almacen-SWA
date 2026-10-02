@@ -908,7 +908,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#dc2626"
-                    descripcion="Petciones esperando atención"
+                    descripcion="Peticiones esperando atención"
                     compacto={modoMovil}
                     alerta={
                       totalSolicitudesPendientes > 0

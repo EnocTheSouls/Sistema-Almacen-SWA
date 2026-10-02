@@ -333,6 +333,4 @@ VALUES
 ('Faltante', 'Solicitud con material faltante', 'Rojo', TRUE),
 ('Completada', 'Todos los materiales fueron surtidos', 'Verde', TRUE),
 ('Entregada', 'Material entregado a producción', 'Verde', TRUE),
-('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
-
-SHOW CREATE TABLE materiales;
+('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);USE almacen_db;
