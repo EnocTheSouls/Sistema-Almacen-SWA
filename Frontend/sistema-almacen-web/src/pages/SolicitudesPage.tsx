@@ -1313,7 +1313,7 @@ const activeRequestOpenButtonStyle = {
   cursor: "pointer",
   display: "block",
 };
-``
+
 const activeRequestsEmptyStyle = {
   padding: "22px",
   border: "1px dashed #cbd5e1",

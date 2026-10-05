@@ -3,6 +3,10 @@ import {
 } from "../api/apiClient";
 
 export interface RequerimientoMrp {
+  idMaterial: number | null;
+  tipoMaterial: string | null;
+  tipoCoincidencia: string;
+  requiereRevision: boolean;
   idRequerimiento: number;
   idImportacion: number;
   numeroRequisicion: string | null;
@@ -51,6 +55,7 @@ export interface ConsultarMrpParametros {
   fechaHasta?: string;
   pagina?: number;
   tamanoPagina?: number;
+  tipoMaterial?: string;
 }
 
 // Importa el archivo semanal MRP.
@@ -91,7 +96,7 @@ export async function obtenerRequerimientosMrp(
 
 // Obtiene proyectos, familias y fechas disponibles.
 export async function obtenerFiltrosMrp():
-Promise<FiltrosMrp> {
+  Promise<FiltrosMrp> {
   const respuesta =
     await apiClient.get<FiltrosMrp>(
       "/mrp/filtros"

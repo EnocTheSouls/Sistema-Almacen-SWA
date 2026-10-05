@@ -2,6 +2,8 @@ using MySqlConnector;
 using System.Security.Claims;
 using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Dtos;
+using Microsoft.AspNetCore.SignalR;
+using SistemaAlmacen.Api.Hubs;
 
 namespace SistemaAlmacen.Api.Endpoints;
 
@@ -15,6 +17,7 @@ public static class SolicitudEndpoints
         var grupo = app.MapGroup("/api/solicitudes")
             .WithTags("Solicitudes")
             .RequireAuthorization();
+
 
         // Obtiene todas las solicitudes.
         grupo.MapGet("/", async (
@@ -241,459 +244,515 @@ public static class SolicitudEndpoints
             FamiliaRepository familiaRepository,
             EstacionRepository estacionRepository,
             MaterialRepository materialRepository,
-            SolicitudRepository solicitudRepository) =>
-        {
-            // Obtiene el usuario desde el token JWT.
-            var idUsuarioTexto =
-                principal.FindFirstValue(
-                    ClaimTypes.NameIdentifier
-                );
+            SolicitudRepository solicitudRepository,
+            IHubContext<NotificacionHub>
+          notificacionHub) =>
+          {
+              // Obtiene el usuario desde el token JWT.
+              var idUsuarioTexto =
+                  principal.FindFirstValue(
+                      ClaimTypes.NameIdentifier
+                  );
 
-            if (!int.TryParse(
-                idUsuarioTexto,
-                out var idUsuario))
-            {
-                return Results.Unauthorized();
-            }
+              if (!int.TryParse(
+                  idUsuarioTexto,
+                  out var idUsuario))
+              {
+                  return Results.Unauthorized();
+              }
 
-            // Valida el proyecto.
-            if (dto.IdProyecto <= 0)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "El proyecto es obligatorio."
-                });
-            }
+              // Valida el proyecto.
+              if (dto.IdProyecto <= 0)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "El proyecto es obligatorio."
+                  });
+              }
 
-            var proyecto =
-                await proyectoRepository.ObtenerPorIdAsync(
-                    dto.IdProyecto
-                );
+              var proyecto =
+                  await proyectoRepository.ObtenerPorIdAsync(
+                      dto.IdProyecto
+                  );
 
-            if (proyecto is null)
-            {
-                return Results.NotFound(new
-                {
-                    mensaje =
-                        $"No existe un proyecto con el identificador {dto.IdProyecto}."
-                });
-            }
+              if (proyecto is null)
+              {
+                  return Results.NotFound(new
+                  {
+                      mensaje =
+                          $"No existe un proyecto con el identificador {dto.IdProyecto}."
+                  });
+              }
 
-            if (!proyecto.Activo)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "No se pueden crear solicitudes para un proyecto inactivo."
-                });
-            }
+              if (!proyecto.Activo)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "No se pueden crear solicitudes para un proyecto inactivo."
+                  });
+              }
 
-            // Valida la familia.
-            if (dto.IdFamilia <= 0)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La familia es obligatoria."
-                });
-            }
+              // Valida la familia.
+              if (dto.IdFamilia <= 0)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La familia es obligatoria."
+                  });
+              }
 
-            var familia =
-                await familiaRepository.ObtenerPorIdAsync(
-                    dto.IdFamilia
-                );
+              var familia =
+                  await familiaRepository.ObtenerPorIdAsync(
+                      dto.IdFamilia
+                  );
 
-            if (familia is null)
-            {
-                return Results.NotFound(new
-                {
-                    mensaje =
-                        $"No existe una familia con el identificador {dto.IdFamilia}."
-                });
-            }
+              if (familia is null)
+              {
+                  return Results.NotFound(new
+                  {
+                      mensaje =
+                          $"No existe una familia con el identificador {dto.IdFamilia}."
+                  });
+              }
 
-            if (!familia.Activo)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "No se pueden crear solicitudes para una familia inactiva."
-                });
-            }
+              if (!familia.Activo)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "No se pueden crear solicitudes para una familia inactiva."
+                  });
+              }
 
-            // La familia debe pertenecer al proyecto.
-            if (familia.IdProyecto != dto.IdProyecto)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La familia seleccionada no pertenece al proyecto indicado."
-                });
-            }
+              // La familia debe pertenecer al proyecto.
+              if (familia.IdProyecto != dto.IdProyecto)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La familia seleccionada no pertenece al proyecto indicado."
+                  });
+              }
 
-            // Valida la estación.
-            if (dto.IdEstacion <= 0)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La estación es obligatoria."
-                });
-            }
+              // Valida la estación.
+              if (dto.IdEstacion <= 0)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La estación es obligatoria."
+                  });
+              }
 
-            var estacion =
-                await estacionRepository.ObtenerPorIdAsync(
-                    dto.IdEstacion
-                );
+              var estacion =
+                  await estacionRepository.ObtenerPorIdAsync(
+                      dto.IdEstacion
+                  );
 
-            if (estacion is null)
-            {
-                return Results.NotFound(new
-                {
-                    mensaje =
-                        $"No existe una estación con el identificador {dto.IdEstacion}."
-                });
-            }
+              if (estacion is null)
+              {
+                  return Results.NotFound(new
+                  {
+                      mensaje =
+                          $"No existe una estación con el identificador {dto.IdEstacion}."
+                  });
+              }
 
-            if (!estacion.Activo)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "No se pueden crear solicitudes para una estación inactiva."
-                });
-            }
+              if (!estacion.Activo)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "No se pueden crear solicitudes para una estación inactiva."
+                  });
+              }
 
-            // La estación debe pertenecer a la familia.
-            if (estacion.IdFamilia != dto.IdFamilia)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La estación seleccionada no pertenece a la familia indicada."
-                });
-            }
+              // La estación debe pertenecer a la familia.
+              if (estacion.IdFamilia != dto.IdFamilia)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La estación seleccionada no pertenece a la familia indicada."
+                  });
+              }
 
-            // Valida el origen de la solicitud.
-            if (string.IsNullOrWhiteSpace(
-                dto.OrigenSolicitud))
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "El origen de la solicitud es obligatorio."
-                });
-            }
+              // Valida el origen de la solicitud.
+              if (string.IsNullOrWhiteSpace(
+                  dto.OrigenSolicitud))
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "El origen de la solicitud es obligatorio."
+                  });
+              }
 
-            var origenSolicitud =
-                dto.OrigenSolicitud
-                    .Trim()
-                    .ToUpperInvariant();
+              var origenSolicitud =
+                  dto.OrigenSolicitud
+                      .Trim()
+                      .ToUpperInvariant();
 
-            if (origenSolicitud != "ESCANEO" &&
-                origenSolicitud != "MANUAL")
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "El origen de la solicitud debe ser ESCANEO o MANUAL."
-                });
-            }
+              if (origenSolicitud != "ESCANEO" &&
+                  origenSolicitud != "MANUAL")
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "El origen de la solicitud debe ser ESCANEO o MANUAL."
+                  });
+              }
 
-            // La solicitud debe incluir materiales.
-            if (dto.Materiales is null ||
-                dto.Materiales.Count == 0)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La solicitud debe incluir al menos un material."
-                });
-            }
+              // La solicitud debe incluir materiales.
+              if (dto.Materiales is null ||
+                  dto.Materiales.Count == 0)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La solicitud debe incluir al menos un material."
+                  });
+              }
 
-            // Solo considera duplicado el mismo material
-            // dentro del mismo contexto BOM y estación.
-            var materialesDuplicados =
-                dto.Materiales
-                    .GroupBy(detalle => new
-                    {
-                        detalle.IdMaterial,
-                        detalle.IdBomDetalle,
-                        detalle.IdEstacion
-                    })
-                    .Where(
-                        grupoMaterial =>
-                            grupoMaterial.Count() > 1
-                    )
-                    .Select(grupoMaterial => new
-                    {
-                        grupoMaterial.Key.IdMaterial,
-                        grupoMaterial.Key.IdBomDetalle,
-                        grupoMaterial.Key.IdEstacion
-                    })
-                    .ToList();
-
-
-
-            if (materialesDuplicados.Count > 0)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La solicitud no puede contener materiales duplicados.",
-                    materialesDuplicados
-                });
-            }
-
-            // Valida individualmente los materiales.
-            foreach (var detalle in dto.Materiales)
-            {
-                if (detalle.IdMaterial <= 0)
-                {
-                    return Results.BadRequest(new
-                    {
-                        mensaje =
-                            "Todos los materiales deben tener un identificador válido."
-                    });
-                }
-                if (detalle.RequiereCantidad)
-                {
-                    if (
-                        !detalle.CantidadBolsas.HasValue ||
-                        detalle.CantidadBolsas.Value <= 0
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"Debes seleccionar al menos una bolsa para el material {detalle.IdMaterial}."
-                        });
-                    }
-
-                    if (
-                        !detalle.StdPackHistorico.HasValue ||
-                        detalle.StdPackHistorico.Value <= 0
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"El material {detalle.IdMaterial} no tiene un Standard Pack válido."
-                        });
-                    }
-
-                    var cantidadCalculada =
-                        detalle.CantidadBolsas.Value *
-                        detalle.StdPackHistorico.Value;
-
-                    if (
-                        detalle.CantidadSolicitada !=
-                        cantidadCalculada
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"La cantidad del material {detalle.IdMaterial} no coincide con las bolsas seleccionadas."
-                        });
-                    }
-
-                    if (
-                        detalle.CantidadSolicitada <= 0 ||
-                        detalle.CantidadSolicitada !=
-                            decimal.Truncate(
-                                detalle.CantidadSolicitada
-                            )
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"La cantidad calculada del material {detalle.IdMaterial} debe ser un número entero mayor que cero."
-                        });
-                    }
-                }
-                else
-                {
-                    if (
-                        detalle.CantidadSolicitada != 0 ||
-                        detalle.CantidadBolsas.HasValue ||
-                        detalle.StdPackHistorico.HasValue
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"El material {detalle.IdMaterial} no utiliza cantidad ni bolsas."
-                        });
-                    }
-                }
+              // Solo considera duplicado el mismo material
+              // dentro del mismo contexto BOM y estación.
+              var materialesDuplicados =
+                  dto.Materiales
+                      .GroupBy(detalle => new
+                      {
+                          detalle.IdMaterial,
+                          detalle.IdBomDetalle,
+                          detalle.IdEstacion
+                      })
+                      .Where(
+                          grupoMaterial =>
+                              grupoMaterial.Count() > 1
+                      )
+                      .Select(grupoMaterial => new
+                      {
+                          grupoMaterial.Key.IdMaterial,
+                          grupoMaterial.Key.IdBomDetalle,
+                          grupoMaterial.Key.IdEstacion
+                      })
+                      .ToList();
 
 
 
+              if (materialesDuplicados.Count > 0)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La solicitud no puede contener materiales duplicados.",
+                      materialesDuplicados
+                  });
+              }
 
+              // Valida individualmente los materiales.
+              foreach (var detalle in dto.Materiales)
+              {
+                  if (detalle.IdMaterial <= 0)
+                  {
+                      return Results.BadRequest(new
+                      {
+                          mensaje =
+                              "Todos los materiales deben tener un identificador válido."
+                      });
+                  }
+                  if (detalle.RequiereCantidad)
+                  {
+                      if (
+                          !detalle.CantidadBolsas.HasValue ||
+                          detalle.CantidadBolsas.Value <= 0
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"Debes seleccionar al menos una bolsa para el material {detalle.IdMaterial}."
+                          });
+                      }
+
+                      if (
+                          !detalle.StdPackHistorico.HasValue ||
+                          detalle.StdPackHistorico.Value <= 0
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"El material {detalle.IdMaterial} no tiene un Standard Pack válido."
+                          });
+                      }
+
+                      var cantidadCalculada =
+                          detalle.CantidadBolsas.Value *
+                          detalle.StdPackHistorico.Value;
+
+                      if (
+                          detalle.CantidadSolicitada !=
+                          cantidadCalculada
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"La cantidad del material {detalle.IdMaterial} no coincide con las bolsas seleccionadas."
+                          });
+                      }
+
+                      if (
+                          detalle.CantidadSolicitada <= 0 ||
+                          detalle.CantidadSolicitada !=
+                              decimal.Truncate(
+                                  detalle.CantidadSolicitada
+                              )
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"La cantidad calculada del material {detalle.IdMaterial} debe ser un número entero mayor que cero."
+                          });
+                      }
+                  }
+                  else
+                  {
+                      if (
+                          detalle.CantidadSolicitada != 0 ||
+                          detalle.CantidadBolsas.HasValue ||
+                          detalle.StdPackHistorico.HasValue
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"El material {detalle.IdMaterial} no utiliza cantidad ni bolsas."
+                          });
+                      }
+                  }
 
 
 
 
-                // Los materiales escaneados deben incluir
-                // el contexto completo obtenido del QR.
-                if (origenSolicitud == "ESCANEO")
-                {
-                    if (
-                        !detalle.IdBomDetalle.HasValue ||
-                        detalle.IdBomDetalle.Value <= 0
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"El material {detalle.IdMaterial} no contiene un detalle BOM válido."
-                        });
-                    }
-
-                    if (
-                        !detalle.IdArnes.HasValue ||
-                        detalle.IdArnes.Value <= 0
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"El material {detalle.IdMaterial} no contiene un arnés válido."
-                        });
-                    }
-
-                    if (
-                        !detalle.IdEstacion.HasValue ||
-                        detalle.IdEstacion.Value <= 0
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"El material {detalle.IdMaterial} no contiene una estación válida."
-                        });
-                    }
-                }
-                else
-                {
-                    // La captura manual puede no tener
-                    // contexto BOM, arnés o estación.
-                    // Si contiene alguno, deben venir todos.
-                    var tieneAlgunContexto =
-                        detalle.IdBomDetalle.HasValue ||
-                        detalle.IdArnes.HasValue ||
-                        detalle.IdEstacion.HasValue;
-
-                    var tieneContextoCompleto =
-                        detalle.IdBomDetalle.HasValue &&
-                        detalle.IdArnes.HasValue &&
-                        detalle.IdEstacion.HasValue;
-
-                    if (
-                        tieneAlgunContexto &&
-                        !tieneContextoCompleto
-                    )
-                    {
-                        return Results.BadRequest(new
-                        {
-                            mensaje =
-                                $"El contexto del material {detalle.IdMaterial} está incompleto."
-                        });
-                    }
-                }
 
 
-                var material =
-                    await materialRepository.ObtenerPorIdAsync(
-                        detalle.IdMaterial
-                    );
 
-                if (material is null)
-                {
-                    return Results.NotFound(new
-                    {
-                        mensaje =
-                            $"No existe un material con el identificador {detalle.IdMaterial}."
-                    });
-                }
 
-                if (!material.Activo)
-                {
-                    return Results.BadRequest(new
-                    {
-                        mensaje =
-                            $"El material {material.NumeroParteMaterial} está inactivo."
-                    });
-                }
-            }
+                  // Los materiales escaneados deben incluir
+                  // el contexto completo obtenido del QR.
+                  if (origenSolicitud == "ESCANEO")
+                  {
+                      if (
+                          !detalle.IdBomDetalle.HasValue ||
+                          detalle.IdBomDetalle.Value <= 0
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"El material {detalle.IdMaterial} no contiene un detalle BOM válido."
+                          });
+                      }
 
-            try
-            {
-                var solicitudCreada =
-                    await solicitudRepository.CrearAsync(
-                        dto.IdProyecto,
-                        dto.IdFamilia,
-                        dto.IdEstacion,
-                        idUsuario,
-                        origenSolicitud,
-                        dto.Materiales
-                    );
+                      if (
+                          !detalle.IdArnes.HasValue ||
+                          detalle.IdArnes.Value <= 0
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"El material {detalle.IdMaterial} no contiene un arnés válido."
+                          });
+                      }
 
-                if (solicitudCreada is null)
-                {
-                    return Results.Problem(
-                        title:
-                            "No se obtuvo la solicitud creada",
-                        detail:
-                            "La solicitud fue registrada, pero no pudo consultarse.",
-                        statusCode:
-                            StatusCodes.Status500InternalServerError
-                    );
-                }
+                      if (
+                          !detalle.IdEstacion.HasValue ||
+                          detalle.IdEstacion.Value <= 0
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"El material {detalle.IdMaterial} no contiene una estación válida."
+                          });
+                      }
+                  }
+                  else
+                  {
+                      // La captura manual puede no tener
+                      // contexto BOM, arnés o estación.
+                      // Si contiene alguno, deben venir todos.
+                      var tieneAlgunContexto =
+                          detalle.IdBomDetalle.HasValue ||
+                          detalle.IdArnes.HasValue ||
+                          detalle.IdEstacion.HasValue;
 
-                return Results.Created(
-                    $"/api/solicitudes/{solicitudCreada.IdSolicitud}",
-                    solicitudCreada
-                );
-            }
-            catch (MySqlException ex)
-                when (ex.Number == 1062)
-            {
-                return Results.Conflict(new
-                {
-                    mensaje =
-                        "La solicitud contiene un material duplicado."
-                });
-            }
-            catch (MySqlException ex)
-                when (ex.Number == 3819)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje =
-                        "La solicitud no cumple las restricciones de la base de datos."
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.BadRequest(new
-                {
-                    mensaje = ex.Message
-                });
-            }
+                      var tieneContextoCompleto =
+                          detalle.IdBomDetalle.HasValue &&
+                          detalle.IdArnes.HasValue &&
+                          detalle.IdEstacion.HasValue;
 
-        })
-        .WithName("CrearSolicitud")
-        .RequireAuthorization(policy =>
-            policy.RequireRole(
-                "Administrador",
-                "Supervisor",
-                "Materialista",
-                "Produccion"
-            ));
+                      if (
+                          tieneAlgunContexto &&
+                          !tieneContextoCompleto
+                      )
+                      {
+                          return Results.BadRequest(new
+                          {
+                              mensaje =
+                                  $"El contexto del material {detalle.IdMaterial} está incompleto."
+                          });
+                      }
+                  }
+
+
+                  var material =
+                      await materialRepository.ObtenerPorIdAsync(
+                          detalle.IdMaterial
+                      );
+
+                  if (material is null)
+                  {
+                      return Results.NotFound(new
+                      {
+                          mensaje =
+                              $"No existe un material con el identificador {detalle.IdMaterial}."
+                      });
+                  }
+
+                  if (!material.Activo)
+                  {
+                      return Results.BadRequest(new
+                      {
+                          mensaje =
+                              $"El material {material.NumeroParteMaterial} está inactivo."
+                      });
+                  }
+              }
+
+              try
+              {
+                  var solicitudCreada =
+                      await solicitudRepository.CrearAsync(
+                          dto.IdProyecto,
+                          dto.IdFamilia,
+                          dto.IdEstacion,
+                          idUsuario,
+                          origenSolicitud,
+                          dto.Materiales
+                      );
+
+                  if (solicitudCreada is null)
+                  {
+                      return Results.Problem(
+                          title:
+                              "No se obtuvo la solicitud creada",
+                          detail:
+                              "La solicitud fue registrada, pero no pudo consultarse.",
+                          statusCode:
+                              StatusCodes.Status500InternalServerError
+                      );
+                  }
+
+                  // Prepara el aviso en tiempo real.
+                  var notificacion =
+                      new
+                      {
+                          tipo =
+                              "SOLICITUD_NUEVA",
+
+                          titulo =
+                              "Nueva solicitud de materiales",
+
+                          mensaje =
+                              $"Se creó la solicitud " +
+                              $"#{solicitudCreada.IdSolicitud}.",
+
+                          idSolicitud =
+                              solicitudCreada.IdSolicitud,
+
+                          proyecto =
+                              proyecto.Nombre,
+
+                          familia =
+                              familia.Nombre,
+
+                          estacion =
+                              estacion.Nombre,
+
+                          fecha =
+                              DateTime.Now
+                      };
+
+                  // Envía el aviso a los perfiles operativos.
+                  var rolesDestino =
+                      new[]
+                      {
+                        "Administrador",
+                        "Supervisor",
+                        "Materialista",
+                        "Surtidor"
+                      };
+
+                  foreach (
+                      var rolDestino
+                      in rolesDestino
+                  )
+                  {
+                      await notificacionHub
+                          .Clients
+                          .Group(rolDestino)
+                          .SendAsync(
+                              "SolicitudCreada",
+                              notificacion
+                          );
+                  }
+
+                  return Results.Created(
+                      $"/api/solicitudes/{solicitudCreada.IdSolicitud}",
+                      solicitudCreada
+                  );
+              }
+              catch (MySqlException ex)
+                  when (ex.Number == 1062)
+              {
+                  return Results.Conflict(new
+                  {
+                      mensaje =
+                          "La solicitud contiene un material duplicado."
+                  });
+              }
+              catch (MySqlException ex)
+                  when (ex.Number == 3819)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje =
+                          "La solicitud no cumple las restricciones de la base de datos."
+                  });
+              }
+              catch (InvalidOperationException ex)
+              {
+                  return Results.BadRequest(new
+                  {
+                      mensaje = ex.Message
+                  });
+              }
+
+          })
+          .WithName("CrearSolicitud")
+          .RequireAuthorization(policy =>
+              policy.RequireRole(
+                  "Administrador",
+                  "Supervisor",
+                  "Materialista",
+                  "Produccion"
+              ));
         // Cambia el estado operativo de una solicitud.
         grupo.MapPatch(
             "/{idSolicitud:long}/estado",
@@ -856,10 +915,10 @@ public static class SolicitudEndpoints
             policy.RequireRole(
                 "Administrador",
                 "Supervisor",
-                "Materialista",              
+                "Materialista",
                 "Produccion"
 
-                
+
             ));
 
         // Surte un material específico de una solicitud.
@@ -997,13 +1056,14 @@ public static class SolicitudEndpoints
                 solicitud = resultado.Solicitud
             });
         })
-        .WithName("SurtirDetalleSolicitud")
+      .WithName("SurtirDetalleSolicitud")
         .RequireAuthorization(policy =>
             policy.RequireRole(
                 "Administrador",
                 "Supervisor",
-                "Materialista"
-            ));
+                "Materialista",
+                "Surtidor"
+    ));
         // Elimina un material individual no surtido.
         grupo.MapDelete(
             "/{idSolicitud:long}/materiales/{idDetalle:long}",

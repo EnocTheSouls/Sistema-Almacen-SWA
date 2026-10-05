@@ -2318,7 +2318,7 @@ export function MaterialesPage() {
                         </strong>
                       </span>
                     </div>
-                  </div>
+                  </div>  
                 )}
 
                 <div style={modalActionsStyle}>

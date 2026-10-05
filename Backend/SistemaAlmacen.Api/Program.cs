@@ -8,6 +8,8 @@ using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Endpoints;
 using SistemaAlmacen.Api.Models;
 using SistemaAlmacen.Api.Services;
+using SistemaAlmacen.Api.Hubs;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,7 +33,7 @@ builder.Services.AddScoped<EstacionRepository>();
 builder.Services.AddScoped<SolicitudRepository>();
 builder.Services.AddScoped<MovimientoInventarioRepository>();
 builder.Services.AddScoped<ImportacionBomRepository>();
-builder.Services.AddScoped<ImportacionFiveMfRepository>();  
+builder.Services.AddScoped<ImportacionFiveMfRepository>();
 builder.Services.AddScoped<BomRepository>();
 builder.Services.AddScoped<BomImportService>();
 builder.Services.AddScoped<FiveMfImportService>();
@@ -42,9 +44,29 @@ builder.Services.AddScoped<EstacionImportService>();
 builder.Services.AddScoped<MaterialStationImportService>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<MrpRepository>();
+builder.Services.AddSignalR();
+// Habilita las reglas de autorización.
+builder.Services.AddAuthorization();
 
-
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "FrontendRed",
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://172.30.83.26:5173",
+                    "http://172.30.83.26:5174",
+                    "http://localhost:5173",
+                    "http://localhost:5174"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    );
+});
 
 // Registra la protección de contraseñas.
 builder.Services.AddScoped<PasswordHasher<Usuario>>();
@@ -102,43 +124,48 @@ builder.Services
                 // Rechaza el token inmediatamente al vencer.
                 ClockSkew = TimeSpan.Zero
             };
-    });
-
-// Habilita las reglas de autorización.
-builder.Services.AddAuthorization();
-// Permite que el frontend local consuma la API.
-builder.Services.AddCors(options =>
+        options.Events =
+new JwtBearerEvents
 {
-    options.AddPolicy("FrontendLocal", policy =>
-    {
-        policy
-            .WithOrigins("http://localhost:5173")
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
-
-// Permite temporalmente solicitudes desde la red local.
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(
-        "RedLocal",
-        policy =>
+    OnMessageReceived =
+        context =>
         {
-            policy
-                .AllowAnyOrigin()
-                .AllowAnyHeader()
-                .AllowAnyMethod();
+            var accessToken =
+                context.Request.Query[
+                    "access_token"
+                ];
+
+            var path =
+                context.HttpContext
+                    .Request
+                    .Path;
+
+            if (
+                !string.IsNullOrWhiteSpace(
+                    accessToken
+                ) &&
+                path.StartsWithSegments(
+                    "/hubs/notificaciones"
+                )
+            )
+            {
+                context.Token =
+                    accessToken;
+            }
+
+            return Task.CompletedTask;
         }
-    );
-});
+};
+    });
 
 var app = builder.Build();
 
-app.UseCors("RedLocal");
+// Permite que React y SignalR
+// se conecten con la API.
+app.UseCors(
+    "FrontendRed"
+);
 
-// Aplica CORS antes de validar el JWT.
-app.UseCors("FrontendLocal");
 
 if (app.Environment.IsDevelopment())
 {
@@ -147,7 +174,7 @@ if (app.Environment.IsDevelopment())
 
 
 // Redirige las solicitudes HTTP hacia HTTPS.
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // Activa la validación de identidad y permisos.
 app.UseAuthentication();
@@ -268,6 +295,5 @@ app.MapGroup("/api").MapAlertaCambioDisenoEndpoints();
 app.MapControllers();
 app.MapMaterialStationImportEndpoints();
 app.MapMrpEndpoints();
-
-
+app.MapHub<NotificacionHub>("/hubs/notificaciones");
 app.Run();

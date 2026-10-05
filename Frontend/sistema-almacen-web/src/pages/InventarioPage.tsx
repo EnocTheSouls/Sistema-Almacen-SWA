@@ -79,6 +79,11 @@ export function InventarioPage() {
     familia,
     setFamilia,
   ] = useState("");
+ 
+  const [
+    tipoMaterial,
+    setTipoMaterial,
+  ] = useState("");
 
   const [
     tipoPeriodo,
@@ -125,7 +130,7 @@ export function InventarioPage() {
   const [
     mensajeExito,
     setMensajeExito,
-  ] = useState("");
+  ] = useState(""); 
 
   const tamanoPagina = 50;
 
@@ -157,7 +162,7 @@ export function InventarioPage() {
         setError(
           obtenerMensajeError(
             errorFiltros,
-            "No se pudieron cargar los filtros del plan semanal."
+            "No se pudieron cargar los filtros del plan ."
           )
         );
       }
@@ -190,6 +195,10 @@ export function InventarioPage() {
 
             familia:
               familia ||
+              undefined,
+
+            tipoMaterial:
+              tipoMaterial ||
               undefined,
 
             fechaDesde:
@@ -232,7 +241,7 @@ export function InventarioPage() {
         setError(
           obtenerMensajeError(
             errorCarga,
-            "No se pudo cargar el plan semanal de surtido."
+            "No se pudo cargar el plan de surtido."
           )
         );
       } finally {
@@ -255,6 +264,7 @@ export function InventarioPage() {
     tipoPeriodo,
     proyecto,
     familia,
+    tipoMaterial,
   ]);
 
   const manejarBusqueda = () => {
@@ -266,6 +276,7 @@ export function InventarioPage() {
     setBusqueda("");
     setProyecto("");
     setFamilia("");
+    setTipoMaterial("");
     setTipoPeriodo("SEMANA");
 
     setFechaSeleccionada(
@@ -283,7 +294,7 @@ export function InventarioPage() {
   ) => {
     if (!puedeImportar) {
       setError(
-        "Solo Administrador o Supervisor puede importar el archivo semanal."
+        "Solo Administrador o Supervisor puede importar el archivo ."
       );
       return;
     }
@@ -303,7 +314,7 @@ export function InventarioPage() {
 
     const confirmar =
       window.confirm(
-        `¿Importar el archivo semanal ${archivo.name}?`
+        `¿Importar el archivo ${archivo.name}?`
       );
 
     if (!confirmar) {
@@ -361,7 +372,7 @@ export function InventarioPage() {
       setError(
         obtenerMensajeError(
           errorImportacion,
-          "No se pudo importar el archivo semanal."
+          "No se pudo importar el archivo ."
         )
       );
     } finally {
@@ -387,7 +398,7 @@ export function InventarioPage() {
           <header style={headerStyle}>
             <div>
               <h1 style={titleStyle}>
-                Plan semanal de surtido
+                Plan de surtido
               </h1>
 
               <p style={descriptionStyle}>
@@ -440,7 +451,7 @@ export function InventarioPage() {
                 >
                   {importando
                     ? "Importando..."
-                    : "Importar archivo semanal"}
+                    : "Importar archivo"}
                 </button>
               </>
             )}
@@ -580,6 +591,51 @@ export function InventarioPage() {
                   ))}
               </select>
             </div>
+            <div style={formGroupStyle}>
+              <label
+                htmlFor="tipoMaterialMrp"
+                style={labelStyle}
+              >
+                Tipo de material
+              </label>
+
+              <select
+                id="tipoMaterialMrp"
+                value={tipoMaterial}
+                onChange={(event) => {
+                  setTipoMaterial(
+                    event.target.value
+                  );
+
+                  setPagina(1);
+                }}
+                style={inputStyle}
+              >
+                <option value="">
+                  Todos
+                </option>
+
+                <option value="C">
+                  C
+                </option>
+
+                <option value="P">
+                  P
+                </option>
+
+                <option value="S">
+                  S
+                </option>
+
+                <option value="W">
+                  W
+                </option>
+              </select>
+            </div>
+
+
+
+
 
             <div style={formGroupStyle}>
               <label
@@ -723,6 +779,9 @@ export function InventarioPage() {
                     <th style={thStyle}>
                       Proyecto
                     </th>
+                    <th style={thStyle}>
+                      Tipo
+                    </th>
 
                     <th style={thStyle}>
                       ETA
@@ -761,6 +820,26 @@ export function InventarioPage() {
                         <td style={tdStyle}>
                           {registro.nombreMaterial ??
                             "Sin descripción"}
+                        </td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              ...materialTypeStyle,
+
+                              background:
+                                obtenerColorTipo(
+                                  registro.tipoMaterial
+                                ).fondo,
+
+                              color:
+                                obtenerColorTipo(
+                                  registro.tipoMaterial
+                                ).texto,
+                            }}
+                          >
+                            {registro.tipoMaterial ??
+                              "Pendiente"}
+                          </span>
                         </td>
 
                         <td style={tdStyle}>
@@ -1047,6 +1126,42 @@ function obtenerMensajeError(
   return mensajePredeterminado;
 }
 
+function obtenerColorTipo(
+  tipo: string | null
+) {
+  switch (tipo) {
+    case "C":
+      return {
+        fondo: "#dbeafe",
+        texto: "#1d4ed8",
+      };
+
+    case "P":
+      return {
+        fondo: "#fef3c7",
+        texto: "#92400e",
+      };
+
+    case "S":
+      return {
+        fondo: "#dcfce7",
+        texto: "#166534",
+      };
+
+    case "W":
+      return {
+        fondo: "#f3e8ff",
+        texto: "#7e22ce",
+      };
+
+    default:
+      return {
+        fondo: "#f1f5f9",
+        texto: "#64748b",
+      };
+  }
+}
+
 const pageContainerStyle = {
   width: "100%",
   maxWidth: "1450px",
@@ -1308,4 +1423,14 @@ const paginationTextStyle = {
   color: "#475569",
   fontSize: "13px",
   fontWeight: "700",
+};
+
+const materialTypeStyle = {
+  display: "inline-block",
+  minWidth: "30px",
+  padding: "5px 8px",
+  borderRadius: "999px",
+  fontSize: "11px",
+  fontWeight: "900",
+  textAlign: "center" as const,
 };

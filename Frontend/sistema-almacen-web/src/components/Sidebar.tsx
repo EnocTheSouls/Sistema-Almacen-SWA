@@ -538,7 +538,7 @@ export function Sidebar({
                     "/inventario"
                   )}
                 >
-                  Inventario
+                  Plan MRP
                 </Link>
               )}
             {puedeVerModulosAdministrativos && (

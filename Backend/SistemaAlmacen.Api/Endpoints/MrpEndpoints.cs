@@ -506,63 +506,67 @@ public static class MrpEndpoints
                     "Supervisor"
                 )
         );
-
-        // Consulta el plan vigente con filtros.
         grupo.MapGet(
-            "/requerimientos",
-            async (
-                string? busqueda,
-                string? proyecto,
-                string? familia,
-                DateTime? fechaDesde,
-                DateTime? fechaHasta,
-                int? pagina,
-                int? tamanoPagina,
-                MrpRepository repository) =>
-            {
-                if (
-                    fechaDesde.HasValue &&
-                    fechaHasta.HasValue &&
-                    fechaDesde.Value.Date >
-                    fechaHasta.Value.Date
-                )
-                {
-                    return Results.BadRequest(
-                        new
-                        {
-                            mensaje =
-                                "La fecha inicial no puede ser posterior a la fecha final."
-                        }
-                    );
-                }
-
-                var resultado =
-                    await repository
-                        .ObtenerRequerimientosAsync(
-                            busqueda,
-                            proyecto,
-                            familia,
-                            fechaDesde,
-                            fechaHasta,
-                            pagina ?? 1,
-                            tamanoPagina ?? 50
-                        );
-
-                return Results.Ok(
-                    resultado
-                );
-            }
+    "/requerimientos",
+    async (
+        string? busqueda,
+        string? proyecto,
+        string? familia,
+        string? tipoMaterial,
+        DateTime? fechaDesde,
+        DateTime? fechaHasta,
+        int? pagina,
+        int? tamanoPagina,
+        MrpRepository repository) =>
+    {
+        if (
+            fechaDesde.HasValue &&
+            fechaHasta.HasValue &&
+            fechaDesde.Value.Date >
+            fechaHasta.Value.Date
         )
-        .WithName("ObtenerRequerimientosMrp")
-        .RequireAuthorization(
-            policy =>
-                policy.RequireRole(
-                    "Administrador",
-                    "Supervisor",
-                    "Materialista",
-                    "Surtidor"
-                )
+        {
+            return Results.BadRequest(
+                new
+                {
+                    mensaje =
+                        "La fecha inicial no puede ser posterior a la fecha final."
+                }
+            );
+        }
+
+        var resultado =
+            await repository
+                .ObtenerRequerimientosAsync(
+                    busqueda,
+                    proyecto,
+                    familia,
+                    tipoMaterial,
+                    fechaDesde,
+                    fechaHasta,
+                    pagina ?? 1,
+                    tamanoPagina ?? 50
+                );
+
+        return Results.Ok(
+            resultado
         );
+    }
+)
+.WithName("ObtenerRequerimientosMrp")
+.RequireAuthorization(
+    policy =>
+        policy.RequireRole(
+            "Administrador",
+            "Supervisor",
+            "Materialista",
+            "Surtidor"
+        )
+);
+
+
+
+
 
         // Devuelve proyectos, familias y periodo vigente.
         grupo.MapGet(

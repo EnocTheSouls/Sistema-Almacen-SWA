@@ -50,10 +50,10 @@ export function obtenerUsuarioActual():
       padding === 0
         ? payloadCodificado
         : payloadCodificado.padEnd(
-            payloadCodificado.length +
-              (4 - padding),
-            "="
-          );
+          payloadCodificado.length +
+          (4 - padding),
+          "="
+        );
 
     const payload =
       JSON.parse(
@@ -205,6 +205,12 @@ function normalizarRol(
     "SUPERVISOR"
   ) {
     return "SUPERVISOR";
+  }
+  if (
+    rolNormalizado ===
+    "SURTIDOR"
+  ) {
+    return "SURTIDOR";
   }
 
   return rolNormalizado ||

@@ -9,6 +9,10 @@ import {
 import { Layout } from "../components/Layout";
 
 import {
+  useNotifications,
+} from "../components/notificationContext";
+
+import {
   SolicitudDetalleModal,
 } from "../components/solicitudes/SolicitudDetalleModal";
 
@@ -53,7 +57,7 @@ interface ConfiguracionDashboard {
 
 const configuracionInicial: ConfiguracionDashboard = {
   actualizacionAutomatica: true,
-  segundosActualizacion: 5,
+  segundosActualizacion: 30,
   limiteAmarillo: 10,
   limiteNaranja: 20,
   limiteRojo: 30,
@@ -65,6 +69,23 @@ export function DashboardPage() {
   // Lee el usuario autenticado desde el JWT.
   const currentUser =
     obtenerUsuarioActual();
+
+
+  const {
+    notificaciones,
+    totalNuevas,
+    sonidoActivo,
+    activarSonido,
+    limpiarNotificaciones,
+  } = useNotifications();
+
+  const ultimaNotificacionProcesada =
+    useRef<number | null>(
+      null
+    );
+
+
+
 
   const esAdministrador =
     currentUser?.role
@@ -264,6 +285,68 @@ export function DashboardPage() {
   useEffect(() => {
     cargarDatos(true);
   }, [cargarDatos]);
+
+  // Recarga el Dashboard cuando SignalR
+  // informa que se creó una solicitud.
+  useEffect(() => {
+    const ultimaNotificacion =
+      notificaciones[0];
+
+    if (!ultimaNotificacion) {
+      return;
+    }
+
+    if (
+      ultimaNotificacionProcesada.current ===
+      ultimaNotificacion.idSolicitud
+    ) {
+      return;
+    }
+
+    ultimaNotificacionProcesada.current =
+      ultimaNotificacion.idSolicitud;
+
+    setMensajeExito(
+      `Nueva solicitud #${ultimaNotificacion.idSolicitud}: ` +
+      `${ultimaNotificacion.proyecto} / ` +
+      `${ultimaNotificacion.familia}.`
+    );
+
+    const temporizador =
+      window.setTimeout(() => {
+        cargarDatos(false);
+      }, 250);
+
+    return () => {
+      window.clearTimeout(
+        temporizador
+      );
+    };
+  }, [
+    notificaciones,
+    cargarDatos,
+  ]);
+
+  // Oculta el aviso visual después
+  // de siete segundos.
+  useEffect(() => {
+    if (!mensajeExito) {
+      return;
+    }
+
+    const temporizador =
+      window.setTimeout(() => {
+        setMensajeExito("");
+      }, 1500);
+
+    return () => {
+      window.clearTimeout(
+        temporizador
+      );
+    };
+  }, [
+    mensajeExito,
+  ]);
 
   // Actualiza el reloj cada segundo.
   useEffect(() => {
@@ -659,13 +742,43 @@ export function DashboardPage() {
                 : "#ffffff",
           }}
         >
-
           {mensajeExito && (
-            <div style={successStyle}>
-              {mensajeExito}
+            <div
+              style={{
+                ...successStyle,
+
+                display: "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "space-between",
+
+                gap:
+                  "12px",
+              }}
+            >
+              <span>
+                🔔 {mensajeExito}
+              </span>
+
+              {totalNuevas > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    limpiarNotificaciones();
+                    setMensajeExito("");
+                  }}
+                  style={
+                    dismissNotificationStyle
+                  }
+                >
+                  Marcar vista
+                </button>
+              )}
             </div>
           )}
-
 
 
           <header
@@ -798,6 +911,70 @@ export function DashboardPage() {
                   )}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log(
+                    "Campana pulsada"
+                  );
+
+                  void activarSonido();
+                }}
+                title={
+                  sonidoActivo
+                    ? "Desactivar sonido"
+                    : "Activar sonido"
+                }
+                aria-label={
+                  sonidoActivo
+                    ? "Desactivar sonido"
+                    : "Activar sonido"
+                }
+                style={{
+                  ...iconButtonStyle,
+
+                  width:
+                    modoMovil
+                      ? "40px"
+                      : "44px",
+
+                  height:
+                    modoMovil
+                      ? "40px"
+                      : "44px",
+
+                  flexShrink: 0,
+
+                  position: "relative",
+
+                  zIndex: 10,
+
+                  pointerEvents: "auto",
+
+                  background:
+                    sonidoActivo
+                      ? "#dcfce7"
+                      : "#ffffff",
+
+                  color:
+                    sonidoActivo
+                      ? "#166534"
+                      : "#102957",
+
+                  border:
+                    sonidoActivo
+                      ? "1px solid #86efac"
+                      : "1px solid #cbd5e1",
+
+                  cursor: "pointer",
+                }}
+              >
+                {sonidoActivo
+                  ? "🔔"
+                  : "🔕"}
+              </button>
+
+
 
               <button
                 type="button"
@@ -1021,14 +1198,48 @@ export function DashboardPage() {
 
                           fontSize:
                             esPantallaCompleta
-                              ? "16px"
-                              : "22px",
+                              ? "22px"
+                              : "15px",
                         }}
                       >
-                        {totalSolicitudesPendientes}{" "}
-                        {totalSolicitudesPendientes === 1
-                          ? "pendiente"
-                          : "pendientes"}
+                        <span>
+                          {totalSolicitudesPendientes}{" "}
+                          {totalSolicitudesPendientes === 1
+                            ? "pendiente"
+                            : "pendientes"}
+
+                          {totalNuevas > 0 && (
+                            <span
+                              style={{
+                                display:
+                                  "inline-block",
+
+                                marginLeft:
+                                  "7px",
+
+                                padding:
+                                  "3px 7px",
+
+                                borderRadius:
+                                  "999px",
+
+                                background:
+                                  "#b91c1c",
+
+                                color:
+                                  "#ffffff",
+
+                                fontSize:
+                                  "11px",
+
+                                fontWeight:
+                                  "900",
+                              }}
+                            >
+                              +{totalNuevas} nuevas
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -2413,4 +2624,16 @@ const operationalOpenButtonStyle = {
 
   transition:
     "background 150ms ease, transform 150ms ease",
+};
+const dismissNotificationStyle = {
+  minHeight: "32px",
+  padding: "5px 10px",
+  border: "1px solid #86efac",
+  borderRadius: "7px",
+  background: "#ffffff",
+  color: "#166534",
+  fontSize: "12px",
+  fontWeight: "800",
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
 };

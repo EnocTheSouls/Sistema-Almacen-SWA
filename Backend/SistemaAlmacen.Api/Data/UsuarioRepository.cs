@@ -141,7 +141,9 @@ public async Task<UsuarioLoginDto?> ObtenerParaLoginAsync(
         FROM usuarios AS u
         INNER JOIN roles AS r
             ON r.id_rol = u.id_rol
-        WHERE u.usuario = @nombreUsuario
+        WHERE UPPER(TRIM(u.usuario)) =
+        UPPER(TRIM(@nombreUsuario))
+        LIMIT 1;
         LIMIT 1;
         """;
 
