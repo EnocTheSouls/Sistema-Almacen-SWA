@@ -55,7 +55,10 @@ export interface ConsultarMrpParametros {
   fechaHasta?: string;
   pagina?: number;
   tamanoPagina?: number;
-  tipoMaterial?: string;
+
+  // Permite seleccionar varios tipos:
+  // C, P, S y W.
+  tiposMaterial?: string[];
 }
 
 // Importa el archivo semanal MRP.
@@ -79,7 +82,6 @@ export async function importarArchivoMrp(
   return respuesta.data;
 }
 
-// Consulta el plan vigente aplicando filtros.
 export async function obtenerRequerimientosMrp(
   parametros: ConsultarMrpParametros
 ): Promise<RequerimientosMrpPagina> {
@@ -87,12 +89,38 @@ export async function obtenerRequerimientosMrp(
     await apiClient.get<RequerimientosMrpPagina>(
       "/mrp/requerimientos",
       {
-        params: parametros,
+        params: {
+          busqueda:
+            parametros.busqueda,
+
+          proyecto:
+            parametros.proyecto,
+
+          familia:
+            parametros.familia,
+
+          tiposMaterial:
+            parametros.tiposMaterial
+              ?.join(","),
+
+          fechaDesde:
+            parametros.fechaDesde,
+
+          fechaHasta:
+            parametros.fechaHasta,
+
+          pagina:
+            parametros.pagina,
+
+          tamanoPagina:
+            parametros.tamanoPagina,
+        },
       }
     );
 
   return respuesta.data;
 }
+
 
 // Obtiene proyectos, familias y fechas disponibles.
 export async function obtenerFiltrosMrp():

@@ -206,6 +206,117 @@ public sealed class FamiliaRepository
 
         return MapearFamilia(reader);
     }
+    // Busca una familia 5MF sin conocer previamente
+    // el proyecto. Solo devuelve resultado cuando
+    // todas las coincidencias pertenecen al mismo proyecto.
+    public async Task<Familia?>
+        ObtenerUnicaParaFiveMfAsync(
+            string nombreFamilia)
+    {
+        var nombreLimpio =
+            nombreFamilia
+                .Trim()
+                .ToUpperInvariant();
+
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT DISTINCT
+            f.id_familia,
+            f.id_proyecto,
+            p.nombre AS nombre_proyecto,
+            f.nombre,
+            f.descripcion,
+            f.activo
+
+        FROM familias AS f
+
+        INNER JOIN proyectos AS p
+            ON p.id_proyecto =
+               f.id_proyecto
+
+        LEFT JOIN equivalencia_familia_5mf AS ef
+            ON ef.id_familia =
+               f.id_familia
+           AND ef.activo = TRUE
+
+        WHERE
+            (
+                UPPER(
+                    TRIM(
+                        ef.nombre_familia_5mf
+                    )
+                ) = @nombreFamilia
+
+                OR
+
+                UPPER(
+                    TRIM(
+                        f.nombre
+                    )
+                ) = @nombreFamilia
+            )
+
+          AND f.activo = TRUE
+
+        ORDER BY
+            f.id_proyecto,
+            f.id_familia;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@nombreFamilia",
+            nombreLimpio
+        );
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        Familia? familiaEncontrada =
+            null;
+
+        int? idProyectoEncontrado =
+            null;
+
+        while (await reader.ReadAsync())
+        {
+            var idProyecto =
+                reader.GetInt32(
+                    "id_proyecto"
+                );
+
+            // Si el mismo nombre pertenece a distintos
+            // proyectos, no elige uno arbitrariamente.
+            if (
+                idProyectoEncontrado.HasValue &&
+                idProyectoEncontrado.Value !=
+                idProyecto
+            )
+            {
+                return null;
+            }
+
+            idProyectoEncontrado =
+                idProyecto;
+
+            familiaEncontrada ??=
+                MapearFamilia(
+                    reader
+                );
+        }
+
+        return familiaEncontrada;
+    }
+
+
+
+
 
     // Busca una familia del 5MF o la crea
     // dentro del proyecto detectado.

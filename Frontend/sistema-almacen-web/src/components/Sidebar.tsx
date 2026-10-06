@@ -512,7 +512,7 @@ export function Sidebar({
                 "/solicitudes"
               )}
             >
-              Solicitudes
+              Requisiciones
             </Link>
 
             {!esProduccion && (

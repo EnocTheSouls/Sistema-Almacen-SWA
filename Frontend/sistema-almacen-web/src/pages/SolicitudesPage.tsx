@@ -425,7 +425,7 @@ export function SolicitudesPage() {
                       : "30px",
                 }}
               >
-                Solicitudes
+                Requisiciones
               </h1>
 
               <p style={descriptionStyle}>
@@ -460,7 +460,7 @@ export function SolicitudesPage() {
                   "border-box",
               }}
             >
-              + Nueva solicitud
+              + Crear nueva
             </button>
           </div>
 
@@ -566,7 +566,7 @@ export function SolicitudesPage() {
               >
                 <div>
                   <h2 style={activeRequestsTitleStyle}>
-                    Peticiones activas
+                     Pendientes
                   </h2>
 
                   <p style={activeRequestsDescriptionStyle}>
@@ -584,7 +584,7 @@ export function SolicitudesPage() {
 
               {peticionesActivas.length === 0 ? (
                 <div style={activeRequestsEmptyStyle}>
-                  No hay peticiones pendientes por atender.
+                  No hay pendientes por atender.
                 </div>
               ) : (
                 <div
@@ -768,7 +768,7 @@ export function SolicitudesPage() {
                   </h2>
 
                   <p style={productionDescriptionStyle}>
-                    Consulta el estado de las peticiones
+                    Consulta el estado de las Requisiciones
                     pendientes y parciales.
                   </p>
                 </div>
@@ -864,7 +864,7 @@ export function SolicitudesPage() {
             <>
               <div style={resultsHeaderStyle}>
                 <h2 style={sectionTitleStyle}>
-                  Peticiones recibidas
+                  Recibidas
                 </h2>
 
                 <span style={counterStyle}>

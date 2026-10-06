@@ -48,6 +48,15 @@ export function InventarioPage() {
       null
     );
 
+  const inputFechaRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+  const filtroTiposRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
   const [
     registros,
     setRegistros,
@@ -79,11 +88,16 @@ export function InventarioPage() {
     familia,
     setFamilia,
   ] = useState("");
- 
+
   const [
-    tipoMaterial,
-    setTipoMaterial,
-  ] = useState("");
+    tiposMaterial,
+    setTiposMaterial,
+  ] = useState<string[]>([]);
+
+  const [
+    mostrarTiposMaterial,
+    setMostrarTiposMaterial,
+  ] = useState(false);
 
   const [
     tipoPeriodo,
@@ -130,9 +144,9 @@ export function InventarioPage() {
   const [
     mensajeExito,
     setMensajeExito,
-  ] = useState(""); 
+  ] = useState("");
 
-  const tamanoPagina = 50;
+  const tamanoPagina = 10;
 
   // Obtiene los valores disponibles para los filtros.
   const cargarFiltros =
@@ -145,14 +159,17 @@ export function InventarioPage() {
           datos
         );
 
+        // Inicia siempre en el día actual.
+        // La fecha seleccionada representa el día de surtido.
         setFechaSeleccionada(
           (fechaActual) =>
             fechaActual ||
-            obtenerFechaInput(
+            obtenerFechaSurtido(
               datos.fechaMinima
             ) ||
             obtenerFechaLocal()
         );
+
       } catch (errorFiltros) {
         console.error(
           "Error al cargar filtros MRP:",
@@ -197,9 +214,10 @@ export function InventarioPage() {
               familia ||
               undefined,
 
-            tipoMaterial:
-              tipoMaterial ||
-              undefined,
+            tiposMaterial:
+              tiposMaterial.length > 0
+                ? tiposMaterial
+                : undefined,
 
             fechaDesde:
               periodo.fechaDesde,
@@ -254,6 +272,37 @@ export function InventarioPage() {
   }, []);
 
   useEffect(() => {
+    const cerrarFiltroTipos = (
+      event: MouseEvent
+    ) => {
+      const elemento =
+        event.target as Node;
+
+      if (
+        filtroTiposRef.current &&
+        !filtroTiposRef.current.contains(
+          elemento
+        )
+      ) {
+        setMostrarTiposMaterial(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      cerrarFiltroTipos
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        cerrarFiltroTipos
+      );
+    };
+  }, []);
+
+
+  useEffect(() => {
     if (!fechaSeleccionada) {
       return;
     }
@@ -264,7 +313,7 @@ export function InventarioPage() {
     tipoPeriodo,
     proyecto,
     familia,
-    tipoMaterial,
+    tiposMaterial,
   ]);
 
   const manejarBusqueda = () => {
@@ -272,15 +321,39 @@ export function InventarioPage() {
     cargarRequerimientos(1);
   };
 
+  const alternarTipoMaterial = (
+    tipo: string
+  ) => {
+    setTiposMaterial(
+      (tiposActuales) => {
+        if (
+          tiposActuales.includes(tipo)
+        ) {
+          return tiposActuales.filter(
+            (valor) => valor !== tipo
+          );
+        }
+
+        return [
+          ...tiposActuales,
+          tipo,
+        ];
+      }
+    );
+
+    setPagina(1);
+  };
+
+
   const limpiarFiltros = () => {
     setBusqueda("");
     setProyecto("");
     setFamilia("");
-    setTipoMaterial("");
+    setTiposMaterial([]);
     setTipoPeriodo("SEMANA");
 
     setFechaSeleccionada(
-      obtenerFechaInput(
+      obtenerFechaSurtido(
         filtrosDisponibles.fechaMinima
       ) ||
       obtenerFechaLocal()
@@ -349,9 +422,10 @@ export function InventarioPage() {
       await cargarFiltros();
 
       setFechaSeleccionada(
-        obtenerFechaInput(
+        obtenerFechaSurtido(
           resultado.fechaInicio
-        )
+        ) ||
+        obtenerFechaLocal()
       );
 
       setTipoPeriodo(
@@ -474,17 +548,37 @@ export function InventarioPage() {
 
           <div style={periodStyle}>
             <strong>
-              Periodo consultado:
+              {tipoPeriodo === "DIA"
+                ? "Fecha de surtido:"
+                : "Semana seleccionada:"}
+            </strong>
+
+            <span>
+              {formatearFecha(
+                fechaSeleccionada
+              )}
+            </span>
+
+            <strong>
+              {tipoPeriodo === "DIA"
+                ? "ETA de producción:"
+                : "Periodo ETA consultado:"}
             </strong>
 
             <span>
               {formatearFecha(
                 rangoActual.fechaDesde
-              )}{" "}
-              al{" "}
-              {formatearFecha(
-                rangoActual.fechaHasta
               )}
+
+              {rangoActual.fechaDesde !==
+                rangoActual.fechaHasta && (
+                  <>
+                    {" "}al{" "}
+                    {formatearFecha(
+                      rangoActual.fechaHasta
+                    )}
+                  </>
+                )}
             </span>
           </div>
 
@@ -586,57 +680,116 @@ export function InventarioPage() {
                       key={valor}
                       value={valor}
                     >
-                      {valor}
+                      {valor} 
                     </option>
                   ))}
               </select>
             </div>
             <div style={formGroupStyle}>
-              <label
-                htmlFor="tipoMaterialMrp"
-                style={labelStyle}
+              <div
+                ref={filtroTiposRef}
+                style={multiSelectContainerStyle}
               >
-                Tipo de material
-              </label>
+                <span style={labelStyle}>
+                  Tipo de material
+                </span>
 
-              <select
-                id="tipoMaterialMrp"
-                value={tipoMaterial}
-                onChange={(event) => {
-                  setTipoMaterial(
-                    event.target.value
-                  );
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarTiposMaterial(
+                      (valorActual) =>
+                        !valorActual
+                    );
+                  }}
+                  aria-haspopup="listbox"
+                  aria-expanded={
+                    mostrarTiposMaterial
+                  }
+                  style={multiSelectButtonStyle}
+                >
+                  <span>
+                    {tiposMaterial.length === 0
+                      ? "Todos"
+                      : tiposMaterial.length === 4
+                        ? "Todos los tipos"
+                        : tiposMaterial.join(", ")}
+                  </span>
 
-                  setPagina(1);
-                }}
-                style={inputStyle}
-              >
-                <option value="">
-                  Todos
-                </option>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      ...multiSelectArrowStyle,
 
-                <option value="C">
-                  C
-                </option>
+                      transform:
+                        mostrarTiposMaterial
+                          ? "rotate(180deg)"
+                          : "rotate(0deg)",
+                    }}
+                  >
+                    ▼
+                  </span>
+                </button>
 
-                <option value="P">
-                  P
-                </option>
+                {mostrarTiposMaterial && (
+                  <div
+                    role="listbox"
+                    aria-multiselectable="true"
+                    style={multiSelectMenuStyle}
+                  >
+                    <label
+                      style={multiSelectOptionStyle}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          tiposMaterial.length === 0
+                        }
+                        onChange={() => {
+                          setTiposMaterial([]);
+                          setPagina(1);
+                        }}
+                      />
 
-                <option value="S">
-                  S
-                </option>
+                      <span>Todos</span>
+                    </label>
 
-                <option value="W">
-                  W
-                </option>
-              </select>
+                    <div
+                      style={
+                        multiSelectSeparatorStyle
+                      }
+                    />
+
+                    {["C", "P", "S", "W"].map(
+                      (tipo) => (
+                        <label
+                          key={tipo}
+                          style={
+                            multiSelectOptionStyle
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              tiposMaterial.includes(
+                                tipo
+                              )
+                            }
+                            onChange={() => {
+                              alternarTipoMaterial(
+                                tipo
+                              );
+                            }}
+                          />
+
+                          <span>{tipo}</span>
+                        </label>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-
-
-
-
-
             <div style={formGroupStyle}>
               <label
                 htmlFor="periodoMrp"
@@ -667,52 +820,82 @@ export function InventarioPage() {
                 </option>
               </select>
             </div>
-
             <div style={formGroupStyle}>
               <label
-                htmlFor="fechaMrp"
+                htmlFor="fechaMrpVisible"
                 style={labelStyle}
               >
                 {tipoPeriodo === "DIA"
-                  ? "Fecha"
-                  : "Día de la semana"}
+                  ? "Fecha de surtido"
+                  : "Semana de surtido"}
               </label>
 
-              <input
-                id="fechaMrp"
-                type="date"
-                value={
-                  fechaSeleccionada
-                }
-                onChange={(event) => {
-                  setFechaSeleccionada(
-                    event.target.value
-                  );
+              <div style={dateFieldStyle}>
+                <input
+                  id="fechaMrpVisible"
+                  type="text"
+                  value={formatearFechaInput(
+                    fechaSeleccionada
+                  )}
+                  readOnly
+                  onClick={() => {
+                    inputFechaRef.current
+                      ?.showPicker();
+                  }}
+                  aria-label="Fecha de surtido"
+                  style={dateTextInputStyle}
+                />
 
-                  setPagina(1);
-                }}
-                min={
-                  obtenerFechaInput(
-                    filtrosDisponibles
-                      .fechaMinima
-                  ) || undefined
-                }
-                max={
-                  obtenerFechaInput(
-                    filtrosDisponibles
-                      .fechaMaxima
-                  ) || undefined
-                }
-                style={inputStyle}
-              />
+                <button
+                  type="button"
+                  aria-label="Abrir calendario"
+                  title="Abrir calendario"
+                  onClick={() => {
+                    inputFechaRef.current
+                      ?.showPicker();
+                  }}
+                  style={calendarButtonStyle}
+                >
+                  <span aria-hidden="true">
+                    📅
+                  </span>
+                </button>
+
+                <input
+                  ref={inputFechaRef}
+                  id="fechaMrp"
+                  type="date"
+                  lang="es-MX"
+                  value={fechaSeleccionada}
+                  onChange={(event) => {
+                    setFechaSeleccionada(
+                      event.target.value
+                    );
+
+                    setPagina(1);
+                  }}
+                  min={
+                    obtenerFechaSurtido(
+                      filtrosDisponibles
+                        .fechaMinima
+                    ) || undefined
+                  }
+                  max={
+                    obtenerFechaSurtido(
+                      filtrosDisponibles
+                        .fechaMaxima
+                    ) || undefined
+                  }
+                  style={hiddenDateInputStyle}
+                  tabIndex={-1}
+                />
+              </div>
             </div>
 
             <div style={filterActionsStyle}>
               <button
                 type="button"
-                onClick={
-                  manejarBusqueda
-                }
+                onClick={manejarBusqueda}
                 style={searchButtonStyle}
               >
                 Buscar
@@ -720,16 +903,13 @@ export function InventarioPage() {
 
               <button
                 type="button"
-                onClick={
-                  limpiarFiltros
-                }
+                onClick={limpiarFiltros}
                 style={secondaryButtonStyle}
               >
                 Limpiar
               </button>
             </div>
           </div>
-
           <div style={resultsHeaderStyle}>
             <div>
               <h2 style={sectionTitleStyle}>
@@ -773,14 +953,14 @@ export function InventarioPage() {
                     </th>
 
                     <th style={thStyle}>
-                      Familia
+                      Tipo
                     </th>
 
                     <th style={thStyle}>
-                      Proyecto
+                      Familia
                     </th>
                     <th style={thStyle}>
-                      Tipo
+                      Proyecto
                     </th>
 
                     <th style={thStyle}>
@@ -844,12 +1024,12 @@ export function InventarioPage() {
 
                         <td style={tdStyle}>
                           {registro.familia ??
-                            "Sin familia"}
+                            "Selecciona un filtro"}
                         </td>
 
                         <td style={tdStyle}>
                           {registro.proyecto ??
-                            "Sin proyecto"}
+                            "Selecciona un filtro"}
                         </td>
 
                         <td style={tdStyle}>
@@ -941,45 +1121,75 @@ function obtenerRangoPeriodo(
     };
   }
 
+  const fechaSurtido =
+    crearFechaLocal(fecha);
+
+  // La producción requiere el material
+  // un día después del surtido.
   if (tipoPeriodo === "DIA") {
+    const fechaProduccion =
+      new Date(fechaSurtido);
+
+    fechaProduccion.setDate(
+      fechaProduccion.getDate() + 1
+    );
+
+    const fechaEta =
+      fechaAInput(fechaProduccion);
+
     return {
-      fechaDesde: fecha,
-      fechaHasta: fecha,
+      fechaDesde: fechaEta,
+      fechaHasta: fechaEta,
     };
   }
 
-  const fechaBase =
-    crearFechaLocal(fecha);
-
+  // Calcula la semana de surtido
+  // de lunes a domingo.
   const diaSemana =
-    fechaBase.getDay();
+    fechaSurtido.getDay();
 
   const diasDesdeLunes =
     diaSemana === 0
       ? 6
       : diaSemana - 1;
 
-  const lunes =
-    new Date(fechaBase);
+  const lunesSurtido =
+    new Date(fechaSurtido);
 
-  lunes.setDate(
-    fechaBase.getDate() -
+  lunesSurtido.setDate(
+    fechaSurtido.getDate() -
     diasDesdeLunes
   );
 
-  const domingo =
-    new Date(lunes);
+  const domingoSurtido =
+    new Date(lunesSurtido);
 
-  domingo.setDate(
-    lunes.getDate() + 6
+  domingoSurtido.setDate(
+    lunesSurtido.getDate() + 6
+  );
+
+  // Convierte la semana de surtido
+  // en el rango ETA de producción.
+  const lunesProduccion =
+    new Date(lunesSurtido);
+
+  lunesProduccion.setDate(
+    lunesProduccion.getDate() + 1
+  );
+
+  const domingoProduccion =
+    new Date(domingoSurtido);
+
+  domingoProduccion.setDate(
+    domingoProduccion.getDate() + 1
   );
 
   return {
     fechaDesde:
-      fechaAInput(lunes),
+      fechaAInput(lunesProduccion),
 
     fechaHasta:
-      fechaAInput(domingo),
+      fechaAInput(domingoProduccion),
   };
 }
 
@@ -1027,12 +1237,46 @@ function fechaAInput(
   return `${anio}-${mes}-${dia}`;
 }
 
-function obtenerFechaInput(
+
+function formatearFechaInput(
+  fecha: string
+) {
+  if (!fecha) {
+    return "";
+  }
+
+  const [
+    anio,
+    mes,
+    dia,
+  ] = fecha
+    .slice(0, 10)
+    .split("-");
+
+  return `${dia}/${mes}/${anio}`;
+}
+
+function obtenerFechaSurtido(
   fecha: string | null
 ) {
-  return fecha
-    ? fecha.slice(0, 10)
-    : "";
+  if (!fecha) {
+    return "";
+  }
+
+  const fechaProduccion =
+    crearFechaLocal(
+      fecha.slice(0, 10)
+    );
+
+  // El surtido se realiza un día antes
+  // de la fecha requerida por producción.
+  fechaProduccion.setDate(
+    fechaProduccion.getDate() - 1
+  );
+
+  return fechaAInput(
+    fechaProduccion
+  );
 }
 
 function obtenerFechaLocal() {
@@ -1433,4 +1677,110 @@ const materialTypeStyle = {
   fontSize: "11px",
   fontWeight: "900",
   textAlign: "center" as const,
+};
+const dateFieldStyle = {
+  position: "relative" as const,
+  display: "flex",
+  width: "100%",
+};
+
+const dateTextInputStyle = {
+  ...inputStyle,
+  paddingRight: "44px",
+  cursor: "pointer",
+};
+
+const calendarButtonStyle = {
+  position: "absolute" as const,
+  top: "50%",
+  right: "5px",
+  width: "34px",
+  height: "34px",
+  padding: 0,
+  border: "none",
+  borderRadius: "6px",
+  background: "transparent",
+  color: "#102957",
+  fontSize: "16px",
+  cursor: "pointer",
+  transform: "translateY(-50%)",
+};
+
+const hiddenDateInputStyle = {
+  position: "absolute" as const,
+  right: "5px",
+  top: "50%",
+  width: "34px",
+  height: "34px",
+  opacity: 0,
+  cursor: "pointer",
+  transform: "translateY(-50%)",
+};
+
+const multiSelectContainerStyle = {
+  position: "relative" as const,
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: "6px",
+  minWidth: 0,
+};
+
+const multiSelectButtonStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "10px",
+  width: "100%",
+  minHeight: "42px",
+  boxSizing: "border-box" as const,
+  padding: "8px 10px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "8px",
+  background: "#ffffff",
+  color: "#102957",
+  fontSize: "13px",
+  textAlign: "left" as const,
+  cursor: "pointer",
+};
+
+const multiSelectArrowStyle = {
+  display: "inline-block",
+  color: "#475569",
+  fontSize: "10px",
+  transition: "transform 0.15s ease",
+};
+
+const multiSelectMenuStyle = {
+  position: "absolute" as const,
+  top: "calc(100% + 5px)",
+  left: 0,
+  zIndex: 50,
+  width: "100%",
+  minWidth: "160px",
+  boxSizing: "border-box" as const,
+  padding: "7px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "8px",
+  background: "#ffffff",
+  boxShadow:
+    "0 10px 24px rgba(15, 23, 42, 0.16)",
+};
+
+const multiSelectOptionStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  width: "100%",
+  boxSizing: "border-box" as const,
+  padding: "7px 8px",
+  borderRadius: "6px",
+  color: "#102957",
+  fontSize: "13px",
+  cursor: "pointer",
+};
+
+const multiSelectSeparatorStyle = {
+  height: "1px",
+  margin: "4px 0",
+  background: "#e2e8f0",
 };

@@ -179,15 +179,48 @@ public sealed class FiveMfImportService
 
             try
             {
-                ValidarFila(fila);
+                Familia? familiaDetectada =
+                    null;
+
+                // Los archivos nuevos utilizan List pequeños.
+                // Si el List no identifica el proyecto,
+                // lo obtiene desde la familia oficial.
+                if (
+                    string.IsNullOrWhiteSpace(
+                        fila.Proyecto
+                    ) &&
+                    !string.IsNullOrWhiteSpace(
+                        fila.Familia
+                    )
+                )
+                {
+                    familiaDetectada =
+                        await _familiaRepository
+                            .ObtenerUnicaParaFiveMfAsync(
+                                fila.Familia
+                            );
+
+                    if (familiaDetectada is not null)
+                    {
+                        fila.Proyecto =
+                            familiaDetectada
+                                .NombreProyecto;
+                    }
+                }
+
+                // Valida después de intentar resolver
+                // automáticamente el proyecto.
+                ValidarFila(
+                    fila
+                );
 
                 var familia =
-    await _familiaRepository
-        .ObtenerOCrearParaFiveMfAsync(
-            fila.Familia,
-            fila.Proyecto
-        );
-
+                    familiaDetectada ??
+                    await _familiaRepository
+                        .ObtenerOCrearParaFiveMfAsync(
+                            fila.Familia,
+                            fila.Proyecto
+                        );
                 if (familia is null)
                 {
                     throw new InvalidOperationException(
@@ -398,7 +431,7 @@ public sealed class FiveMfImportService
 
             ClienteFiveMf =
                 ObtenerTexto(
-                    fila, 
+                    fila,
                     columnas,
                     "CUST"
                 ),
@@ -437,7 +470,6 @@ public sealed class FiveMfImportService
     private static void ValidarFila(
         FiveMfRow fila)
     {
-
         if (
     string.IsNullOrWhiteSpace(
         fila.Proyecto
@@ -445,11 +477,17 @@ public sealed class FiveMfImportService
 )
         {
             throw new InvalidOperationException(
-                fila.NumeroList.HasValue
-                    ? $"El List {fila.NumeroList.Value} no tiene un proyecto configurado."
-                    : "No fue posible determinar el proyecto de la fila."
+                $"No fue posible determinar el proyecto " +
+                $"de la familia \"{fila.Familia}\"" +
+                (
+                    fila.NumeroList.HasValue
+                        ? $" en el List {fila.NumeroList.Value}."
+                        : "."
+                )
             );
         }
+
+
         if (
             string.IsNullOrWhiteSpace(
                 fila.Familia

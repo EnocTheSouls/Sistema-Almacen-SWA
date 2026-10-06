@@ -204,7 +204,7 @@ export function DashboardPage() {
   const configuracion =
     configuracionInicial;
 
-  // Carga los KPI y las solicitudes sin acumular peticiones.
+  // Carga los KPI y las solicitudes sin acumular Requisiciones.
   const cargarDatos = useCallback(
     async (
       mostrarIndicadorPrincipal = false
@@ -269,7 +269,7 @@ export function DashboardPage() {
 
         setErrorCarga(
           esProduccion
-            ? "No se pudieron cargar las peticiones."
+            ? "No se pudieron cargar las Requisiciones."
             : "No se pudieron cargar los indicadores y las solicitudes."
         );
       } finally {
@@ -812,7 +812,7 @@ export function DashboardPage() {
                       : "30px",
                 }}
               >
-                Centro de peticiones
+                Requisiciones entrantes
               </h1>
 
               <p style={welcomeStyle}>
@@ -1085,7 +1085,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#dc2626"
-                    descripcion="Peticiones esperando atención"
+                    descripcion="Requisiciones esperando atención"
                     compacto={modoMovil}
                     alerta={
                       totalSolicitudesPendientes > 0
@@ -1103,7 +1103,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#16a34a"
-                    descripcion="Peticiones preparadas"
+                    descripcion="Requisiciones preparadas"
                     compacto={modoMovil}
                     pantallaCompleta={
                       esPantallaCompleta
@@ -1117,7 +1117,7 @@ export function DashboardPage() {
                     }
                     color="#ffffff"
                     fondo="#2563eb"
-                    descripcion="Peticiones registradas"
+                    descripcion="Requisiciones registradas"
                     compacto={modoMovil}
                     pantallaCompleta={
                       esPantallaCompleta
@@ -1164,7 +1164,7 @@ export function DashboardPage() {
                                 : "22px",
                         }}
                       >
-                        Peticiones pendientes
+                        Requisiciones pendientes
                       </h2>
 
                       <p style={sectionDescriptionStyle}>
@@ -1246,7 +1246,7 @@ export function DashboardPage() {
 
                   {solicitudesPendientes.length === 0 ? (
                     <div style={emptyStyle}>
-                      No hay solicitudes pendientes.
+                      No hay requisiciones pendientes.
                     </div>
                   ) : (
                     <div style={operationalTableContainerStyle}>
@@ -1642,7 +1642,7 @@ export function DashboardPage() {
                           viewAllButtonStyle
                         }
                       >
-                        Ver todas las solicitudes
+                        Ver todos
                       </button>
                     </div>
                   )}

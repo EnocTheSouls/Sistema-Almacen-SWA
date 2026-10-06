@@ -61,10 +61,18 @@ public sealed class MrpRepository
                     registrosRechazados
                 );
             await InsertarRequerimientosAsync(
+                    connection,
+                    transaction,
+                    idImportacion,
+                    requerimientos
+                );
+
+            // Relaciona automáticamente los requerimientos
+            // con materiales, tipos, familias y proyectos.
+            await RelacionarImportacionAsync(
                 connection,
                 transaction,
-                idImportacion,
-                requerimientos
+                idImportacion
             );
 
             await CompletarImportacionAsync(
@@ -75,8 +83,9 @@ public sealed class MrpRepository
                 registrosRechazados
             );
 
+
             await transaction.CommitAsync();
-            
+
 
             return idImportacion;
         }
@@ -210,7 +219,7 @@ public sealed class MrpRepository
             connection.CreateCommand();
 
         command.Transaction =
-            transaction;    
+            transaction;
         command.CommandTimeout =
             300;
 
@@ -1048,7 +1057,7 @@ public sealed class MrpRepository
             string? busqueda,
             string? proyecto,
             string? familia,
-            string? tipoMaterial,
+            string? tiposMaterial,
             DateTime? fechaDesde,
             DateTime? fechaHasta,
             int pagina,
@@ -1064,7 +1073,7 @@ public sealed class MrpRepository
             Math.Clamp(
                 tamanoPagina,
                 10,
-                200
+                15
             );
 
         var offset =
@@ -1134,16 +1143,23 @@ public sealed class MrpRepository
                 "f.nombre = @familia"
             );
         }
-
         if (!string.IsNullOrWhiteSpace(
-            tipoMaterial))
-        {
-            condiciones.Add(
-                "r.tipo_material = @tipoMaterial"
-            );
-        }
+                tiposMaterial))
+            {
+                condiciones.Add(
+                    """
+                    FIND_IN_SET(
+                        UPPER(
+                            TRIM(r.tipo_material)
+                        ),
+                        @tiposMaterial
+                    ) > 0
+                    """
+                );
+            }
 
-        if (fechaDesde.HasValue)
+
+                    if (fechaDesde.HasValue)
         {
             condiciones.Add(
                 "r.fecha_eta >= @fechaDesde"
@@ -1170,7 +1186,7 @@ public sealed class MrpRepository
                 busqueda,
                 proyecto,
                 familia,
-                tipoMaterial,
+                tiposMaterial,
                 fechaDesde,
                 fechaHasta
             );
@@ -1182,7 +1198,7 @@ public sealed class MrpRepository
                 busqueda,
                 proyecto,
                 familia,
-                tipoMaterial,
+                tiposMaterial,
                 fechaDesde,
                 fechaHasta,
                 tamanoPagina,
@@ -1222,7 +1238,7 @@ public sealed class MrpRepository
             string? busqueda,
             string? proyecto,
             string? familia,
-            string? tipoMaterial,
+            string? tiposMaterial,
             DateTime? fechaDesde,
             DateTime? fechaHasta)
     {
@@ -1256,7 +1272,7 @@ public sealed class MrpRepository
             busqueda,
             proyecto,
             familia,
-            tipoMaterial,
+            tiposMaterial,
             fechaDesde,
             fechaHasta
         );
@@ -1278,7 +1294,7 @@ public sealed class MrpRepository
         string? busqueda,
         string? proyecto,
         string? familia,
-        string? tipoMaterial,
+        string? tiposMaterial,
         DateTime? fechaDesde,
         DateTime? fechaHasta,
         int tamanoPagina,
@@ -1366,7 +1382,7 @@ public sealed class MrpRepository
             busqueda,
             proyecto,
             familia,
-            tipoMaterial,
+            tiposMaterial,
             fechaDesde,
             fechaHasta
         );
@@ -1616,78 +1632,103 @@ public sealed class MrpRepository
 
         return resultado;
     }
-
     // Agrega los parámetros utilizados
-    // por las consultas de filtros.
-    private static void
-        AgregarParametrosFiltro(
-            MySqlCommand command,
-            string? busqueda,
-            string? proyecto,
-            string? familia,
-            string? tipoMaterial,
-            DateTime? fechaDesde,
-            DateTime? fechaHasta)
+// por las consultas de filtros.
+private static void
+    AgregarParametrosFiltro(
+        MySqlCommand command,
+        string? busqueda,
+        string? proyecto,
+        string? familia,
+        string? tiposMaterial,
+        DateTime? fechaDesde,
+        DateTime? fechaHasta)
+{
+    if (!string.IsNullOrWhiteSpace(
+        busqueda))
     {
-        if (!string.IsNullOrWhiteSpace(
-            busqueda))
-        {
-            command.Parameters.AddWithValue(
-                "@busqueda",
-                $"%{busqueda.Trim()}%"
-            );
-        }
-
-        if (!string.IsNullOrWhiteSpace(
-            proyecto))
-        {
-            command.Parameters.AddWithValue(
-                "@proyecto",
-                proyecto.Trim()
-            );
-        }
-
-        if (!string.IsNullOrWhiteSpace(
-            familia))
-        {
-            command.Parameters.AddWithValue(
-                "@familia",
-                familia.Trim()
-            );
-        }
-
-        if (!string.IsNullOrWhiteSpace(
-            tipoMaterial))
-        {
-            command.Parameters.AddWithValue(
-                "@tipoMaterial",
-                tipoMaterial
-                    .Trim()
-                    .ToUpperInvariant()
-            );
-        }
-
-        if (fechaDesde.HasValue)
-        {
-            command.Parameters.AddWithValue(
-                "@fechaDesde",
-                fechaDesde.Value.Date
-            );
-        }
-
-        if (fechaHasta.HasValue)
-        {
-            command.Parameters.AddWithValue(
-                "@fechaHasta",
-                fechaHasta.Value.Date
-            );
-        }
+        command.Parameters.AddWithValue(
+            "@busqueda",
+            $"%{busqueda.Trim()}%"
+        );
     }
 
+    if (!string.IsNullOrWhiteSpace(
+        proyecto))
+    {
+        command.Parameters.AddWithValue(
+            "@proyecto",
+            proyecto.Trim()
+        );
+    }
+
+    if (!string.IsNullOrWhiteSpace(
+        familia))
+    {
+        command.Parameters.AddWithValue(
+            "@familia",
+            familia.Trim()
+        );
+    }
+
+    if (!string.IsNullOrWhiteSpace(
+        tiposMaterial))
+    {
+        var tiposNormalizados =
+            string.Join(
+                ",",
+                tiposMaterial
+                    .Split(
+                        ',',
+                        StringSplitOptions
+                            .RemoveEmptyEntries |
+                        StringSplitOptions
+                            .TrimEntries
+                    )
+                    .Select(
+                        tipo =>
+                            tipo
+                                .Trim()
+                                .ToUpperInvariant()
+                    )
+                    .Where(
+                        tipo =>
+                            tipo == "C" ||
+                            tipo == "P" ||
+                            tipo == "S" ||
+                            tipo == "W"
+                    )
+                    .Distinct()
+            );
+
+        command.Parameters.AddWithValue(
+            "@tiposMaterial",
+            tiposNormalizados
+        );
+    }
+
+    if (fechaDesde.HasValue)
+    {
+        command.Parameters.AddWithValue(
+            "@fechaDesde",
+            fechaDesde.Value.Date
+        );
+    }
+
+    if (fechaHasta.HasValue)
+    {
+        command.Parameters.AddWithValue(
+            "@fechaHasta",
+            fechaHasta.Value.Date
+        );
+    }
+}
 
 
 
 
+
+    
     private static object ValorODbNull(
         string? valor)
     {

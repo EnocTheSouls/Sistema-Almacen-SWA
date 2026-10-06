@@ -322,7 +322,8 @@ VALUES
 ('Supervisor', 'Administración operativa y supervisión'),
 ('Materialista', 'Operación de almacén'),
 ('Produccion', 'Solicitud de materiales'),
-('Consulta', 'Acceso de solo lectura');
+('Consulta', 'Acceso de solo lectura'),
+('Entregada', 'Material entregado a producción', 'Verde', TRUE);
 
 INSERT IGNORE INTO estado_solicitud (nombre, descripcion, color, activo)
 VALUES
@@ -332,5 +333,8 @@ VALUES
 ('Parcial', 'Solicitud surtida parcialmente', 'Naranja', TRUE),
 ('Faltante', 'Solicitud con material faltante', 'Rojo', TRUE),
 ('Completada', 'Todos los materiales fueron surtidos', 'Verde', TRUE),
-('Entregada', 'Material entregado a producción', 'Verde', TRUE),
-('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);USE almacen_db;
+('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
+    
+    
+    
+    

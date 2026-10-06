@@ -512,7 +512,7 @@ public static class MrpEndpoints
         string? busqueda,
         string? proyecto,
         string? familia,
-        string? tipoMaterial,
+        string? tiposMaterial,
         DateTime? fechaDesde,
         DateTime? fechaHasta,
         int? pagina,
@@ -541,11 +541,11 @@ public static class MrpEndpoints
                     busqueda,
                     proyecto,
                     familia,
-                    tipoMaterial,
+                    tiposMaterial,
                     fechaDesde,
                     fechaHasta,
                     pagina ?? 1,
-                    tamanoPagina ?? 50
+                    tamanoPagina ?? 15
                 );
 
         return Results.Ok(
@@ -563,6 +563,7 @@ public static class MrpEndpoints
             "Surtidor"
         )
 );
+        
 
 
 
