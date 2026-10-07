@@ -455,7 +455,12 @@ export function NuevaSolicitudModal({
     contenidoQr: string
   ) => {
     const contenidoLimpio =
-      contenidoQr.trim();
+      contenidoQr
+        .replace(
+          /[\u0000-\u001F\u007F]/g,
+          ""
+        )
+        .trim();
 
     if (
       !contenidoLimpio
@@ -665,7 +670,7 @@ export function NuevaSolicitudModal({
       }
 
       setBusquedaMaterial("");
-      
+
 
 
     } catch (errorContexto) {
@@ -1454,8 +1459,25 @@ export function NuevaSolicitudModal({
 
                   event.preventDefault();
 
+                  // Lee directamente el input porque el escáner
+                  // puede enviar los caracteres muy rápidamente.
                   const contenido =
-                    busquedaMaterial.trim();
+                    event.currentTarget.value
+                      .replace(
+                        /[\r\n\t]/g,
+                        ""
+                      )
+                      .trim();
+
+                  console.log(
+                    "Contenido recibido del escáner:",
+                    contenido
+                  );
+
+                  console.log(
+                    "Longitud recibida:",
+                    contenido.length
+                  );
 
                   if (!contenido) {
                     enfocarEscaneo();
@@ -1471,24 +1493,48 @@ export function NuevaSolicitudModal({
                     return;
                   }
 
+                  // Compatibilidad con etiquetas antiguas
+                  // que solamente contienen el material.
                   const contenidoNormalizado =
-                    contenido.toUpperCase();
+                    contenido
+                      .toUpperCase()
+                      .replace(
+                        /\s+/g,
+                        ""
+                      );
 
                   const materialExacto =
-                    materialesEncontrados.find(
-                      (material) =>
-                        material
-                          .numeroParteMaterial
-                          .trim()
-                          .toUpperCase() ===
-                        contenidoNormalizado ||
-                        (
-                          material.codigoBarras
-                            ?.trim()
-                            .toUpperCase() ??
-                          ""
-                        ) ===
-                        contenidoNormalizado
+                    catalogoMateriales.find(
+                      (material) => {
+                        const numeroParte =
+                          material
+                            .numeroParteMaterial
+                            .trim()
+                            .toUpperCase()
+                            .replace(
+                              /\s+/g,
+                              ""
+                            );
+
+                        const codigoBarras =
+                          (
+                            material.codigoBarras ??
+                            ""
+                          )
+                            .trim()
+                            .toUpperCase()
+                            .replace(
+                              /\s+/g,
+                              ""
+                            );
+
+                        return (
+                          numeroParte ===
+                          contenidoNormalizado ||
+                          codigoBarras ===
+                          contenidoNormalizado
+                        );
+                      }
                     );
 
                   if (materialExacto) {
@@ -1500,12 +1546,22 @@ export function NuevaSolicitudModal({
                   }
 
                   setError(
-                    "No se encontró una coincidencia exacta para el código escaneado."
+                    contenidoNormalizado.startsWith(
+                      "SWA"
+                    )
+                      ? "La etiqueta parece ser un QR del sistema, pero el contenido llegó incompleto o con un formato incorrecto."
+                      : "No se encontró una coincidencia exacta para el código escaneado."
                   );
 
                   setBusquedaMaterial("");
                   enfocarEscaneo();
                 }}
+
+
+
+
+
+
                 disabled={
                   enviando ||
                   validandoQr

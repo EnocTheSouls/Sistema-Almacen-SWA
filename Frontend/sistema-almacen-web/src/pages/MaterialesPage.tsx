@@ -49,6 +49,11 @@ import type {
   MaterialCatalogo,
 } from "../types/material";
 
+import {
+  descargarBomList,
+} from "../services/bomListService";
+
+
 type FiltroEstado =
   | "todos"
   | "activos"
@@ -243,6 +248,20 @@ export function MaterialesPage() {
       setCargando(false);
     }
   };
+  const [
+    descargandoBomList,
+    setDescargandoBomList,
+  ] = useState<
+    "RIV" | "WS" | "DT" | null
+  >(null);
+
+  const [
+    mostrarBomList,
+    setMostrarBomList,
+  ] = useState(false);
+
+
+
   useEffect(() => {
     cargarMateriales();
   }, []);
@@ -898,114 +917,46 @@ export function MaterialesPage() {
     };
 
 
-  // Descarga las listas IPS separadas por proyecto.
-  const descargarListasIps = async () => {
-    try {
-      setErrorCarga("");
-      setMensajeExito("");
-
-      const token =
-        localStorage.getItem("token");
-
-      console.log(
-        "Solicitando generación de listas IPS..."
-      );
-
-      const response =
-        await fetch(
-          "http://localhost:5042/api/ips/exportar-listas",
-          {
-            method: "GET",
-            headers: token
-              ? {
-                Authorization:
-                  `Bearer ${token}`,
-              }
-              : undefined,
-          }
+  // Descarga el BOM List actualizado
+  // directamente desde MySQL.
+  const manejarDescargaBomList =
+    async (
+      proyecto:
+        "RIV" | "WS" | "DT"
+    ) => {
+      try {
+        setDescargandoBomList(
+          proyecto
         );
 
-      console.log(
-        "Respuesta IPS:",
-        response.status
-      );
+        setErrorCarga("");
+        setMensajeExito("");
 
-      if (!response.ok) {
-        const contenido =
-          await response.text();
+        await descargarBomList(
+          proyecto
+        );
 
-        throw new Error(
-          contenido ||
-          `No fue posible generar las listas IPS. Código ${response.status}.`
+        setMensajeExito(
+          `BOM_LIST_${proyecto}.csv se generó correctamente.`
+        );
+      } catch (error) {
+        console.error(
+          "No se descargó el BOM List:",
+          error
+        );
+
+        setErrorCarga(
+          obtenerMensajeError(
+            error,
+            `No fue posible generar BOM_LIST_${proyecto}.csv`
+          )
+        );
+      } finally {
+        setDescargandoBomList(
+          null
         );
       }
-
-      const archivo =
-        await response.blob();
-
-      console.log(
-        "Tipo de archivo IPS:",
-        archivo.type
-      );
-
-      console.log(
-        "Tamaño del archivo IPS:",
-        archivo.size
-      );
-
-      if (archivo.size === 0) {
-        throw new Error(
-          "El archivo ZIP generado está vacío."
-        );
-      }
-
-      const url =
-        window.URL.createObjectURL(
-          archivo
-        );
-
-      const enlace =
-        document.createElement("a");
-
-      enlace.href = url;
-      enlace.download =
-        `LISTAS_IPS_${new Date()
-          .toISOString()
-          .slice(0, 10)
-        }.zip`;
-
-      enlace.style.display = "none";
-
-      document.body.appendChild(
-        enlace
-      );
-
-      enlace.click();
-
-      setTimeout(() => {
-        enlace.remove();
-
-        window.URL.revokeObjectURL(
-          url
-        );
-      }, 1000);
-
-      setMensajeExito(
-        "Las listas IPS se generaron correctamente."
-      );
-    } catch (error) {
-      console.error(
-        "Error al generar listas IPS:",
-        error
-      );
-
-      setErrorCarga(
-        error instanceof Error
-          ? error.message
-          : "No fue posible generar las listas IPS."
-      );
-    }
-  };
+    };
 
   const abrirImportacionBom = () => {
     setArchivoBom(null);
@@ -1188,21 +1139,22 @@ export function MaterialesPage() {
                     >
                       Importar 5MF
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={descargarListasIps}
-                      style={importButtonStyle}
-                    >
-                      Generar listas IPS
-                    </button>
-
                     <button
                       type="button"
                       onClick={abrirImportacionBom}
                       style={importButtonStyle}
                     >
                       Importar BOM
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarBomList(true);
+                      }}
+                      style={importButtonStyle}
+                    >
+                      Generar BOM List
                     </button>
 
                   </div>
@@ -2183,6 +2135,101 @@ export function MaterialesPage() {
             </section>
           </div>
         )}
+      {mostrarBomList && (
+        <div style={modalOverlayStyle}>
+          <section
+            style={{
+              ...modalStyle,
+              maxWidth: "500px",
+            }}
+          >
+            <div style={modalHeaderStyle}>
+              <div>
+                <h2 style={modalTitleStyle}>
+                  Generar BOM List
+                </h2>
+
+                <p style={modalDescriptionStyle}>
+                  Selecciona el proyecto que deseas exportar.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!descargandoBomList) {
+                    setMostrarBomList(false);
+                  }
+                }}
+                disabled={
+                  descargandoBomList !== null
+                }
+                aria-label="Cerrar"
+                style={closeButtonStyle}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={bomListOptionsStyle}>
+              {(
+                [
+                  "RIV",
+                  "WS",
+                  "DT",
+                ] as const
+              ).map((proyecto) => (
+                <button
+                  key={proyecto}
+                  type="button"
+                  disabled={
+                    descargandoBomList !== null
+                  }
+                  onClick={async () => {
+                    await manejarDescargaBomList(
+                      proyecto
+                    );
+
+                    setMostrarBomList(false);
+                  }}
+                  style={{
+                    ...bomListProjectButtonStyle,
+
+                    opacity:
+                      descargandoBomList !== null
+                        ? 0.65
+                        : 1,
+
+                    cursor:
+                      descargandoBomList !== null
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+                  {descargandoBomList === proyecto
+                    ? `Generando ${proyecto}...`
+                    : `BOM List ${proyecto}`}
+                </button>
+              ))}
+            </div>
+
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                disabled={
+                  descargandoBomList !== null
+                }
+                onClick={() => {
+                  setMostrarBomList(false);
+                }}
+                style={secondaryButtonStyle}
+              >
+                Cancelar
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {mostrarImportacionFiveMf &&
         esAdministrador && (
           <div style={modalOverlayStyle}>
@@ -2318,7 +2365,7 @@ export function MaterialesPage() {
                         </strong>
                       </span>
                     </div>
-                  </div>  
+                  </div>
                 )}
 
                 <div style={modalActionsStyle}>
@@ -2373,7 +2420,6 @@ export function MaterialesPage() {
                     Carga el archivo BOM.
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={cerrarImportacionBom}
@@ -2729,6 +2775,7 @@ function obtenerMensajeError(
 
   return mensajePredeterminado;
 }
+
 
 const pageContainerStyle = {
   width: "100%",
@@ -3334,3 +3381,22 @@ const importTableCellStyle = {
   verticalAlign: "top" as const,
 };
 
+
+const bomListOptionsStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(3, minmax(0, 1fr))",
+  gap: "12px",
+};
+
+const bomListProjectButtonStyle = {
+  minHeight: "90px",
+  padding: "16px 10px",
+  border: "1px solid #bfdbfe",
+  borderRadius: "10px",
+  background: "#eff6ff",
+  color: "#1d4ed8",
+  fontSize: "15px",
+  fontWeight: "800",
+  cursor: "pointer",
+};
