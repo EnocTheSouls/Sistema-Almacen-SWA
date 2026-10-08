@@ -914,10 +914,6 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={() => {
-                  console.log(
-                    "Campana pulsada"
-                  );
-
                   void activarSonido();
                 }}
                 title={

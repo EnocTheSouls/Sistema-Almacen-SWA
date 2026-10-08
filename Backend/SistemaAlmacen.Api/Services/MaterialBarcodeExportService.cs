@@ -14,7 +14,7 @@ public sealed class MaterialBarcodeExportService
 {
     private readonly BomRepository
     _bomRepository;
-    
+
 
 
     public MaterialBarcodeExportService(
@@ -51,13 +51,24 @@ public sealed class MaterialBarcodeExportService
         }
 
         using var workbook =
-            new XLWorkbook();
+    new XLWorkbook();
 
-        // Genera únicamente las etiquetas QR contextuales.
-        CrearHojaPorEstructura(
+        CrearHojaDatosQr(
             workbook,
             relacionesConEstacion
         );
+
+        CrearHojaEtiquetasQr(
+            workbook,
+            relacionesConEstacion
+        );
+
+
+
+
+
+
+
 
         using var archivo =
             new MemoryStream();
@@ -69,14 +80,14 @@ public sealed class MaterialBarcodeExportService
         return archivo.ToArray();
     }
 
-       private static void CrearHojaPorEstructura(
-        XLWorkbook workbook,
-        List<MaterialBarcodeRelationRow> relaciones)
+    private static void CrearHojaDatosQr(
+     XLWorkbook workbook,
+     List<MaterialBarcodeRelationRow> relaciones)
     {
         var worksheet =
             workbook.Worksheets.Add(
-                "Etiquetas QR"
-            );
+                "QR_DATA"
+     );
 
         var encabezados =
             new[]
@@ -337,6 +348,156 @@ public sealed class MaterialBarcodeExportService
                 true;
         }
     }
+
+    private static void CrearHojaEtiquetasQr(
+    XLWorkbook workbook,
+    List<MaterialBarcodeRelationRow> relaciones)
+    {
+        var worksheet =
+            workbook.Worksheets.Add(
+                "ETIQUETAS_QR"
+            );
+
+        var filasExportables =
+            relaciones
+                .Where(x => x.IdEstacion.HasValue)
+                .GroupBy(x => x.IdBomDetalle)
+                .Select(x => x.First())
+                .OrderBy(x => x.Estacion)
+                .ThenBy(x => x.NumeroParteMaterial)
+                .ToList();
+
+        int indice = 0;
+
+        foreach (var relacion in filasExportables)
+        {
+            var pagina =
+                indice / 9;
+
+            var posicionPagina =
+                indice % 9;
+
+            var filaPagina =
+                posicionPagina / 3;
+
+            var columnaPagina =
+                posicionPagina % 3;
+
+            var filaBloque =
+                pagina * 20 +
+                filaPagina * 6 +
+                2;
+
+            var columnaBloque =
+                columnaPagina * 4 +
+                2;
+
+            var bloque =
+                worksheet.Range(
+                    filaBloque,
+                    columnaBloque,
+                    filaBloque + 4,
+                    columnaBloque + 3
+                );
+
+            bloque.Style.Border.OutsideBorder =
+                XLBorderStyleValues.Thick;
+
+            bloque.Style.Alignment.Horizontal =
+                XLAlignmentHorizontalValues.Center;
+
+            bloque.Style.Alignment.Vertical =
+                XLAlignmentVerticalValues.Center;
+
+            var qr =
+                GenerarQr(
+                    relacion.ContenidoQr
+                );
+
+            using var stream =
+                new MemoryStream(qr);
+
+            worksheet
+                .AddPicture(
+                    stream,
+                    $"ETIQ_{relacion.IdBomDetalle}"
+                )
+                .MoveTo(
+                    worksheet.Cell(
+                        filaBloque,
+                        columnaBloque
+                    )
+                )
+                .WithSize(
+                    70,
+                    70
+                );
+
+            var celdaEstacion =
+                worksheet.Cell(
+                    filaBloque + 1,
+                    columnaBloque + 2
+                );
+
+            celdaEstacion.Value =
+                relacion.Estacion;
+
+            celdaEstacion.Style.Font.Bold =
+                true;
+
+            celdaEstacion.Style.Alignment.Horizontal =
+                XLAlignmentHorizontalValues.Center;
+
+            var celdaMaterial =
+                worksheet.Cell(
+                    filaBloque + 2,
+                    columnaBloque + 2
+                );
+
+            celdaMaterial.Value =
+                relacion.NumeroParteMaterial;
+
+            celdaMaterial.Style.Font.Bold =
+                true;
+
+            celdaMaterial.Style.Alignment.Horizontal =
+                XLAlignmentHorizontalValues.Center;
+
+            indice++;
+        }
+
+        // Columnas para plantilla 3 x 3
+        for (int c = 1; c <= 15; c++)
+        {
+            worksheet.Column(c).Width = 10;
+        }
+
+        // Separadores
+        worksheet.Column(1).Width = 2;
+        worksheet.Column(5).Width = 2;
+        worksheet.Column(9).Width = 2;
+        worksheet.Column(13).Width = 2;
+
+        // Altura fija para impresión
+        for (int r = 1; r <= 200; r++)
+        {
+            worksheet.Row(r).Height = 22;
+        }
+
+        worksheet.PageSetup.PageOrientation =
+            XLPageOrientation.Portrait;
+
+        worksheet.PageSetup.FitToPages(
+            1,
+            0
+        );
+    }
+
+
+
+
+
+
     // Genera el QR contextual del material.
     private static byte[]
         GenerarQr(

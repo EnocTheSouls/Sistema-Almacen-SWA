@@ -456,18 +456,19 @@ export function NuevaSolicitudModal({
   ) => {
     const contenidoLimpio =
       contenidoQr
-        .replace(
-          /[\u0000-\u001F\u007F]/g,
-          ""
-        )
-        .trim();
+        .replace(/[\u0000-\u001F\u007F]/g, "")
+        .replaceAll("ç", "|")
+        .replaceAll("Ç", "|")
+        .replaceAll("¡", "=")
+        .trim()
+        .toUpperCase();
 
     if (
       !contenidoLimpio
         .toUpperCase()
         .startsWith("SWA|")
     ) {
-      return false;
+      return true;
     }
 
     try {
@@ -585,7 +586,7 @@ export function NuevaSolicitudModal({
           materialCatalogo,
           contexto
         );
-        return;
+        return true;
       }
 
 
@@ -1469,16 +1470,6 @@ export function NuevaSolicitudModal({
                       )
                       .trim();
 
-                  console.log(
-                    "Contenido recibido del escáner:",
-                    contenido
-                  );
-
-                  console.log(
-                    "Longitud recibida:",
-                    contenido.length
-                  );
-
                   if (!contenido) {
                     enfocarEscaneo();
                     return;
@@ -1493,15 +1484,19 @@ export function NuevaSolicitudModal({
                     return;
                   }
 
+
                   // Compatibilidad con etiquetas antiguas
                   // que solamente contienen el material.
                   const contenidoNormalizado =
                     contenido
+                      .replaceAll("ç", "|")
+                      .replaceAll("Ç", "|")
+                      .replaceAll("¡", "=")
                       .toUpperCase()
-                      .replace(
-                        /\s+/g,
-                        ""
-                      );
+                      .replace(/\s+/g, "");
+
+
+
 
                   const materialExacto =
                     catalogoMateriales.find(

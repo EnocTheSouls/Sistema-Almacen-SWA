@@ -142,11 +142,20 @@ public static class MaterialEndpoints
                         }
                     );
                 }
+                Console.WriteLine($"QR RECIBIDO: {dto.ContenidoQr}");
+                var contenidoQrNormalizado =
+                    dto.ContenidoQr
+                        .Replace("ç", "|")
+                        .Replace("Ç", "|")
+                        .Replace("¡", "=")
+                        .ToUpperInvariant();
 
                 var resultadoLectura =
                     InterpretarQr(
-                        dto.ContenidoQr
+                        contenidoQrNormalizado
                     );
+
+
 
                 if (
                     !resultadoLectura.EsValido
@@ -805,7 +814,14 @@ public static class MaterialEndpoints
             string contenidoQr)
     {
         var contenidoLimpio =
-            contenidoQr.Trim();
+             contenidoQr
+                .Replace("ç", "|")
+                .Replace("ç", "|")
+                .Replace("Ç", "|")
+                .Replace("¡", "=")
+                .Trim()
+                .ToUpperInvariant();
+
 
         if (
             !contenidoLimpio.StartsWith(

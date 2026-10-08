@@ -163,10 +163,7 @@ export function NotificationProvider({
               ];
             }
           );
-          console.log(
-            "Solicitud recibida por SignalR:",
-            notificacion
-          );
+          
 
           if (
             sonidoActivoRef.current &&
@@ -183,9 +180,7 @@ export function NotificationProvider({
             audioNotificacion
               .play()
               .then(() => {
-                console.log(
-                  "Sonido de solicitud reproducido."
-                );
+                
               })
               .catch((error) => {
                 console.error(
@@ -212,9 +207,7 @@ export function NotificationProvider({
       conexion
     )
       .then(() => {
-        console.log(
-          "SignalR conectado correctamente."
-        );
+        
       })
       .catch((error) => {
         console.error(
@@ -237,9 +230,7 @@ export function NotificationProvider({
 
 
   const activarSonido = async () => {
-    console.log(
-      "Clic en activar sonido"
-    );
+    
 
     const nuevoEstado =
       !sonidoActivoRef.current;
@@ -255,9 +246,7 @@ export function NotificationProvider({
         "notificaciones_sonido"
       );
 
-      console.log(
-        "Sonido de notificaciones desactivado."
-      );
+      
 
       return;
     }
@@ -293,9 +282,7 @@ export function NotificationProvider({
         "activo"
       );
 
-      console.log(
-        "Sonido de notificaciones activado."
-      );
+      
     } catch (error) {
       sonidoActivoRef.current =
         false;
