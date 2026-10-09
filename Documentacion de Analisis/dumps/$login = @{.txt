@@ -1,0 +1,529 @@
+Visión de la V1
+
+Objetivo de negocio:
+
+Plain Text
+1
+Una línea de producción detecta faltante.
+2
+ 
+3
+↓
+4
+ 
+5
+Escanea material.
+6
+ 
+7
+↓
+8
+ 
+9
+Genera una solicitud.
+10
+ 
+11
+↓
+12
+ 
+13
+Almacén visualiza la solicitud.
+14
+ 
+15
+↓
+16
+ 
+17
+Materialista localiza material.
+18
+ 
+19
+↓
+20
+ 
+21
+Materialista surte.
+22
+ 
+23
+↓
+24
+ 
+25
+Inventario se actualiza.
+Show more lines
+
+Si eso funciona, ya tienes una versión demostrable para gerencia.
+
+Lo que YA está terminado
+Seguridad
+Plain Text
+1
+✅ Login
+2
+✅ JWT
+3
+✅ Roles
+4
+✅ Usuarios
+5
+`
+Show more lines
+Catálogos
+Plain Text
+1
+✅ Materiales
+2
+✅ Familias
+3
+✅ Zonas
+4
+✅ Racks
+5
+✅ Ubicaciones
+6
+✅ Proyectos
+7
+✅ Arneses
+Show more lines
+Inventario
+Plain Text
+1
+✅ Consultas
+2
+✅ Entradas
+3
+✅ Salidas
+4
+✅ Existencias
+5
+✅ Ubicaciones físicas
+Show more lines
+
+No volveremos a tocar esto salvo correcciones.
+
+Sprint 1
+Solicitudes de Material
+
+Duración estimada:
+
+Plain Text
+1
+3 a 5 días
+Show more lines
+Objetivo
+
+Permitir que producción genere solicitudes.
+
+Modelos
+Plain Text
+1
+Solicitud.cs
+2
+SolicitudDetalle.cs
+3
+`
+Show more lines
+Repository
+Plain Text
+1
+SolicitudRepository.cs
+Show more lines
+Endpoints
+HTTP
+1
+POST /api/solicitudes
+2
+ 
+3
+GET /api/solicitudes
+4
+ 
+5
+GET /api/solicitudes/{id}
+6
+ 
+7
+GET /api/solicitudes/pendientes
+8
+ 
+9
+PATCH /api/solicitudes/{id}/estado
+Show more lines
+Estados
+Plain Text
+1
+Pendiente
+2
+Asignada
+3
+En Surtido
+4
+Completada
+5
+Cancelada
+6
+``
+Show more lines
+
+Resultado:
+
+Plain Text
+1
+✅ Producción puede solicitar material.
+Show more lines
+Sprint 2
+Dashboard de Almacén
+
+Duración:
+
+Plain Text
+1
+3 días
+Show more lines
+Objetivo
+
+Que el materialista vea trabajo pendiente.
+
+Dashboard
+Plain Text
+1
+Pendientes
+2
+ 
+3
+Asignadas
+4
+ 
+5
+En surtido
+6
+ 
+7
+Completadas
+Show more lines
+Grid
+Plain Text
+1
+Solicitud
+2
+ 
+3
+Material Number
+4
+ 
+5
+Material Name
+6
+ 
+7
+Qty
+8
+ 
+9
+Fecha
+10
+ 
+11
+Estado
+Show more lines
+
+Resultado:
+
+Plain Text
+1
+✅ Almacén visualiza solicitudes.
+2
+`
+Show more lines
+Sprint 3
+Surtido
+
+Duración:
+
+Plain Text
+1
+3 a 5 días
+Show more lines
+Objetivo
+
+Que el materialista entregue material.
+
+Flujo
+Plain Text
+1
+Solicitud Pendiente
+2
+ 
+3
+↓
+4
+ 
+5
+Asignar
+6
+ 
+7
+↓
+8
+ 
+9
+Surtir
+10
+ 
+11
+↓
+12
+ 
+13
+Descontar inventario
+14
+``
+Show more lines
+Endpoints
+HTTP
+1
+POST /api/solicitudes/{id}/surtir
+2
+ 
+Show more lines
+
+Resultado:
+
+Plain Text
+1
+✅ Inventario se descuenta automáticamente.
+Show more lines
+Sprint 4
+Localización rápida
+
+Duración
+
+Plain Text
+1
+2 días
+Show more lines
+Objetivo
+
+Encontrar material rápido.
+
+Búsqueda
+
+Escaneo:
+
+Plain Text
+1
+10136800
+Show more lines
+
+Respuesta:
+
+Plain Text
+1
+Material Number
+2
+Material Name
+3
+Qty Disponible
+4
+ 
+5
+Zona
+6
+Rack
+7
+Nivel
+8
+Posición
+Show more lines
+
+Resultado:
+
+Plain Text
+1
+✅ El materialista encuentra material en segundos.
+2
+``
+Show more lines
+Sprint 5
+Kardex
+
+Duración
+
+Plain Text
+1
+2 a 3 días
+Show more lines
+
+Utiliza:
+
+Plain Text
+1
+movimiento_inventario
+Show more lines
+Consultas
+HTTP
+1
+GET /api/movimientos
+2
+ 
+3
+GET /api/movimientos/material/{id}
+4
+ 
+5
+GET /api/movimientos/fecha
+Show more lines
+
+Resultado:
+
+Plain Text
+1
+Quién movió
+2
+Cuándo movió
+3
+Cuánto movió
+Show more lines
+Sprint 6
+Dashboard Ejecutivo
+
+Duración
+
+Plain Text
+1
+2 días
+Show more lines
+
+Indicadores:
+
+Plain Text
+1
+Solicitudes Pendientes
+2
+ 
+3
+Solicitudes Completadas
+4
+ 
+5
+Materiales Más Solicitados
+6
+ 
+7
+Movimientos del Día
+8
+ 
+9
+Inventario Bajo
+Show more lines
+Fuera de la V1
+
+Yo dejaría para V2:
+
+Plain Text
+1
+BOM
+2
+ 
+3
+Importación BOM
+4
+ 
+5
+Asignación automática por estación
+6
+ 
+7
+Consumo automático
+8
+ 
+9
+Reportes avanzados
+10
+ 
+11
+Layout visual interactivo
+Show more lines
+
+Porque dependen de información que todavía no te entrega gerencia.
+
+Mi recomendación
+
+Si tienes menos de un mes, el orden debe ser:
+
+Plain Text
+1
+SPRINT 1
+2
+Solicitudes
+3
+ 
+4
+SPRINT 2
+5
+Dashboard de Solicitudes
+6
+ 
+7
+SPRINT 3
+8
+Surtido
+9
+ 
+10
+SPRINT 4
+11
+Localización de Material
+12
+ 
+13
+SPRINT 5
+14
+Kardex
+Show more lines
+
+Eso te entrega exactamente el flujo que hoy te están pidiendo en planta:
+
+Plain Text
+1
+Línea solicita
+2
+ 
+3
+↓
+4
+ 
+5
+Almacén recibe solicitud
+6
+ 
+7
+↓
+8
+ 
+9
+Materialista localiza material
+10
+ 
+11
+↓
+12
+ 
+13
+Materialista surte
+14
+ 
+15
+↓
+16
+ 
+17
+Inventario se actualiza
+18
+ 
+Show more lines
+
+Y eso ya es una V1 completamente funcional para presentar a gerencia.

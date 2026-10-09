@@ -1,0 +1,4 @@
+git add -A
+git commit -m "SWA 1.00 beta"
+git push
+git status

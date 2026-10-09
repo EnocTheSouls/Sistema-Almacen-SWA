@@ -1,0 +1,17 @@
+Modelo Inventario.cs
+2
+2. DTOs de Inventario
+3
+3. InventarioRepository.cs
+4
+4. GET /api/inventario
+5
+5. POST /api/inventario/entradas
+6
+6. POST /api/inventario/salidas
+7
+7. GET /api/inventario/existencias
+8
+8. Kardex de movimientos
+
+Revisar tablas relacionadas con existencias e inventario en MySQL
