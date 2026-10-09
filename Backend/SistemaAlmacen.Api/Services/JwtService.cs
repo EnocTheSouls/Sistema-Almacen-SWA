@@ -59,11 +59,48 @@ public sealed class JwtService
             key,
             SecurityAlgorithms.HmacSha256
         );
+        // Normaliza el rol para asignar la duración del JWT.
+        var rolNormalizado =
+            usuario.NombreRol
+                ?.Trim()
+                .ToUpperInvariant() ?? "";
+
+        var duracionToken =
+            rolNormalizado switch
+            {
+                // Administrador: 1 hora.
+                "ADMINISTRADOR" =>
+                    TimeSpan.FromHours(12),
+
+                // Roles operativos: 12 horas.
+                "SUPERVISOR" =>
+                    TimeSpan.FromHours(12),
+
+                "MATERIALISTA" =>
+                    TimeSpan.FromHours(12),
+
+                "PRODUCCION" =>
+                    TimeSpan.FromHours(12),
+
+                "SURTIDOR" =>
+                    TimeSpan.FromHours(12),
+
+                // Consulta y cualquier rol no contemplado: 4 horas.
+                "CONSULTA" =>
+                    TimeSpan.FromHours(4),
+
+                _ =>
+                    TimeSpan.FromMinutes(
+                        _settings.DuracionMinutos
+                    )
+            };
 
         var fechaExpiracion =
-            DateTime.UtcNow.AddMinutes(
-                _settings.DuracionMinutos
+            DateTime.UtcNow.Add(
+                duracionToken
             );
+
+
 
         // Construye el token con su emisor y duración.
         var token = new JwtSecurityToken(

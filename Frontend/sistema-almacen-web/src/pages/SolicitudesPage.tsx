@@ -278,35 +278,36 @@ export function SolicitudesPage() {
       busqueda,
       filtroEstado,
     ]);
-  // Peticiones activas que se muestran como tarjetas operativas.
-  const peticionesActivas =
-    useMemo(() => {
-      return solicitudes
-        .filter((solicitud) => {
-          const estado =
-            solicitud.nombreEstado
-              .trim()
-              .toLowerCase();
+  // Obtiene todas las solicitudes pendientes y parciales,
+  // ordenadas desde la más antigua hasta la más reciente.
+  const peticionesActivas = useMemo(() => {
+    return [...solicitudes]
+      .filter((solicitud) => {
+        const estado =
+          solicitud.nombreEstado
+            ?.trim()
+            .toLowerCase() ?? "";
 
-          return (
-            estado === "pendiente" ||
-            estado === "parcial"
-          );
-        })
-        .sort(
-          (
-            solicitudA,
-            solicitudB
-          ) =>
-            new Date(
-              solicitudA.fechaSolicitud
-            ).getTime() -
-            new Date(
-              solicitudB.fechaSolicitud
-            ).getTime()
-        )
-        .slice(0, 8);
-    }, [solicitudes]);
+        return (
+          estado === "pendiente" ||
+          estado === "parcial"
+        );
+      })
+      .sort((solicitudA, solicitudB) => {
+        const fechaA =
+          new Date(
+            solicitudA.fechaSolicitud
+          ).getTime();
+
+        const fechaB =
+          new Date(
+            solicitudB.fechaSolicitud
+          ).getTime();
+
+        return fechaA - fechaB;
+      });
+  }, [solicitudes]);
+
 
   const abrirNuevaSolicitud = () => {
     setMensajeExito("");
@@ -547,38 +548,33 @@ export function SolicitudesPage() {
             </div>
           )}
           {!esProduccion && (
-
             <section style={activeRequestsSectionStyle}>
               <div
                 style={{
                   ...activeRequestsHeaderStyle,
-
-                  flexDirection:
-                    modoMovil
-                      ? "column"
-                      : "row",
-
-                  alignItems:
-                    modoMovil
-                      ? "stretch"
-                      : "center",
+                  flexDirection: modoMovil
+                    ? "column"
+                    : "row",
+                  alignItems: modoMovil
+                    ? "stretch"
+                    : "center",
                 }}
               >
                 <div>
                   <h2 style={activeRequestsTitleStyle}>
-                     Pendientes
+                    Pendientes
                   </h2>
 
                   <p style={activeRequestsDescriptionStyle}>
-                    Selecciona para atender la petición.
+                    Selecciona una solicitud para atenderla.
                   </p>
                 </div>
 
                 <span style={activeRequestsCounterStyle}>
                   {peticionesActivas.length}{" "}
                   {peticionesActivas.length === 1
-                    ? "petición activa"
-                    : "peticiones activas"}
+                    ? "pendiente"
+                    : "peticiones"}
                 </span>
               </div>
 
@@ -587,17 +583,21 @@ export function SolicitudesPage() {
                   No hay pendientes por atender.
                 </div>
               ) : (
-                <div
-                  style={{
-                    ...activeRequestsGridStyle,
+                <div style={activeRequestsListStyle}>
+                  {!modoMovil && (
+                    <div style={activeRequestsColumnsHeaderStyle}>
+                      <span>No.</span>
+                      <span>Solicitud</span>
+                      <span>Proyecto</span>
+                      <span>Familia</span>
+                      <span>Estación</span>
+                      <span>Materiales</span>
+                      <span></span>
+                    </div>
+                  )}
 
-                    gridTemplateColumns:
-                      modoMovil
-                        ? "minmax(0, 1fr)"
-                        : "repeat(auto-fit, minmax(280px, 1fr))",
-                  }}
-                >
                   {peticionesActivas.map(
+
                     (solicitud, indice) => {
                       const materialesPendientes =
                         (
@@ -608,23 +608,22 @@ export function SolicitudesPage() {
                             material.cantidadSolicitada
                         );
 
-                      const esParcial =
+                      const estadoNormalizado =
                         solicitud.nombreEstado
                           .trim()
-                          .toLowerCase() ===
-                        "parcial";
+                          .toLowerCase();
+
+                      const esParcial =
+                        estadoNormalizado === "parcial";
 
                       return (
-                        <article
-                          key={
-                            solicitud.idSolicitud
-                          }
+                        <div
+                          key={solicitud.idSolicitud}
                           role="button"
                           tabIndex={0}
+                          aria-label={`Abrir solicitud ${solicitud.idSolicitud}`}
                           onClick={() =>
-                            abrirDetalle(
-                              solicitud
-                            )
+                            abrirDetalle(solicitud)
                           }
                           onKeyDown={(event) => {
                             if (
@@ -632,112 +631,137 @@ export function SolicitudesPage() {
                               event.key === " "
                             ) {
                               event.preventDefault();
-
-                              abrirDetalle(
-                                solicitud
-                              );
+                              abrirDetalle(solicitud);
                             }
                           }}
                           style={{
-                            ...activeRequestCardStyle,
-
-                            borderLeft:
-                              esParcial
-                                ? "6px solid #d97706"
-                                : "6px solid #dc2626",
+                            ...activeRequestRowStyle,
+                            borderLeft: esParcial
+                              ? "4px solid #d97706"
+                              : "4px solid #dc2626",
+                            gridTemplateColumns: modoMovil
+                              ? "40px minmax(0, 1fr) 70px"
+                              : "45px minmax(100px, 0.8fr) minmax(110px, 1fr) minmax(120px, 1fr) minmax(140px, 1.2fr) minmax(260px, 2fr) 80px",
                           }}
                         >
-                          <div style={activeRequestCardHeaderStyle}>
-                            <div>
-                              <span style={activeRequestPositionStyle}>
-                                Petición {indice + 1}
-                              </span>
+                          <strong style={activeRequestIndexStyle}>
+                            {indice + 1}
+                          </strong>
 
-                              <strong style={activeRequestNumberStyle}>
-                                Solicitud #{solicitud.idSolicitud}
-                              </strong>
-                            </div>
+                          <div style={activeRequestColumnStyle}>
 
-                            <span
-                              style={{
-                                ...activeRequestStatusStyle,
-
-                                background:
-                                  esParcial
-                                    ? "#fef3c7"
-                                    : "#fee2e2",
-
-                                color:
-                                  esParcial
-                                    ? "#92400e"
-                                    : "#991b1b",
-                              }}
-                            >
-                              {solicitud.nombreEstado}
-                            </span>
+                            <strong style={activeRequestNumberStyle}>
+                              #{solicitud.idSolicitud}
+                            </strong>
                           </div>
 
-                          <div style={activeRequestInfoGridStyle}>
-                            <div style={activeRequestInfoStyle}>
-                              <span style={activeRequestLabelStyle}>
-                                Proyecto
-                              </span>
+                          <div
+                            style={{
+                              ...activeRequestColumnStyle,
+                              display: modoMovil
+                                ? "none"
+                                : "flex",
+                            }}
+                          >
 
-                              <strong>
-                                {solicitud.nombreProyecto ??
-                                  "Sin proyecto"}
-                              </strong>
-                            </div>
 
-                            <div style={activeRequestInfoStyle}>
-                              <span style={activeRequestLabelStyle}>
-                                Familia
-                              </span>
-
-                              <strong>
-                                {solicitud.nombreFamilia ??
-                                  "Sin familia"}
-                              </strong>
-                            </div>
-
-                            <div style={activeRequestInfoStyle}>
-                              <span style={activeRequestLabelStyle}>
-                                Estación
-                              </span>
-
-                              <strong>
-                                {solicitud.nombreEstacion ??
-                                  materialesPendientes[0]
-                                    ?.nombreEstacion ??
-                                  "Sin estación"}
-                              </strong>
-                            </div>
-
-                            <div style={activeRequestInfoStyle}>
-                              <span style={activeRequestLabelStyle}>
-                                Materiales pendientes
-                              </span>
-
-                              <strong>
-                                {materialesPendientes.length}
-                              </strong>
-                            </div>
+                            <strong>
+                              {solicitud.nombreProyecto ??
+                                "Sin proyecto"}
+                            </strong>
                           </div>
 
+                          <div
+                            style={{
+                              ...activeRequestColumnStyle,
+                              display: modoMovil
+                                ? "none"
+                                : "flex",
+                            }}
+                          >
+
+                            <strong>
+                              {solicitud.nombreFamilia ??
+                                "Sin familia"}
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              ...activeRequestColumnStyle,
+                              display: modoMovil
+                                ? "none"
+                                : "flex",
+                            }}
+                          >
+
+                            <strong>
+                              {solicitud.nombreEstacion ??
+                                materialesPendientes[0]
+                                  ?.nombreEstacion ??
+                                "Sin estación"}
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              ...activeRequestColumnStyle,
+                              display: modoMovil
+                                ? "none"
+                                : "flex",
+                              alignItems: "flex-start",
+                            }}
+                          >
+
+                            {materialesPendientes[0] ? (
+                              <div style={activeRequestMaterialStyle}>
+                                {/* Nombre arriba */}
+                                <strong
+                                  title={
+                                    materialesPendientes[0]
+                                      .descripcionMaterial ??
+                                    "Material sin descripción"
+                                  }
+                                  style={activeRequestMaterialNameStyle}
+                                >
+                                  {materialesPendientes[0]
+                                    .descripcionMaterial ??
+                                    "Material sin descripción"}
+                                </strong>
+
+                                {/* Número abajo */}
+                                <div style={activeRequestMaterialNumberRowStyle}>
+                                  <span style={activeRequestMaterialNumberStyle}>
+                                    {
+                                      materialesPendientes[0]
+                                        .numeroParteMaterial
+                                    }
+                                  </span>
+
+                                  {materialesPendientes.length > 1 && (
+                                    <span style={additionalMaterialsStyle}>
+                                      +{materialesPendientes.length - 1}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={emptyMaterialStyle}>
+                                Sin materiales pendientes
+                              </span>
+                            )}
+                          </div>
                           <button
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-
-                              abrirDetalle(
-                                solicitud
-                              );
+                              abrirDetalle(solicitud);
                             }}
                             style={activeRequestOpenButtonStyle}
                           >
                             Abrir
                           </button>
-                        </article>
+                        </div>
                       );
                     }
                   )}
@@ -745,6 +769,12 @@ export function SolicitudesPage() {
               )}
             </section>
           )}
+
+
+
+
+
+
           {esProduccion && (
             <section style={productionActiveSectionStyle}>
               <div
@@ -764,7 +794,7 @@ export function SolicitudesPage() {
               >
                 <div>
                   <h2 style={sectionTitleStyle}>
-                    Peticiones activas
+                    Pendientes
                   </h2>
 
                   <p style={productionDescriptionStyle}>
@@ -1174,6 +1204,25 @@ const successStyle = {
   fontWeight: "700",
 };
 
+// Contenedor de la tabla de peticiones activas
+// visible únicamente para Producción.
+const productionActiveSectionStyle = {
+  marginBottom: "24px",
+  padding: "18px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "12px",
+  background: "#f8fafc",
+};
+
+// Texto descriptivo debajo de Peticiones activas.
+const productionDescriptionStyle = {
+  margin: "5px 0 0",
+  color: "#64748b",
+  fontSize: "13px",
+  lineHeight: 1.4,
+};
+
+
 const activeRequestsSectionStyle = {
   marginBottom: "24px",
   padding: "18px",
@@ -1186,7 +1235,7 @@ const activeRequestsHeaderStyle = {
   display: "flex",
   justifyContent: "space-between",
   gap: "14px",
-  marginBottom: "16px",
+  marginBottom: "14px",
 };
 
 const activeRequestsTitleStyle = {
@@ -1213,105 +1262,161 @@ const activeRequestsCounterStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-const activeRequestsGridStyle = {
-  display: "grid",
-  gap: "13px",
+// El scroll afecta únicamente a las solicitudes.
+const activeRequestsListStyle = {
   width: "100%",
-};
-
-const activeRequestCardStyle = {
-  minWidth: 0,
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: "14px",
-  padding: "16px",
-  border: "1px solid #d8e0eb",
-  borderRadius: "11px",
-  background: "#ffffff",
-  boxShadow:
-    "0 4px 12px rgba(15, 23, 42, 0.08)",
-  cursor: "pointer",
+  maxHeight: "475px",
+  paddingRight: "6px",
+  overflowY: "auto" as const,
+  overflowX: "hidden" as const,
   boxSizing: "border-box" as const,
 };
 
-const activeRequestCardHeaderStyle = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
+
+const activeRequestsColumnsHeaderStyle = {
+  position: "sticky" as const,
+  top: 0,
+  zIndex: 2,
+
+  display: "grid",
+  gridTemplateColumns:
+    "45px minmax(100px, 0.8fr) minmax(110px, 1fr) minmax(120px, 1fr) minmax(140px, 1.2fr) minmax(260px, 2fr) 80px",
+
+  alignItems: "center",
   gap: "12px",
-  paddingBottom: "11px",
-  borderBottom: "1px solid #e2e8f0",
+
+  marginBottom: "6px",
+  padding: "8px 12px",
+
+  borderBottom: "2px solid #cbd5e1",
+  borderRadius: "6px 6px 0 0",
+  background: "#e9eff7",
+
+  color: "#475569",
+  fontSize: "14px",
+  fontWeight: "900",
+  textTransform: "uppercase" as const,
+
+  boxSizing: "border-box" as const,
+};
+// Cada solicitud se presenta como una fila compacta.
+const activeRequestRowStyle = {
+  width: "100%",
+  minHeight: "62px",
+  display: "grid",
+  alignItems: "center",
+  gap: "12px",
+  marginBottom: "7px",
+  padding: "9px 12px",
+  borderTop: "1px solid #d8e0eb",
+  borderRight: "1px solid #d8e0eb",
+  borderBottom: "1px solid #d8e0eb",
+  borderRadius: "8px",
+  background: "#ffffff",
+  color: "#102957",
+  cursor: "pointer",
+  boxSizing: "border-box" as const,
+  boxShadow:
+    "0 1px 3px rgba(15, 23, 42, 0.06)",
 };
 
-const activeRequestPositionStyle = {
-  display: "block",
-  marginBottom: "3px",
+const activeRequestIndexStyle = {
   color: "#64748b",
-  fontSize: "11px",
-  fontWeight: "800",
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.5px",
+  fontSize: "13px",
+  fontWeight: "900",
+  textAlign: "center" as const,
+};
+
+const activeRequestColumnStyle = {
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column" as const,
+  justifyContent: "center",
+  gap: "3px",
+  overflow: "hidden",
 };
 
 const activeRequestNumberStyle = {
   display: "block",
   color: "#102957",
-  fontSize: "18px",
+  fontSize: "15px",
   fontWeight: "900",
+  whiteSpace: "nowrap" as const,
+};
+const activeRequestMaterialStyle = {
+  width: "100%",
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: "3px",
 };
 
-const activeRequestStatusStyle = {
-  flexShrink: 0,
-  padding: "6px 10px",
-  borderRadius: "999px",
+const activeRequestMaterialNameStyle = {
+  display: "block",
+  width: "100%",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  color: "#102957",
   fontSize: "12px",
   fontWeight: "800",
+  lineHeight: 1.2,
 };
 
-const activeRequestInfoGridStyle = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(2, minmax(0, 1fr))",
-  gap: "10px",
-};
-
-const activeRequestInfoStyle = {
+const activeRequestMaterialNumberRowStyle = {
   minWidth: 0,
-  padding: "9px 10px",
-  borderRadius: "8px",
-  background: "#f8fafc",
-  color: "#102957",
-  overflowWrap: "anywhere" as const,
+  display: "flex",
+  alignItems: "center",
+  gap: "7px",
 };
 
-const activeRequestLabelStyle = {
-  display: "block",
-  marginBottom: "4px",
-  color: "#64748b",
+const activeRequestMaterialNumberStyle = {
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  color: "#475569",
   fontSize: "11px",
-  fontWeight: "800",
-  textTransform: "uppercase" as const,
+  fontWeight: "700",
+  lineHeight: 1.2,
+};
+
+const additionalMaterialsStyle = {
+  minWidth: "25px",
+  height: "21px",
+  flexShrink: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "0 6px",
+  border: "1px solid #ec4899",
+  borderRadius: "999px",
+  background: "#fdf2f8",
+  color: "#be185d",
+  fontSize: "10px",
+  fontWeight: "900",
+  boxSizing: "border-box" as const,
+};
+
+const emptyMaterialStyle = {
+  color: "#94a3b8",
+  fontSize: "11px",
+  fontWeight: "600",
 };
 
 const activeRequestOpenButtonStyle = {
-  width: "40%",
-  minWidth: "120px",
-  maxWidth: "170px",
-  minHeight: "36px",
-
-  // Empuja el botón hacia la derecha.
-  marginLeft: "auto",
-  marginRight: 0,
-
-  padding: "7px 12px",
+  minWidth: "72px",
+  minHeight: "32px",
+  padding: "5px 11px",
   border: "1px solid #102957",
-  borderRadius: "8px",
-  background: "#102957",
-  color: "#ffffff",
-  fontSize: "13px",
+  borderRadius: "7px",
+  background: "#ffffff",
+  color: "#102957",
+  fontSize: "12px",
   fontWeight: "800",
   cursor: "pointer",
-  display: "block",
+  whiteSpace: "nowrap" as const,
 };
 
 const activeRequestsEmptyStyle = {
@@ -1323,22 +1428,3 @@ const activeRequestsEmptyStyle = {
   textAlign: "center" as const,
 };
 
-
-
-// Contenedor de la tabla de peticiones activas
-// visible únicamente para Producción.
-const productionActiveSectionStyle = {
-  marginBottom: "24px",
-  padding: "18px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "12px",
-  background: "#f8fafc",
-};
-
-// Texto descriptivo debajo de Peticiones activas.
-const productionDescriptionStyle = {
-  margin: "5px 0 0",
-  color: "#64748b",
-  fontSize: "13px",
-  lineHeight: 1.4,
-};

@@ -334,7 +334,5 @@ VALUES
 ('Faltante', 'Solicitud con material faltante', 'Rojo', TRUE),
 ('Completada', 'Todos los materiales fueron surtidos', 'Verde', TRUE),
 ('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
-    
-    
-    
-    
+
+

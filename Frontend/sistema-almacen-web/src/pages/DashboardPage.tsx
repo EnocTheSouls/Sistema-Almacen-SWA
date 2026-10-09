@@ -61,9 +61,8 @@ const configuracionInicial: ConfiguracionDashboard = {
   limiteAmarillo: 10,
   limiteNaranja: 20,
   limiteRojo: 30,
-  solicitudesVisibles: 15,
+  solicitudesVisibles: 50,
 };
-
 
 export function DashboardPage() {
   // Lee el usuario autenticado desde el JWT.
@@ -657,23 +656,22 @@ export function DashboardPage() {
     modoMovil
       ? "13px"
       : esPantallaCompleta
-        ? "27px"
-        : "16px";
+        ? "18px"
+        : "17px";
 
   const tamanoEncabezadoTabla =
     modoMovil
       ? "11px"
       : esPantallaCompleta
-        ? "20px"
-        : "14px";
+        ? "14px"
+        : "16px";
 
   const tamanoNumeroSolicitud =
     modoMovil
       ? "15px"
       : esPantallaCompleta
-        ? "23px"
+        ? "18px"
         : "18px";
-
   const tamanoEstado =
     modoMovil
       ? "11px"
@@ -687,16 +685,12 @@ export function DashboardPage() {
       : esPantallaCompleta
         ? "18px"
         : "14px";
-
   const paddingFila =
     modoMovil
-      ? "10px"
+      ? "1px"
       : esPantallaCompleta
-        ? "21px 18px"
-        : "20px";
-
-
-
+        ? "10px 12px"
+        : "16px";
 
   return (
     <Layout>
@@ -1154,10 +1148,10 @@ export function DashboardPage() {
 
                           fontSize:
                             modoMovil
-                              ? "20px"
+                              ? "16px"
                               : esPantallaCompleta
-                                ? "30px"
-                                : "22px",
+                                ? "23px"
+                                : "18px",
                         }}
                       >
                         Requisiciones pendientes
@@ -1194,7 +1188,7 @@ export function DashboardPage() {
 
                           fontSize:
                             esPantallaCompleta
-                              ? "22px"
+                              ? "15px"
                               : "15px",
                         }}
                       >
@@ -1204,37 +1198,7 @@ export function DashboardPage() {
                             ? "pendiente"
                             : "pendientes"}
 
-                          {totalNuevas > 0 && (
-                            <span
-                              style={{
-                                display:
-                                  "inline-block",
 
-                                marginLeft:
-                                  "7px",
-
-                                padding:
-                                  "3px 7px",
-
-                                borderRadius:
-                                  "999px",
-
-                                background:
-                                  "#b91c1c",
-
-                                color:
-                                  "#ffffff",
-
-                                fontSize:
-                                  "11px",
-
-                                fontWeight:
-                                  "900",
-                              }}
-                            >
-                              +{totalNuevas} nuevas
-                            </span>
-                          )}
                         </span>
                       </div>
                     </div>
@@ -1292,6 +1256,47 @@ export function DashboardPage() {
                             >
                               Estación
                             </th>
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                width: "5%",
+                                fontSize: tamanoEncabezadoTabla,
+                                textAlign: "center",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "inline-block",
+
+                                }}
+                              >
+                                Materiales
+                              </span>
+                            </th>
+                            {/* Columna sin título para materiales adicionales */}
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                width: "5%",
+                                minWidth: "55px",
+                                padding: "12px 4px",
+                                fontSize: tamanoEncabezadoTabla,
+                              }}
+                            >
+                              &nbsp;
+                            </th>
+                            <th
+                              style={{
+                                ...operationalThStyle,
+                                width: "11%",
+                                textAlign: "center",
+                                fontSize: tamanoEncabezadoTabla,
+                              }}
+                            >
+                              Cantidad
+                            </th>
+
+
 
                             <th
                               style={{
@@ -1300,7 +1305,8 @@ export function DashboardPage() {
                                   tamanoEncabezadoTabla,
                               }}
                             >
-                              Materiales
+                               Tiempo
+                              
                             </th>
 
                             <th
@@ -1310,17 +1316,7 @@ export function DashboardPage() {
                                   tamanoEncabezadoTabla,
                               }}
                             >
-                              Estado
-                            </th>
-
-                            <th
-                              style={{
-                                ...operationalThStyle,
-                                fontSize:
-                                  tamanoEncabezadoTabla,
-                              }}
-                            >
-                              Tiempo
+                             Accion
                             </th>
                             <th
                               style={{
@@ -1359,6 +1355,7 @@ export function DashboardPage() {
                                     material.cantidadSurtida <
                                     material.cantidadSolicitada
                                 );
+
 
                               const estiloCeldaOperacional = {
                                 ...operationalTdStyle,
@@ -1471,43 +1468,148 @@ export function DashboardPage() {
                                         ?.nombreEstacion ??
                                       "Sin estación"}
                                   </td>
+                                  {/* Primer material */}
+                                  <td
+                                    style={{
+                                      ...estiloCeldaOperacional,
+                                      width: "35%",
+                                      minWidth: 0,
+                                      padding: esPantallaCompleta
+                                        ? "12px 8px"
+                                        : "10px 8px",
+                                      textAlign: "center",
+                                      whiteSpace: "normal",
+                                    }}
+                                  >
+                                    {materialesPendientes[0] ? (
+                                      <div
+                                        style={{
+                                          width: "100%",
+                                          minWidth: 0,
+                                          textAlign: "center",
+                                        }}
+                                      >
+                                        {/* Descripción arriba */}
+                                        <div
+                                          title={
+                                            materialesPendientes[0].descripcionMaterial ??
+                                            "Material sin descripción"
+                                          }
+                                          style={{
+                                            marginBottom: "5px",
+                                            overflow: "hidden",
+                                            color: "#102957",
+                                            fontSize: esPantallaCompleta
+                                              ? "17px"
+                                              : "17px",
+                                            fontWeight: "800",
+                                            lineHeight: 1.15,
+                                            textAlign: "center",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {materialesPendientes[0].descripcionMaterial ??
+                                            "Material sin descripción"}
+                                        </div>
 
-                                  <td style={estiloCeldaOperacional}>
-                                    <strong>
-                                      {
-                                        materialesPendientes.length
-                                      }
-                                    </strong>
+                                        {/* Número de parte abajo */}
+                                        <div
+                                          style={{
+                                            color: "#102957",
+                                            fontSize: esPantallaCompleta
+                                              ? "17px"
+                                              : "17px",
+                                            fontWeight: "700",
+                                            lineHeight: 1.15,
+                                            textAlign: "center",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {materialesPendientes[0].numeroParteMaterial}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span
+                                        style={{
+                                          color: "#64748b",
+                                          fontSize: tamanoTextoTabla,
+                                        }}
+                                      >
+                                        Sin materiales pendientes
+                                      </span>
+                                    )}
                                   </td>
 
-                                  <td style={estiloCeldaOperacional}>
-                                    <span
-                                      style={{
-                                        ...operationalStatusStyle,
 
-                                        background:
-                                          solicitud.nombreEstado
-                                            .trim()
-                                            .toLowerCase() ===
-                                            "parcial"
-                                            ? "#fef3c7"
-                                            : "#e2e8f0",
-
-                                        color:
-                                          solicitud.nombreEstado
-                                            .trim()
-                                            .toLowerCase() ===
-                                            "parcial"
-                                            ? "#92400e"
-                                            : "#334155",
-                                      }}
-                                    >
-                                      {
-                                        solicitud.nombreEstado
-                                      }
-                                    </span>
+                                  {/* Cantidad de materiales adicionales */}
+                                  <td
+                                    style={{
+                                      ...estiloCeldaOperacional,
+                                      width: "5%",
+                                      minWidth: "55px",
+                                      padding: "8px 4px",
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {materialesPendientes.length > 1 && (
+                                      <span
+                                        style={{
+                                          minWidth: "36px",
+                                          height: "36px",
+                                          padding: "0 7px",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          border: "2px solid #ec008c",
+                                          borderRadius: "999px",
+                                          background: "#fdf2f8",
+                                          color: "#be185d",
+                                          fontSize: "13px",
+                                          fontWeight: "900",
+                                          boxSizing: "border-box",
+                                        }}
+                                      >
+                                        +{materialesPendientes.length - 1}
+                                      </span>
+                                    )}
                                   </td>
 
+                                  {/* Cantidad del primer material */}
+                                  <td
+                                    style={{
+                                      ...estiloCeldaOperacional,
+                                      width: "10%",
+                                      minWidth: "105px",
+                                      padding: "8px 6px",
+                                      textAlign: "center",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {materialesPendientes[0] && (
+                                      <span
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          minWidth: "86px",
+                                          padding: "5px 10px",
+                                          border: "1px solid #2563eb",
+                                          borderRadius: "999px",
+                                          background: "#eff6ff",
+                                          color: "#1e40af",
+                                          fontSize: "12px",
+                                          fontWeight: "900",
+                                          lineHeight: 1,
+                                        }}
+                                      >
+                                        {materialesPendientes[0].cantidadBolsas ?? 0}{" "}
+                                        {(materialesPendientes[0].cantidadBolsas ?? 0) === 1
+                                          ? "BOLSA"
+                                          : "BOLSAS"}
+                                      </span>
+                                    )}
+                                  </td>
                                   <td style={estiloCeldaOperacional}>
                                     <span
                                       style={{
@@ -1585,24 +1687,24 @@ export function DashboardPage() {
 
                                         minHeight:
                                           modoMovil
-                                            ? "34px"
+                                            ? "14px"
                                             : esPantallaCompleta
-                                              ? "52px"
-                                              : "42px",
+                                              ? "21px"
+                                              : "22px",
 
                                         padding:
                                           modoMovil
                                             ? "6px 11px"
                                             : esPantallaCompleta
-                                              ? "12px 24px"
-                                              : "9px 17px",
+                                              ? "9px 14px"
+                                              : "9px 10px",
 
                                         fontSize:
                                           tamanoBotonAbrir,
 
                                         borderRadius:
                                           modoMovil
-                                            ? "9px"
+                                            ? "5px"
                                             : esPantallaCompleta
                                               ? "9px"
                                               : "9px",
@@ -1985,13 +2087,13 @@ function KpiCard({
           compacto
             ? "82px"
             : pantallaCompleta
-              ? "190px"
+              ? "50px"
               : "155px",
         padding:
           compacto
             ? "13px 16px"
             : pantallaCompleta
-              ? "28px"
+              ? "12px"
               : "22px",
 
         flexDirection:
@@ -2189,17 +2291,16 @@ function obtenerAlertaEspera(
     color: "#2563eb",
   };
 }
-
 const pageContainerStyle = {
   width: "100%",
-  maxWidth: "1500px",
+  maxWidth: "100%",
   minWidth: 0,
-  margin: "0 auto",
+  margin: 0,
+  padding: "0 10px",
   boxSizing: "border-box" as const,
   overflowX: "hidden" as const,
 };
-
-
+``
 const dashboardContainerStyle = {
   padding: "30px",
   borderRadius: "16px",
@@ -2383,11 +2484,6 @@ const tdStyle = {
   color: "#334155",
   fontSize: "14px",
 };
-
-
-
-
-
 
 const sectionActionsStyle = {
   display: "flex",
@@ -2575,15 +2671,7 @@ const operationalTdStyle = {
   textAlign: "center" as const,
 };
 
-const operationalStatusStyle = {
-  display: "inline-block",
-  minWidth: "78px",
-  padding: "5px 9px",
-  borderRadius: "999px",
-  fontSize: "16px",
-  fontWeight: "800",
-  textAlign: "center" as const,
-};
+
 
 const operationalTimeStyle = {
   display: "inline-block",
@@ -2621,6 +2709,7 @@ const operationalOpenButtonStyle = {
   transition:
     "background 150ms ease, transform 150ms ease",
 };
+
 const dismissNotificationStyle = {
   minHeight: "32px",
   padding: "5px 10px",

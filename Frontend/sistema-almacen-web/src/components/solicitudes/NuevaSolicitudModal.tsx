@@ -200,6 +200,67 @@ export function NuevaSolicitudModal({
     }, 0);
   };
 
+  const [
+    mensajeEscaneo,
+    setMensajeEscaneo,
+  ] = useState<{
+    tipo: "exito" | "error";
+    texto: string;
+  } | null>(null);
+
+  // Controla cuánto tiempo permanece visible el mensaje.
+  const temporizadorMensajeRef =
+    useRef<number | null>(null);
+
+  const mostrarMensajeEscaneo = (
+    tipo: "exito" | "error",
+    texto: string
+  ) => {
+    if (
+      temporizadorMensajeRef.current !== null
+    ) {
+      window.clearTimeout(
+        temporizadorMensajeRef.current
+      );
+    }
+
+    setMensajeEscaneo({
+      tipo,
+      texto,
+    });
+
+    temporizadorMensajeRef.current =
+      window.setTimeout(() => {
+        setMensajeEscaneo(null);
+        temporizadorMensajeRef.current = null;
+      }, tipo === "exito" ? 2500 : 4000);
+  };
+
+  const mostrarMensajeExito = (
+    texto: string
+  ) => {
+    setError("");
+
+    mostrarMensajeEscaneo(
+      "exito",
+      texto
+    );
+  };
+
+  const mostrarMensajeError = (
+    texto: string
+  ) => {
+    setError("");
+
+    mostrarMensajeEscaneo(
+      "error",
+      texto
+    );
+
+    setBusquedaMaterial("");
+    enfocarEscaneo();
+  };
+
 
   // Abre o cierra Proyecto, Familia y Estación.
   const alternarSeleccionManual = () => {
@@ -324,6 +385,18 @@ export function NuevaSolicitudModal({
         "change",
         actualizarModoMovil
       );
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (
+        temporizadorMensajeRef.current !== null
+      ) {
+        window.clearTimeout(
+          temporizadorMensajeRef.current
+        );
+      }
     };
   }, []);
 
@@ -464,11 +537,9 @@ export function NuevaSolicitudModal({
         .toUpperCase();
 
     if (
-      !contenidoLimpio
-        .toUpperCase()
-        .startsWith("SWA|")
+      !contenidoLimpio.startsWith("SWA|")
     ) {
-      return true;
+      return false;
     }
 
     try {
@@ -600,19 +671,14 @@ export function NuevaSolicitudModal({
         errorQr
       );
 
-      setBusquedaMaterial("");
       setContextoQrPendiente(null);
       setMaterialPendiente(null);
 
-      setError(
+      mostrarMensajeError(
         obtenerMensajeErrorQr(
           errorQr
         )
       );
-
-      window.setTimeout(() => {
-        inputEscaneoRef.current?.focus();
-      }, 0);
 
       return true;
     } finally {
@@ -823,12 +889,18 @@ export function NuevaSolicitudModal({
         },
       ];
     });
+    const numeroParteAgregado =
+      materialPendiente.numeroParteMaterial;
+
     setMaterialPendiente(null);
     setContextoQrPendiente(null);
     setCantidadPendiente("1");
     setBusquedaMaterial("");
     setMostrarBusquedaManual(false);
-    setError("");
+
+    mostrarMensajeExito(
+      `Material ${numeroParteAgregado} agregado correctamente.`
+    );
 
     enfocarEscaneo();
 
@@ -849,7 +921,7 @@ export function NuevaSolicitudModal({
   // Confirma y agrega el material a la lista.
   const confirmarMaterialPendiente = () => {
     if (!materialPendiente) {
-      setError(
+      mostrarMensajeError(
         "Escanea o selecciona un material."
       );
 
@@ -878,7 +950,7 @@ export function NuevaSolicitudModal({
         cantidad <= 0
       )
     ) {
-      setError(
+      mostrarMensajeError(
         "La cantidad de bolsas debe ser un número entero mayor que cero."
       );
       return;
@@ -891,12 +963,13 @@ export function NuevaSolicitudModal({
       cantidad >
       contextoQrPendiente.maximoBolsas
     ) {
-      setError(
+      mostrarMensajeError(
         `Solo quedan disponibles ${contextoQrPendiente.maximoBolsas} bolsas para hoy.`
       );
-
       return;
     }
+    const numeroParteAgregado =
+      materialPendiente.numeroParteMaterial;
 
 
 
@@ -1060,13 +1133,13 @@ export function NuevaSolicitudModal({
     setContextoQrPendiente(null);
     setCantidadPendiente("1");
     setBusquedaMaterial("");
-    setError("");
 
+    mostrarMensajeExito(
+      `Material ${numeroParteAgregado} agregado correctamente.`
+    );
 
     // Recupera el foco para continuar escaneando.
-    window.setTimeout(() => {
-      inputEscaneoRef.current?.focus();
-    }, 0);
+    enfocarEscaneo();
   };
 
 
@@ -1452,6 +1525,7 @@ export function NuevaSolicitudModal({
                   setMaterialPendiente(null);
                   setContextoQrPendiente(null);
                   setError("");
+                  setMensajeEscaneo(null);
                 }}
                 onKeyDown={async (event) => {
                   if (event.key !== "Enter") {
@@ -1471,10 +1545,12 @@ export function NuevaSolicitudModal({
                       .trim();
 
                   if (!contenido) {
-                    enfocarEscaneo();
+                    mostrarMensajeError(
+                      "Escanea un QR o escribe un número de material."
+                    );
+
                     return;
                   }
-
                   const esQr =
                     await procesarQrContextual(
                       contenido
@@ -1540,16 +1616,13 @@ export function NuevaSolicitudModal({
                     return;
                   }
 
-                  setError(
+                  mostrarMensajeError(
                     contenidoNormalizado.startsWith(
                       "SWA"
                     )
-                      ? "La etiqueta parece ser un QR del sistema, pero el contenido llegó incompleto o con un formato incorrecto."
-                      : "No se encontró una coincidencia exacta para el código escaneado."
+                      ? "La etiqueta QR llegó incompleta o tiene un formato incorrecto."
+                      : "No se encontró una coincidencia para el código escaneado."
                   );
-
-                  setBusquedaMaterial("");
-                  enfocarEscaneo();
                 }}
 
 
@@ -1593,6 +1666,50 @@ export function NuevaSolicitudModal({
                   ? "Ocultar selección manual"
                   : "Selección manual"}
               </button>
+              {mensajeEscaneo && (
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  style={{
+                    ...mensajeEscaneoStyle,
+
+                    border:
+                      mensajeEscaneo.tipo === "exito"
+                        ? "1px solid #86efac"
+                        : "1px solid #fecaca",
+
+                    background:
+                      mensajeEscaneo.tipo === "exito"
+                        ? "#f0fdf4"
+                        : "#fef2f2",
+
+                    color:
+                      mensajeEscaneo.tipo === "exito"
+                        ? "#166534"
+                        : "#991b1b",
+                  }}
+                >
+                  <span
+                    style={{
+                      ...mensajeEscaneoIconoStyle,
+
+                      background:
+                        mensajeEscaneo.tipo === "exito"
+                          ? "#16a34a"
+                          : "#dc2626",
+                    }}
+                  >
+                    {mensajeEscaneo.tipo === "exito"
+                      ? "✓"
+                      : "✕"}
+                  </span>
+
+                  <span>
+                    {mensajeEscaneo.texto}
+                  </span>
+                </div>
+              )}
+
 
               {mostrarBusquedaManual &&
                 busquedaMaterial.trim() &&
@@ -2411,7 +2528,7 @@ export function NuevaSolicitudModal({
               </div>
             )}
 
-            {error && (
+            {error && !mensajeEscaneo && (
               <div style={errorStyle}>
                 {error}
               </div>
@@ -2756,4 +2873,38 @@ const counterStyle = {
   color: "#1e40af",
   fontSize: "12px",
   fontWeight: "700",
+};
+
+const mensajeEscaneoStyle = {
+  width: "100%",
+  minHeight: "44px",
+
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+
+  padding: "10px 12px",
+  borderRadius: "9px",
+
+  fontSize: "13px",
+  fontWeight: "700",
+  lineHeight: 1.35,
+
+  boxSizing: "border-box" as const,
+};
+
+const mensajeEscaneoIconoStyle = {
+  width: "25px",
+  height: "25px",
+  flexShrink: 0,
+
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+
+  borderRadius: "999px",
+  color: "#ffffff",
+
+  fontSize: "15px",
+  fontWeight: "900",
 };
