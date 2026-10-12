@@ -331,14 +331,21 @@ public static class MrpEndpoints
 
                             continue;
                         }
-
+                        // Algunos materiales llegan desde MRP con
+                        // Pack Size = 1 por un error de datos maestros.
+                        // Mientras Planeación corrige el STD Pack,
+                        // se considera una sola bolsa.
                         var bolsasNecesarias =
                             cantidadRequerida <= 0
                                 ? 0
-                                : (int)Math.Ceiling(
-                                    cantidadRequerida /
-                                    packSize
-                                );
+                                : packSize <= 1
+                                    ? 1
+                                    : (int)Math.Ceiling(
+                                        cantidadRequerida /
+                                        packSize
+                                    );
+
+
 
                         requerimientos.Add(
                             new RequerimientoMrpImportacion
@@ -563,7 +570,7 @@ public static class MrpEndpoints
             "Surtidor"
         )
 );
-        
+
 
 
 

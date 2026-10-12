@@ -336,3 +336,56 @@ VALUES
 ('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
 
 
+INSERT INTO bom_detalle
+(
+    id_bom,
+    id_material,
+    id_estacion,
+    numero_fila,
+    cantidad_requerida,
+    plan_diario,
+    localizacion_bom,
+    std_pack_bom,
+    tiene_advertencia,
+    detalle_advertencia
+)
+VALUES
+(
+    49,
+    831,
+    57,
+    9999,
+    1.0000,
+    280.0000,
+    'CONVEYER',
+    NULL,
+    0,
+    NULL
+);
+
+INSERT INTO bom_detalle
+(
+    id_bom,
+    id_material,
+    id_estacion,
+    numero_fila,
+    cantidad_requerida,
+    plan_diario,
+    localizacion_bom,
+    std_pack_bom,
+    tiene_advertencia,
+    detalle_advertencia
+)
+VALUES
+(
+    49,
+    832,
+    57,
+    9998,
+    1.0000,
+    280.0000,
+    'CONVEYER',
+    NULL,
+    0,
+    NULL
+);

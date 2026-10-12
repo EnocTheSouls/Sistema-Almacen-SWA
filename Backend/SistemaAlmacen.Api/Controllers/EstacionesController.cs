@@ -84,12 +84,14 @@ public sealed class EstacionesController
                 archivo.OpenReadStream();
 
             var resultado =
-        await _estacionImportService
-        .ImportarCatalogoAsync(
-            stream,
-            archivo.FileName,
-            idFamilia
-        );
+                await _estacionImportService
+                    .ImportarAsync(
+                        stream,
+                        archivo.FileName,
+                        idFamilia
+                    );
+
+
             return Ok(
                 new
                 {

@@ -3,7 +3,7 @@ using SistemaAlmacen.Api.Services;
 namespace SistemaAlmacen.Api.Endpoints;
 
 // Expone la descarga del Excel
-// con los códigos de barras.
+// con los códigos QR.
 public static class MaterialBarcodeExportEndpoints
 {
     public static IEndpointRouteBuilder
@@ -16,7 +16,7 @@ public static class MaterialBarcodeExportEndpoints
             );
 
         grupo.MapGet(
-            "/exportar-codigos-barras",
+            "/exportar-codigos-qr",
             ExportarCodigosBarrasAsync
         );
 
@@ -63,7 +63,7 @@ public static class MaterialBarcodeExportEndpoints
         catch (Exception ex)
         {
             Console.Error.WriteLine(
-                "Error al exportar códigos de barras:"
+                "Error al exportar códigos QR:"
             );
 
             Console.Error.WriteLine(
@@ -72,7 +72,7 @@ public static class MaterialBarcodeExportEndpoints
 
             return Results.Problem(
                 title:
-                    "No fue posible exportar los códigos de barras.",
+                    "No fue posible exportar los códigos QR.",
                 detail:
                     ex.Message,
                 statusCode:

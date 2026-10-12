@@ -8,7 +8,7 @@ using SistemaAlmacen.Api.Models;
 
 namespace SistemaAlmacen.Api.Services;
 
-// Genera un Excel con los códigos de barras
+// Genera un Excel con los códigos QR
 // de todos los materiales del catálogo.
 public sealed class MaterialBarcodeExportService
 {
@@ -36,12 +36,12 @@ public sealed class MaterialBarcodeExportService
                 .ObtenerRelacionesCodigosBarrasAsync();
 
         var relacionesConEstacion =
-            relaciones
-                .Where(
-                    relacion =>
-                        relacion.IdEstacion.HasValue
-                )
-                .ToList();
+      relaciones
+          .Where(
+              relacion =>
+                  relacion.IdEstacion.HasValue
+          )
+          .ToList();
 
         if (relacionesConEstacion.Count == 0)
         {
@@ -51,7 +51,7 @@ public sealed class MaterialBarcodeExportService
         }
 
         using var workbook =
-    new XLWorkbook();
+            new XLWorkbook();
 
         CrearHojaDatosQr(
             workbook,
@@ -62,11 +62,6 @@ public sealed class MaterialBarcodeExportService
             workbook,
             relacionesConEstacion
         );
-
-
-
-
-
 
 
 
@@ -150,10 +145,6 @@ public sealed class MaterialBarcodeExportService
         // Solo exporta relaciones con estación asignada.
         var filasExportables =
             relaciones
-                .Where(
-                    relacion =>
-                        relacion.IdEstacion.HasValue
-                )
                 .GroupBy(
                     relacion =>
                         relacion.IdBomDetalle
@@ -360,7 +351,6 @@ public sealed class MaterialBarcodeExportService
 
         var filasExportables =
             relaciones
-                .Where(x => x.IdEstacion.HasValue)
                 .GroupBy(x => x.IdBomDetalle)
                 .Select(x => x.First())
                 .OrderBy(x => x.Estacion)

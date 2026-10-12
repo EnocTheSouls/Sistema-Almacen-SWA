@@ -71,13 +71,6 @@ public static class IpsExportEndpoints
         }
         catch (Exception ex)
 {
-    Console.WriteLine(
-        "ERROR AL GENERAR LISTAS IPS:"
-    );
-
-    Console.WriteLine(
-        ex.ToString()
-    );
 
     return Results.Problem(
         title:

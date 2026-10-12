@@ -1025,7 +1025,7 @@ export function MaterialesPage() {
     );
   };
 
-  // Descarga el Excel con todos los códigos de barras.
+  // Descarga el Excel con todos los códigos QR.
   const exportarCodigosCsv = async () => {
     try {
       setErrorCarga("");
@@ -1036,7 +1036,7 @@ export function MaterialesPage() {
 
       const respuesta =
         await fetch(
-          "http://localhost:5042/api/materiales/exportar-codigos-barras",
+          "http://localhost:5042/api/materiales/exportar-codigos-qr",
           {
             method: "GET",
             headers: token
@@ -1099,18 +1099,18 @@ export function MaterialesPage() {
       }, 1000);
 
       setMensajeExito(
-        "El Excel con los códigos de barras se generó correctamente."
+        "El Excel con los códigos de QR se generó correctamente."
       );
     } catch (error) {
       console.error(
-        "Error al exportar códigos de barras:",
+        "Error al exportar códigos QR:",
         error
       );
 
       setErrorCarga(
         error instanceof Error
           ? error.message
-          : "No fue posible exportar los códigos de barras."
+          : "No fue posible exportar los códigos de QR."
       );
     }
   };
@@ -1378,8 +1378,8 @@ export function MaterialesPage() {
                             type="button"
                             onClick={exportarCodigosCsv}
                             disabled={materiales.length === 0}
-                            title="Exportar todos los códigos de barras"
-                            aria-label="Exportar todos los códigos de barras"
+                            title="Exportar todos los códigos QR"
+                            aria-label="Exportar todos los códigos QR"
                             style={{
                               position: "absolute",
                               right: 0,

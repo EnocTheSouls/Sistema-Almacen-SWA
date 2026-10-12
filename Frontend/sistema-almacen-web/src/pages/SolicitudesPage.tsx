@@ -806,8 +806,8 @@ export function SolicitudesPage() {
                 <span style={activeRequestsCounterStyle}>
                   {peticionesActivas.length}{" "}
                   {peticionesActivas.length === 1
-                    ? "petición activa"
-                    : "peticiones activas"}
+                    ? "petición"
+                    : "peticiones"}
                 </span>
               </div>
 

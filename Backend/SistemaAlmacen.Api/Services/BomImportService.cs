@@ -83,20 +83,6 @@ public sealed class BomImportService
             );
 
         // Muestra temporalmente las columnas reales del BOM.
-        Console.WriteLine(
-            "COLUMNAS DEL BOM:"
-        );
-
-        Console.WriteLine(
-            string.Join(
-                Environment.NewLine,
-                columnas.Keys
-                    .OrderBy(
-                        columna => columna
-                    )
-            )
-        );
-
         ValidarColumnasObligatorias(
             columnas
         );

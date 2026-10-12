@@ -1709,8 +1709,6 @@ export function NuevaSolicitudModal({
                   </span>
                 </div>
               )}
-
-
               {mostrarBusquedaManual &&
                 busquedaMaterial.trim() &&
                 materialesEncontrados.length > 0 &&

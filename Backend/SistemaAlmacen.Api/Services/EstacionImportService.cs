@@ -20,6 +20,7 @@ public sealed class EstacionImportService
     private readonly BomRepository
         _bomRepository;
 
+
     public EstacionImportService(
         ArnesRepository arnesRepository,
         MaterialRepository materialRepository,
@@ -238,8 +239,25 @@ public sealed class EstacionImportService
                 );
             }
         }
+        // Relaciona las estaciones importadas
+        // y asigna CONVEYER a los materiales
+        // que continúen sin estación.
+        var asignacionesConveyer =
+        await _bomRepository
+            .AsignarConveyerAFaltantesAsync(
+                idFamilia
+            );
+
+        Console.WriteLine(
+     $"Asignaciones oficiales realizadas: " +
+     $"{resultado.AsignacionesRealizadas}. " +
+     $"Asignaciones automáticas a CONVEYER: " +
+     $"{asignacionesConveyer}."
+ );
 
         return resultado;
+
+
     }
 
     public async Task<EstacionImportResult>
@@ -413,10 +431,10 @@ public sealed class EstacionImportService
                 }
 
                 if (
-                    string.IsNullOrWhiteSpace(
-                        nombreEstacion
-                    )
-                )
+    string.IsNullOrWhiteSpace(
+        nombreEstacion
+    )
+)
                 {
                     resultado
                         .FilasConAdvertencia++;
@@ -428,7 +446,9 @@ public sealed class EstacionImportService
                                 numeroFila,
 
                             Mensaje =
-                                "La fila no tiene estación y fue omitida."
+                                "La fila no tiene estación. " +
+                                "El material conservará su relación BOM " +
+                                "y se asignará a CONVEYER automáticamente."
                         }
                     );
 

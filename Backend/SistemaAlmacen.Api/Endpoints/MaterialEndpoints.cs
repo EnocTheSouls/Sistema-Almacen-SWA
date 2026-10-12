@@ -142,7 +142,6 @@ public static class MaterialEndpoints
                         }
                     );
                 }
-                Console.WriteLine($"QR RECIBIDO: {dto.ContenidoQr}");
                 var contenidoQrNormalizado =
                     dto.ContenidoQr
                         .Replace("ç", "|")
@@ -373,7 +372,7 @@ public static class MaterialEndpoints
                         new
                         {
                             mensaje =
-                                "El código de barras no puede exceder 100 caracteres."
+                                "El código QR no puede exceder 100 caracteres."
                         }
                     );
                 }
@@ -542,7 +541,7 @@ public static class MaterialEndpoints
                         new
                         {
                             mensaje =
-                                "Ya existe un material con el mismo número de parte, código de barras o serial de kits."
+                                "Ya existe un material con el mismo número de parte, código QR o serial de kits."
                         }
                     );
                 }

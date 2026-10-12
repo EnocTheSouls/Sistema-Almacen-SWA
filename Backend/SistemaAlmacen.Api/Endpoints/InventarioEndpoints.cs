@@ -52,7 +52,7 @@ public static class InventarioEndpoints
         .WithName("ObtenerInventarioPorId");
 
 
-        // Busca inventario mediante Material Number o código de barras.
+        // Busca inventario mediante Material Number o código de QR.
         grupo.MapGet("/escanear/{codigo}", async (
             string codigo,
             MaterialRepository materialRepository,

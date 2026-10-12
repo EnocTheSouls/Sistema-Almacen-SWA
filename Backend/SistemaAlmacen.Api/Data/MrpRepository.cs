@@ -756,6 +756,7 @@ public sealed class MrpRepository
                 INNER JOIN bom_detalle AS bd
                     ON bd.id_material =
                        r2.id_material
+                       
 
                 INNER JOIN bom AS b
                     ON b.id_bom =

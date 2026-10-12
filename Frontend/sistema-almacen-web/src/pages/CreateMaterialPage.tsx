@@ -41,7 +41,7 @@ export function CreateMaterialPage() {
 
         <input
           type="text"
-          placeholder="Código de Barras"
+          placeholder="Código QR"
         />
 
         <button type="submit">

@@ -258,8 +258,10 @@ public sealed class BomRepository
             FROM bom_detalle AS bd
             INNER JOIN bom AS b
                 ON b.id_bom = bd.id_bom
-            WHERE b.id_arnes = @idArnes
-              AND bd.id_material = @idMaterial
+                WHERE b.id_arnes = @idArnes
+                    AND bd.id_material = @idMaterial
+                    AND b.vigente = TRUE
+            
             ORDER BY
                 b.fecha_importacion DESC,
                 bd.id_detalle DESC
@@ -328,11 +330,17 @@ public sealed class BomRepository
                     COALESCE(
                         @stdPack,
                         std_pack_bom
-                    )
-            WHERE id_detalle =
-                  @idDetalle;
-            """;
+                    ),
 
+                tiene_advertencia =
+                    FALSE,
+
+                detalle_advertencia =
+                    NULL
+
+            WHERE id_detalle =
+                @idDetalle;
+            """;
         command.Parameters.AddWithValue(
             "@idDetalle",
             idDetalle
@@ -1151,6 +1159,80 @@ public sealed class BomRepository
         return await ObtenerContextoQrAsync(
             idBomDetalle
         );
+    }
+
+    // Relaciona la estación importada.
+    // Si no encuentra una estación válida,
+    // asigna CONVEYER para conservar el material en los QR.
+
+    // Asigna CONVEYER a los detalles BOM vigentes
+    // de la familia importada que sigan sin estación.
+    public async Task<int>
+        AsignarConveyerAFaltantesAsync(
+            int idFamilia)
+    {
+        await using var connection =
+            _connectionFactory.CreateConnection();
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE bom_detalle AS bd
+
+        INNER JOIN bom AS b
+            ON b.id_bom =
+               bd.id_bom
+           AND b.vigente = TRUE
+
+        INNER JOIN arneses AS a
+            ON a.id_arnes =
+               b.id_arnes
+           AND a.activo = TRUE
+
+        INNER JOIN estaciones AS e
+            ON e.id_familia =
+               a.id_familia
+           AND UPPER(
+                TRIM(e.nombre)
+           ) = 'CONVEYER'
+           AND e.activo = TRUE
+
+        SET
+            bd.id_estacion =
+                e.id_estacion,
+
+            bd.localizacion_bom =
+                UPPER(TRIM(e.nombre)),
+
+            bd.tiene_advertencia =
+                TRUE,
+
+            bd.detalle_advertencia =
+                'Estación no informada o no reconocida. Se asignó CONVEYER automáticamente.'
+
+        WHERE a.id_familia =
+              @idFamilia
+
+          AND bd.id_estacion IS NULL;
+        """;
+
+        command.Parameters.AddWithValue(
+            "@idFamilia",
+            idFamilia
+        );
+
+        var filasActualizadas =
+            await command.ExecuteNonQueryAsync();
+
+        Console.WriteLine(
+            $"Detalles BOM asignados automáticamente " +
+            $"a CONVEYER: {filasActualizadas}."
+        );
+
+        return filasActualizadas;
     }
 
 

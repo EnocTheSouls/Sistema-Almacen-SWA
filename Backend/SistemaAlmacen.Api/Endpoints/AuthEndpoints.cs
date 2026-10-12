@@ -42,24 +42,10 @@ public static class AuthEndpoints
                 );
             if (usuarioLogin is null)
             {
-                Console.WriteLine(
-                    $"LOGIN: usuario no encontrado " +
-                    $"[{dto.NombreUsuario.Trim()}]."
-                );
-
                 return Results.Unauthorized();
             }
 
-            Console.WriteLine(
-                $"LOGIN: usuario encontrado. " +
-                $"Id={usuarioLogin.IdUsuario}, " +
-                $"Usuario=[{usuarioLogin.NombreUsuario}], " +
-                $"Activo={usuarioLogin.Activo}, " +
-                $"HashPresente=" +
-                $"{!string.IsNullOrWhiteSpace(usuarioLogin.PasswordHash)}, " +
-                $"LongitudHash=" +
-                $"{usuarioLogin.PasswordHash?.Length ?? 0}"
-            );
+           
 
 
             // Evita revelar si el usuario específico existe.
@@ -244,5 +230,68 @@ public static class AuthEndpoints
         })
         .WithName("CambiarPassword")
         .RequireAuthorization();
+
+        grupo.MapPost("/reset-password/{id:int}", async (
+    int id,
+    UsuarioRepository usuarioRepository,
+    PasswordService passwordService) =>
+{
+    var usuarioLogin =
+        await usuarioRepository
+            .ObtenerParaLoginPorIdAsync(id);
+
+    if (usuarioLogin is null)
+    {
+        return Results.NotFound(new
+        {
+            mensaje = "Usuario no encontrado."
+        });
+    }
+
+    var usuario = new Usuario
+    {
+        IdUsuario = usuarioLogin.IdUsuario,
+        Nombre = usuarioLogin.Nombre,
+        NombreUsuario = usuarioLogin.NombreUsuario,
+        PasswordHash = usuarioLogin.PasswordHash,
+        IdRol = usuarioLogin.IdRol,
+        Activo = usuarioLogin.Activo
+    };
+
+    var nuevaPassword =
+        usuarioLogin.NombreUsuario.ToUpper() + "123";
+
+    var nuevoHash =
+        passwordService.CrearHash(
+            usuario,
+            nuevaPassword
+        );
+
+    var actualizado =
+        await usuarioRepository
+            .ActualizarPasswordAsync(
+                usuarioLogin.IdUsuario,
+                nuevoHash
+            );
+
+    if (!actualizado)
+    {
+        return Results.Problem(
+            "No fue posible restablecer la contraseña."
+        );
+    }
+
+    return Results.Ok(new
+    {
+        mensaje = "Contraseña restablecida.",
+        passwordTemporal = nuevaPassword
+    });
+})
+.RequireAuthorization("Administrador");
+
+
+
+
+
     }
 }

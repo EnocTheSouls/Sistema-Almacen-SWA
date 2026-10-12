@@ -158,7 +158,7 @@ public sealed class MaterialRepository
 
 
 
-    // Busca un material por número de parte o código de barras.
+    // Busca un material por número de parte o código QR.
     public async Task<Material?> ObtenerPorCodigoAsync(
         string codigo)
     {

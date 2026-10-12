@@ -680,7 +680,7 @@ export function InventarioPage() {
                       key={valor}
                       value={valor}
                     >
-                      {valor} 
+                      {valor}
                     </option>
                   ))}
               </select>
@@ -1109,7 +1109,6 @@ export function InventarioPage() {
     </Layout>
   );
 }
-
 function obtenerRangoPeriodo(
   fecha: string,
   tipoPeriodo: TipoPeriodo
@@ -1124,18 +1123,10 @@ function obtenerRangoPeriodo(
   const fechaSurtido =
     crearFechaLocal(fecha);
 
-  // La producción requiere el material
-  // un día después del surtido.
+  // Para el MRP usamos directamente la fecha ETA.
   if (tipoPeriodo === "DIA") {
-    const fechaProduccion =
-      new Date(fechaSurtido);
-
-    fechaProduccion.setDate(
-      fechaProduccion.getDate() + 1
-    );
-
     const fechaEta =
-      fechaAInput(fechaProduccion);
+      fechaAInput(fechaSurtido);
 
     return {
       fechaDesde: fechaEta,
@@ -1143,8 +1134,6 @@ function obtenerRangoPeriodo(
     };
   }
 
-  // Calcula la semana de surtido
-  // de lunes a domingo.
   const diaSemana =
     fechaSurtido.getDay();
 
@@ -1168,28 +1157,12 @@ function obtenerRangoPeriodo(
     lunesSurtido.getDate() + 6
   );
 
-  // Convierte la semana de surtido
-  // en el rango ETA de producción.
-  const lunesProduccion =
-    new Date(lunesSurtido);
-
-  lunesProduccion.setDate(
-    lunesProduccion.getDate() + 1
-  );
-
-  const domingoProduccion =
-    new Date(domingoSurtido);
-
-  domingoProduccion.setDate(
-    domingoProduccion.getDate() + 1
-  );
-
   return {
     fechaDesde:
-      fechaAInput(lunesProduccion),
+      fechaAInput(lunesSurtido),
 
     fechaHasta:
-      fechaAInput(domingoProduccion),
+      fechaAInput(domingoSurtido),
   };
 }
 
