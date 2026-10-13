@@ -1,3 +1,8 @@
+import {
+  useEffect,
+  useRef,
+} from "react";
+
 import type {
   Solicitud,
 } from "../../types/solicitud";
@@ -16,6 +21,23 @@ export function SolicitudesTable({
   cargando,
   onSeleccionar,
 }: SolicitudesTableProps) {
+  const tableContainerRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
+  // Regresa la tabla a la primera columna
+  // cuando cambian las solicitudes.
+  useEffect(() => {
+    const contenedor =
+      tableContainerRef.current;
+
+    if (!contenedor) {
+      return;
+    }
+
+    contenedor.scrollLeft = 0;
+  }, [solicitudes]);
   if (cargando) {
     return (
       <div style={messageStyle}>
@@ -33,7 +55,13 @@ export function SolicitudesTable({
   }
 
   return (
-    <div style={tableContainerStyle}>
+    <div
+      ref={tableContainerRef}
+      style={tableContainerStyle}
+      role="region"
+      aria-label="Tabla de solicitudes"
+      tabIndex={0}
+    >
       <table style={tableStyle}>
         <thead>
           <tr style={headerRowStyle}>
@@ -202,8 +230,8 @@ function obtenerEstadoStyle(
   }
 
   if (
-    estado === "surtida" 
-  
+    estado === "surtida"
+
   ) {
     background = "#dcfce7";
     color = "#166534";
@@ -229,17 +257,42 @@ function obtenerEstadoStyle(
 }
 
 const tableContainerStyle = {
+  display: "block",
+
   width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+
   overflowX: "auto" as const,
+  overflowY: "hidden" as const,
+
+  WebkitOverflowScrolling:
+    "touch" as const,
+
+  overscrollBehaviorX:
+    "contain" as const,
+
+  boxSizing: "border-box" as const,
+
   border: "1px solid #e2e8f0",
   borderRadius: "10px",
+
+  background: "#ffffff",
 };
 
 const tableStyle = {
   width: "100%",
-  borderCollapse: "collapse" as const,
-};
 
+  // Conserva completas todas las columnas.
+  // En móvil se desplaza dentro del contenedor.
+  minWidth: "920px",
+
+  borderCollapse:
+    "collapse" as const,
+
+  tableLayout:
+    "auto" as const,
+};
 const headerRowStyle = {
   background: "#f8fafc",
 };
@@ -256,16 +309,27 @@ const thStyle = {
 
 const tdStyle = {
   padding: "13px",
+
   borderBottom:
     "1px solid #e5e7eb",
+
   color: "#334155",
   fontSize: "14px",
+
+  verticalAlign:
+    "middle" as const,
+
+  whiteSpace:
+    "nowrap" as const,
 };
 
 const rowStyle = {
   cursor: "pointer",
-};
 
+  minHeight: "52px",
+
+  background: "#ffffff",
+};
 const messageStyle = {
   padding: "35px",
   borderRadius: "10px",

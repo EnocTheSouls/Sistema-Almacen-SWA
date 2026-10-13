@@ -45,7 +45,7 @@ public static class AuthEndpoints
                 return Results.Unauthorized();
             }
 
-           
+
 
 
             // Evita revelar si el usuario específico existe.
@@ -287,11 +287,13 @@ public static class AuthEndpoints
         passwordTemporal = nuevaPassword
     });
 })
-.RequireAuthorization("Administrador");
-
-
-
-
-
+.RequireAuthorization(
+    policy =>
+        policy.RequireRole(
+            "Administrador",
+            "ADMINISTRADOR",
+            "ADMIN"
+        )
+);
     }
 }

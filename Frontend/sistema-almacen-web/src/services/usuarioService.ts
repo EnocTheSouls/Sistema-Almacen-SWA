@@ -8,6 +8,11 @@ import type {
   User,
 } from "../types/user";
 
+export interface ResetPasswordResponse {
+  mensaje: string;
+  passwordTemporal: string;
+}
+
 // Obtiene todos los usuarios.
 export async function obtenerUsuarios(): Promise<User[]> {
   const respuesta =
@@ -19,7 +24,6 @@ export async function obtenerUsuarios(): Promise<User[]> {
 }
 
 // Crea un usuario.
-// El backend genera el hash de la contraseña.
 export async function crearUsuario(
   datos: CrearUsuarioRequest
 ): Promise<User> {
@@ -41,6 +45,18 @@ export async function actualizarUsuario(
     await apiClient.put<User>(
       `/usuarios/${idUsuario}`,
       datos
+    );
+
+  return respuesta.data;
+}
+
+// Restablece la contraseña de un usuario.
+export async function restablecerPasswordUsuario(
+  idUsuario: number
+): Promise<ResetPasswordResponse> {
+  const respuesta =
+    await apiClient.post<ResetPasswordResponse>(
+      `/auth/reset-password/${idUsuario}`
     );
 
   return respuesta.data;

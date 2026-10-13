@@ -716,8 +716,10 @@ export function DashboardPage() {
 
             minHeight:
               esPantallaCompleta
-                ? "100vh"
-                : undefined,
+                ? "100dvh"
+                : modoMovil
+                  ? "auto"
+                  : "calc(100dvh - 145px)",
 
             width: "100%",
             maxWidth: "100%",
@@ -1123,7 +1125,10 @@ export function DashboardPage() {
                         ? "22px"
                         : "18px",
 
-                    minHeight: 0,
+                    minHeight:
+                      modoMovil
+                        ? "260px"
+                        : "320px",
                   }}
                 >
                   <div
@@ -1305,8 +1310,8 @@ export function DashboardPage() {
                                   tamanoEncabezadoTabla,
                               }}
                             >
-                               Tiempo
-                              
+                              Tiempo
+
                             </th>
 
                             <th
@@ -1316,7 +1321,7 @@ export function DashboardPage() {
                                   tamanoEncabezadoTabla,
                               }}
                             >
-                             Accion
+                              Accion
                             </th>
                             <th
                               style={{
@@ -2300,15 +2305,27 @@ const pageContainerStyle = {
   boxSizing: "border-box" as const,
   overflowX: "hidden" as const,
 };
-``
 const dashboardContainerStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+
+  width: "100%",
+  minWidth: 0,
+
+  // Ocupa el alto restante debajo del encabezado.
+  minHeight:
+    "calc(100dvh - 145px)",
+
   padding: "30px",
+  boxSizing: "border-box" as const,
+
   borderRadius: "16px",
   background: "#ffffff",
 
   boxShadow:
     "0 4px 15px rgba(0, 0, 0, 0.08)",
 };
+
 
 const headerStyle = {
   display: "flex",
@@ -2407,7 +2424,17 @@ const kpiDescriptionStyle = {
 };
 
 const pendingSectionStyle = {
+  flex: 1,
+
+  display: "flex",
+  flexDirection: "column" as const,
+
+  width: "100%",
+  minWidth: 0,
+  minHeight: "260px",
+
   padding: "22px",
+  boxSizing: "border-box" as const,
 
   border: "1px solid #cbd5e1",
   borderRadius: "12px",
@@ -2511,13 +2538,28 @@ const loadingStyle = {
 };
 
 const emptyStyle = {
+  flex: 1,
+
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+
+  width: "100%",
+  minWidth: 0,
+  minHeight: "180px",
+
   padding: "38px",
+  boxSizing: "border-box" as const,
+
   border: "1px dashed #cbd5e1",
   borderRadius: "10px",
+
   background: "#f8fafc",
   color: "#64748b",
+
   textAlign: "center" as const,
 };
+
 
 const successStyle = {
   marginBottom: "18px",

@@ -21,6 +21,7 @@ import {
 import {
   actualizarUsuario,
   obtenerUsuarios,
+  restablecerPasswordUsuario,
 } from "../services/usuarioService";
 
 import type {
@@ -348,57 +349,9 @@ export function UserListPage() {
   const restablecerPassword = async (
     usuario: User
   ) => {
-    const confirmar = window.confirm(
-      `¿Restablecer contraseña de ${usuario.nombreUsuario}?`
-    );
-
-    if (!confirmar) {
-      return;
-    }
-
-    try {
-      await axios.post(
-      
-          `${import.meta.env.VITE_API_URL}/u/auth/reset-password/${usuario.idUsuario}`
-        
-      );
-
-  setMensajeExito(
-    `La contraseña de ${usuario.nombreUsuario} fue restablecida.`
-  );
-} catch (error) {
-  setError(
-    obtenerMensajeError(
-      error,
-      "No se pudo restablecer la contraseña."
-    )
-  );
-}
-  };
-
-const cambiarEstado =
-  async (
-    usuario: User
-  ) => {
-    if (
-      !puedeGestionarUsuario(
-        usuario
-      )
-    ) {
-      setError(
-        "No tienes permiso para modificar este usuario."
-      );
-      return;
-    }
-
-    const accion =
-      usuario.activo
-        ? "desactivar"
-        : "activar";
-
     const confirmar =
       window.confirm(
-        `¿Deseas ${accion} al usuario ${usuario.nombreUsuario}?`
+        `¿Restablecer contraseña de ${usuario.nombreUsuario}?`
       );
 
     if (!confirmar) {
@@ -408,52 +361,28 @@ const cambiarEstado =
     try {
       setGuardando(true);
       setError("");
+      setMensajeExito("");
 
-      const actualizado =
-        await actualizarUsuario(
-          usuario.idUsuario,
-          {
-            nombre:
-              usuario.nombre,
-
-            nombreUsuario:
-              usuario.nombreUsuario,
-
-            idRol:
-              usuario.idRol,
-
-            activo:
-              !usuario.activo,
-          }
+      const respuesta =
+        await restablecerPasswordUsuario(
+          usuario.idUsuario
         );
 
-      setUsuarios(
-        (usuariosActuales) =>
-          usuariosActuales.map(
-            (item) =>
-              item.idUsuario ===
-                actualizado.idUsuario
-                ? actualizado
-                : item
-          )
-      );
-
       setMensajeExito(
-        `El usuario ${actualizado.nombreUsuario} quedó ${actualizado.activo
-          ? "activo"
-          : "inactivo"
-        }.`
+        `${respuesta.mensaje} ` +
+        `Contraseña temporal: ` +
+        `${respuesta.passwordTemporal}`
       );
-    } catch (errorEstado) {
+    } catch (errorReset) {
       console.error(
-        "Error al cambiar estado:",
-        errorEstado
+        "Error al restablecer contraseña:",
+        errorReset
       );
 
       setError(
         obtenerMensajeError(
-          errorEstado,
-          "No se pudo cambiar el estado del usuario."
+          errorReset,
+          "No se pudo restablecer la contraseña."
         )
       );
     } finally {
@@ -461,441 +390,529 @@ const cambiarEstado =
     }
   };
 
-return (
-  <Layout>
-    <div style={pageContainerStyle}>
-      <section style={cardStyle}>
-        <header style={headerStyle}>
-          <div>
-            <h1 style={titleStyle}>
-              Administración de usuarios
-            </h1>
 
-            <p style={descriptionStyle}>
-              Consulta, edita, activa o desactiva
-              las cuentas del sistema.
-            </p>
-          </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              navigate(
-                "/usuarios/nuevo"
-              )
+
+  const cambiarEstado =
+    async (
+      usuario: User
+    ) => {
+      if (
+        !puedeGestionarUsuario(
+          usuario
+        )
+      ) {
+        setError(
+          "No tienes permiso para modificar este usuario."
+        );
+        return;
+      }
+
+      const accion =
+        usuario.activo
+          ? "desactivar"
+          : "activar";
+
+      const confirmar =
+        window.confirm(
+          `¿Deseas ${accion} al usuario ${usuario.nombreUsuario}?`
+        );
+
+      if (!confirmar) {
+        return;
+      }
+
+      try {
+        setGuardando(true);
+        setError("");
+
+        const actualizado =
+          await actualizarUsuario(
+            usuario.idUsuario,
+            {
+              nombre:
+                usuario.nombre,
+
+              nombreUsuario:
+                usuario.nombreUsuario,
+
+              idRol:
+                usuario.idRol,
+
+              activo:
+                !usuario.activo,
             }
-            style={primaryButtonStyle}
-          >
-            + Nuevo usuario
-          </button>
-        </header>
+          );
 
-        {mensajeExito && (
-          <div style={successStyle}>
-            {mensajeExito}
-          </div>
-        )}
+        setUsuarios(
+          (usuariosActuales) =>
+            usuariosActuales.map(
+              (item) =>
+                item.idUsuario ===
+                  actualizado.idUsuario
+                  ? actualizado
+                  : item
+            )
+        );
 
-        {error && (
-          <div
-            style={errorStyle}
-            role="alert"
-          >
-            {error}
-          </div>
-        )}
+        setMensajeExito(
+          `El usuario ${actualizado.nombreUsuario} quedó ${actualizado.activo
+            ? "activo"
+            : "inactivo"
+          }.`
+        );
+      } catch (errorEstado) {
+        console.error(
+          "Error al cambiar estado:",
+          errorEstado
+        );
 
-        <div style={filtersStyle}>
-          <div style={formGroupStyle}>
-            <label
-              htmlFor="buscarUsuario"
-              style={labelStyle}
-            >
-              Buscar usuario
-            </label>
+        setError(
+          obtenerMensajeError(
+            errorEstado,
+            "No se pudo cambiar el estado del usuario."
+          )
+        );
+      } finally {
+        setGuardando(false);
+      }
+    };
 
-            <input
-              id="buscarUsuario"
-              type="text"
-              value={busqueda}
-              onChange={(event) =>
-                setBusqueda(
-                  event.target.value
-                )
-              }
-              placeholder="Nombre, usuario o rol"
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={formGroupStyle}>
-            <label
-              htmlFor="filtroRol"
-              style={labelStyle}
-            >
-              Rol
-            </label>
-
-            <select
-              id="filtroRol"
-              value={filtroRol}
-              onChange={(event) =>
-                setFiltroRol(
-                  event.target.value
-                )
-              }
-              style={inputStyle}
-            >
-              <option value="TODOS">
-                Todos
-              </option>
-
-              <option value="ADMINISTRADOR">
-                Administrador
-              </option>
-
-              <option value="SUPERVISOR">
-                Supervisor
-              </option>
-
-              <option value="MATERIALISTA">
-                Materialista
-              </option>
-
-              <option value="PRODUCCION">
-                Producción
-              </option>
-
-              <option value="SURTIDOR">
-                Surtidor
-              </option>
-            </select>
-          </div>
-        </div>
-
-        {cargando ? (
-          <div style={messageStyle}>
-            Cargando usuarios...
-          </div>
-        ) : usuariosFiltrados.length ===
-          0 ? (
-          <div style={messageStyle}>
-            No se encontraron usuarios.
-          </div>
-        ) : (
-          <div style={tableContainerStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={tableHeaderStyle}>
-                  <th style={thStyle}>
-                    Usuario
-                  </th>
-
-                  <th style={thStyle}>
-                    Nombre
-                  </th>
-
-                  <th style={thStyle}>
-                    Rol
-                  </th>
-
-                  <th style={thStyle}>
-                    Estado
-                  </th>
-
-                  <th
-                    style={{
-                      ...thStyle,
-                      textAlign:
-                        "right",
-                    }}
-                  >
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {usuariosFiltrados.map(
-                  (usuario) => (
-                    <tr
-                      key={
-                        usuario.idUsuario
-                      }
-                    >
-                      <td style={tdStyle}>
-                        <strong>
-                          {
-                            usuario.nombreUsuario
-                          }
-                        </strong>
-                      </td>
-
-                      <td style={tdStyle}>
-                        {usuario.nombre}
-                      </td>
-
-                      <td style={tdStyle}>
-                        {usuario.nombreRol}
-                      </td>
-
-                      <td style={tdStyle}>
-                        <span
-                          style={{
-                            ...statusStyle,
-
-                            background:
-                              usuario.activo
-                                ? "#dcfce7"
-                                : "#fee2e2",
-
-                            color:
-                              usuario.activo
-                                ? "#166534"
-                                : "#991b1b",
-                          }}
-                        >
-                          {usuario.activo
-                            ? "Activo"
-                            : "Inactivo"}
-                        </span>
-                      </td>
-
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign:
-                            "right",
-                        }}
-                      >
-                        {puedeGestionarUsuario(
-                          usuario
-                        ) ? (
-                          <div style={rowActionsStyle}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                abrirEdicion(
-                                  usuario
-                                )
-                              }
-                              disabled={
-                                guardando
-                              }
-                              style={editButtonStyle}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => restablecerPassword(usuario)}
-                              disabled={guardando}
-                              style={resetPasswordButtonStyle}
-                            >
-                              Reset Password
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                cambiarEstado(
-                                  usuario
-                                )
-                              }
-                              disabled={
-                                guardando
-                              }
-                              style={
-                                usuario.activo
-                                  ? deactivateButtonStyle
-                                  : activateButtonStyle
-                              }
-                            >
-                              {usuario.activo
-                                ? "Desactivar"
-                                : "Activar"}
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={restrictedStyle}>
-                            Protegido
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
-
-    {usuarioEditando && (
-      <div style={modalOverlayStyle}>
-        <section style={modalStyle}>
-          <header style={modalHeaderStyle}>
+  return (
+    <Layout>
+      <div style={pageContainerStyle}>
+        <section style={cardStyle}>
+          <header style={headerStyle}>
             <div>
-              <h2 style={modalTitleStyle}>
-                Editar usuario
-              </h2>
+              <h1 style={titleStyle}>
+                Administración de usuarios
+              </h1>
 
               <p style={descriptionStyle}>
-                Actualiza los datos y permisos
-                de la cuenta.
+                Consulta, edita, activa o desactiva
+                las cuentas del sistema.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={
-                cerrarEdicion
+              onClick={() =>
+                navigate(
+                  "/usuarios/nuevo"
+                )
               }
-              style={closeButtonStyle}
+              style={primaryButtonStyle}
             >
-              ×
+              + Nuevo usuario
             </button>
           </header>
 
-          <div style={modalFormStyle}>
+          {mensajeExito && (
+            <div style={successStyle}>
+              {mensajeExito}
+            </div>
+          )}
+
+          {error && (
+            <div
+              style={errorStyle}
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
+
+          <div style={filtersStyle}>
             <div style={formGroupStyle}>
-              <label style={labelStyle}>
-                Nombre completo
+              <label
+                htmlFor="buscarUsuario"
+                style={labelStyle}
+              >
+                Buscar usuario
               </label>
 
               <input
+                id="buscarUsuario"
                 type="text"
-                value={formulario.nombre}
+                value={busqueda}
                 onChange={(event) =>
-                  setFormulario(
-                    (actual) => ({
-                      ...actual,
-                      nombre:
-                        event.target.value,
-                    })
+                  setBusqueda(
+                    event.target.value
                   )
                 }
+                placeholder="Nombre, usuario o rol"
                 style={inputStyle}
               />
             </div>
 
             <div style={formGroupStyle}>
-              <label style={labelStyle}>
-                Nombre de usuario
-              </label>
-
-              <input
-                type="text"
-                value={
-                  formulario.nombreUsuario
-                }
-                onChange={(event) =>
-                  setFormulario(
-                    (actual) => ({
-                      ...actual,
-                      nombreUsuario:
-                        event.target.value,
-                    })
-                  )
-                }
-                style={inputStyle}
-              />
-            </div>
-
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>
+              <label
+                htmlFor="filtroRol"
+                style={labelStyle}
+              >
                 Rol
               </label>
 
               <select
-                value={formulario.idRol}
+                id="filtroRol"
+                value={filtroRol}
                 onChange={(event) =>
-                  setFormulario(
-                    (actual) => ({
-                      ...actual,
-                      idRol:
-                        Number(
-                          event.target.value
-                        ),
-                    })
+                  setFiltroRol(
+                    event.target.value
                   )
                 }
                 style={inputStyle}
               >
-                {esAdministrador && (
-                  <option value={1}>
-                    Administrador
-                  </option>
-                )}
+                <option value="TODOS">
+                  Todos
+                </option>
 
-                <option value={2}>
+                <option value="ADMINISTRADOR">
+                  Administrador
+                </option>
+
+                <option value="SUPERVISOR">
                   Supervisor
                 </option>
 
-                <option value={3}>
+                <option value="MATERIALISTA">
                   Materialista
                 </option>
 
-                <option value={4}>
+                <option value="PRODUCCION">
                   Producción
                 </option>
 
-                <option value={47}>
+                <option value="SURTIDOR">
                   Surtidor
                 </option>
               </select>
             </div>
-
-            <label style={checkboxStyle}>
-              <input
-                type="checkbox"
-                checked={formulario.activo}
-                onChange={(event) =>
-                  setFormulario(
-                    (actual) => ({
-                      ...actual,
-                      activo:
-                        event.target.checked,
-                    })
-                  )
-                }
-              />
-
-              Usuario activo
-            </label>
           </div>
 
-          <div style={modalActionsStyle}>
-            <button
-              type="button"
-              onClick={
-                cerrarEdicion
-              }
-              disabled={guardando}
-              style={secondaryButtonStyle}
-            >
-              Cancelar
-            </button>
+          {cargando ? (
+            <div style={messageStyle}>
+              Cargando usuarios...
+            </div>
+          ) : usuariosFiltrados.length ===
+            0 ? (
+            <div style={messageStyle}>
+              No se encontraron usuarios.
+            </div>
+          ) : (
+            <div style={tableContainerStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr style={tableHeaderStyle}>
+                    <th style={thStyle}>
+                      Usuario
+                    </th>
 
-            <button
-              type="button"
-              onClick={
-                guardarEdicion
-              }
-              disabled={guardando}
-              style={primaryButtonStyle}
-            >
-              {guardando
-                ? "Guardando..."
-                : "Guardar cambios"}
-            </button>
-          </div>
+                    <th style={thStyle}>
+                      Nombre
+                    </th>
+
+                    <th style={thStyle}>
+                      Rol
+                    </th>
+
+                    <th style={thStyle}>
+                      Estado
+                    </th>
+
+                    <th
+                      style={{
+                        ...thStyle,
+                        textAlign:
+                          "right",
+                      }}
+                    >
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {usuariosFiltrados.map(
+                    (usuario) => (
+                      <tr
+                        key={
+                          usuario.idUsuario
+                        }
+                      >
+                        <td style={tdStyle}>
+                          <strong>
+                            {
+                              usuario.nombreUsuario
+                            }
+                          </strong>
+                        </td>
+
+                        <td style={tdStyle}>
+                          {usuario.nombre}
+                        </td>
+
+                        <td style={tdStyle}>
+                          {usuario.nombreRol}
+                        </td>
+
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              ...statusStyle,
+
+                              background:
+                                usuario.activo
+                                  ? "#dcfce7"
+                                  : "#fee2e2",
+
+                              color:
+                                usuario.activo
+                                  ? "#166534"
+                                  : "#991b1b",
+                            }}
+                          >
+                            {usuario.activo
+                              ? "Activo"
+                              : "Inactivo"}
+                          </span>
+                        </td>
+
+                        <td
+                          style={{
+                            ...tdStyle,
+                            textAlign:
+                              "right",
+                          }}
+                        >
+                          {puedeGestionarUsuario(
+                            usuario
+                          ) ? (
+                            <div style={rowActionsStyle}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  abrirEdicion(
+                                    usuario
+                                  )
+                                }
+                                disabled={
+                                  guardando
+                                }
+                                style={editButtonStyle}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => restablecerPassword(usuario)}
+                                disabled={guardando}
+                                style={resetPasswordButtonStyle}
+                              >
+                                Reset Password
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  cambiarEstado(
+                                    usuario
+                                  )
+                                }
+                                disabled={
+                                  guardando
+                                }
+                                style={
+                                  usuario.activo
+                                    ? deactivateButtonStyle
+                                    : activateButtonStyle
+                                }
+                              >
+                                {usuario.activo
+                                  ? "Desactivar"
+                                  : "Activar"}
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={restrictedStyle}>
+                              Protegido
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
-    )}
-  </Layout>
-);
+
+      {usuarioEditando && (
+        <div style={modalOverlayStyle}>
+          <section style={modalStyle}>
+            <header style={modalHeaderStyle}>
+              <div>
+                <h2 style={modalTitleStyle}>
+                  Editar usuario
+                </h2>
+
+                <p style={descriptionStyle}>
+                  Actualiza los datos y permisos
+                  de la cuenta.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  cerrarEdicion
+                }
+                style={closeButtonStyle}
+              >
+                ×
+              </button>
+            </header>
+
+            <div style={modalFormStyle}>
+              <div style={formGroupStyle}>
+                <label style={labelStyle}>
+                  Nombre completo
+                </label>
+
+                <input
+                  type="text"
+                  value={formulario.nombre}
+                  onChange={(event) =>
+                    setFormulario(
+                      (actual) => ({
+                        ...actual,
+                        nombre:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={formGroupStyle}>
+                <label style={labelStyle}>
+                  Nombre de usuario
+                </label>
+
+                <input
+                  type="text"
+                  value={
+                    formulario.nombreUsuario
+                  }
+                  onChange={(event) =>
+                    setFormulario(
+                      (actual) => ({
+                        ...actual,
+                        nombreUsuario:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={formGroupStyle}>
+                <label style={labelStyle}>
+                  Rol
+                </label>
+
+                <select
+                  value={formulario.idRol}
+                  onChange={(event) =>
+                    setFormulario(
+                      (actual) => ({
+                        ...actual,
+                        idRol:
+                          Number(
+                            event.target.value
+                          ),
+                      })
+                    )
+                  }
+                  style={inputStyle}
+                >
+                  {esAdministrador && (
+                    <option value={1}>
+                      Administrador
+                    </option>
+                  )}
+
+                  <option value={2}>
+                    Supervisor
+                  </option>
+
+                  <option value={3}>
+                    Materialista
+                  </option>
+
+                  <option value={4}>
+                    Producción
+                  </option>
+
+                  <option value={47}>
+                    Surtidor
+                  </option>
+                </select>
+              </div>
+
+              <label style={checkboxStyle}>
+                <input
+                  type="checkbox"
+                  checked={formulario.activo}
+                  onChange={(event) =>
+                    setFormulario(
+                      (actual) => ({
+                        ...actual,
+                        activo:
+                          event.target.checked,
+                      })
+                    )
+                  }
+                />
+
+                Usuario activo
+              </label>
+            </div>
+
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                onClick={
+                  cerrarEdicion
+                }
+                disabled={guardando}
+                style={secondaryButtonStyle}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  guardarEdicion
+                }
+                disabled={guardando}
+                style={primaryButtonStyle}
+              >
+                {guardando
+                  ? "Guardando..."
+                  : "Guardar cambios"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </Layout>
+  );
 }
 
 function obtenerMensajeError(
