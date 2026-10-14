@@ -566,7 +566,7 @@ export function SolicitudesPage() {
                   </h2>
 
                   <p style={activeRequestsDescriptionStyle}>
-                    Selecciona una solicitud para atenderla.
+                    Selecciona una requisicion para atenderla.
                   </p>
                 </div>
 

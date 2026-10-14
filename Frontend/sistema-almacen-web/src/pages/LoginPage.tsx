@@ -179,7 +179,7 @@ export function LoginPage() {
           >
             {enviando
               ? "Verificando credenciales..."
-              : "Ingresar al sistema"}
+              : "Iniciar sesion"}
           </button>
         </form>
 

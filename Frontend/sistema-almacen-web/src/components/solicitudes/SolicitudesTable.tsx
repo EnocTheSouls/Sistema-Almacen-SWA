@@ -41,7 +41,7 @@ export function SolicitudesTable({
   if (cargando) {
     return (
       <div style={messageStyle}>
-        Cargando solicitudes...
+        Cargando...
       </div>
     );
   }
@@ -49,7 +49,7 @@ export function SolicitudesTable({
   if (solicitudes.length === 0) {
     return (
       <div style={emptyStyle}>
-        No hay solicitudes registradas.
+        No hay requisiciones registradas.
       </div>
     );
   }

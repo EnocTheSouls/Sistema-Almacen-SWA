@@ -336,56 +336,70 @@ VALUES
 ('Cancelada', 'Solicitud cancelada', 'Gris', TRUE);
 
 
-INSERT INTO bom_detalle
-(
-    id_bom,
-    id_material,
-    id_estacion,
-    numero_fila,
-    cantidad_requerida,
-    plan_diario,
-    localizacion_bom,
-    std_pack_bom,
-    tiene_advertencia,
-    detalle_advertencia
-)
-VALUES
-(
-    49,
-    831,
-    57,
-    9999,
-    1.0000,
-    280.0000,
-    'CONVEYER',
-    NULL,
-    0,
-    NULL
-);
 
-INSERT INTO bom_detalle
-(
-    id_bom,
-    id_material,
-    id_estacion,
-    numero_fila,
-    cantidad_requerida,
-    plan_diario,
-    localizacion_bom,
-    std_pack_bom,
-    tiene_advertencia,
-    detalle_advertencia
-)
-VALUES
-(
-    49,
-    832,
-    57,
-    9998,
-    1.0000,
-    280.0000,
-    'CONVEYER',
-    NULL,
-    0,
-    NULL
+
+
+
+
+USE almacen_db_v2;
+
+CREATE TABLE IF NOT EXISTS material_estacion (
+    id_material_estacion INT NOT NULL
+        AUTO_INCREMENT,
+
+    id_material INT NOT NULL,
+
+    id_estacion INT NOT NULL,
+
+    activo BOOLEAN NOT NULL
+        DEFAULT TRUE,
+
+    fecha_registro DATETIME NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    fecha_actualizacion DATETIME NULL
+        DEFAULT NULL
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (
+        id_material_estacion
+    ),
+
+    CONSTRAINT uq_material_estacion
+        UNIQUE (
+            id_material,
+            id_estacion
+        ),
+
+    CONSTRAINT fk_material_estacion_material
+        FOREIGN KEY (
+            id_material
+        )
+        REFERENCES materiales (
+            id_material
+        )
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_material_estacion_estacion
+        FOREIGN KEY (
+            id_estacion
+        )
+        REFERENCES estaciones (
+            id_estacion
+        )
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    INDEX ix_material_estacion_material (
+        id_material
+    ),
+
+    INDEX ix_material_estacion_estacion (
+        id_estacion
+    ),
+
+    INDEX ix_material_estacion_activo (
+        activo
+    )
 );

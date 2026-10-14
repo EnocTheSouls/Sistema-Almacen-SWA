@@ -1461,7 +1461,7 @@ export function NuevaSolicitudModal({
                     : "25px",
               }}
             >
-              Nueva solicitud
+              Nueva requisicion
             </h2>
 
             <p style={descriptionStyle}>
@@ -2587,7 +2587,7 @@ export function NuevaSolicitudModal({
               >
                 {enviando
                   ? "Enviando..."
-                  : "Enviar solicitud"}
+                  : "Enviar"}
               </button>
             </div>
           </form>

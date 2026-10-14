@@ -670,6 +670,28 @@ public sealed class BomRepository
 
         return relaciones;
     }
+    // Obtiene la relación QR de un detalle BOM específico.
+    public async Task<MaterialBarcodeRelationRow?>
+        ObtenerRelacionCodigoBarrasAsync(
+            long idBomDetalle)
+    {
+        var relaciones =
+            await ObtenerRelacionesCodigosBarrasAsync();
+
+        return relaciones.FirstOrDefault(
+            relacion =>
+                relacion.IdBomDetalle ==
+                idBomDetalle
+        );
+    }
+
+
+
+
+
+
+
+
     // Obtiene y valida el contexto real
     // relacionado con un detalle del BOM.
     public async Task<MaterialQrContextoDto?>
@@ -1160,13 +1182,394 @@ public sealed class BomRepository
             idBomDetalle
         );
     }
+    // Cambia la estación de un detalle BOM específico.
+    // Valida que la estación nueva pertenezca
+    // a la misma familia y registra el cambio.
+    public async Task<CambioEstacionDetalleBomDto?>
+        CambiarEstacionDetalleAsync(
+            long idDetalle,
+            int idEstacionNueva,
+            int idUsuario,
+            string motivo)
+    {
+        var motivoLimpio =
+            motivo.Trim();
 
-    // Relaciona la estación importada.
-    // Si no encuentra una estación válida,
-    // asigna CONVEYER para conservar el material en los QR.
+        await using var connection =
+            _connectionFactory
+                .CreateConnection();
 
-    // Asigna CONVEYER a los detalles BOM vigentes
-    // de la familia importada que sigan sin estación.
+        await connection.OpenAsync();
+
+        await using var transaction =
+            await connection
+                .BeginTransactionAsync();
+
+        try
+        {
+            int idMaterial;
+            string numeroMaterial;
+
+            int? idEstacionAnterior;
+            string estacionAnterior;
+
+            string estacionNueva;
+
+            // Obtiene el detalle BOM y valida que
+            // la estación nueva pertenezca a la familia.
+            await using (
+                var buscarCommand =
+                    connection.CreateCommand()
+            )
+            {
+                buscarCommand.Transaction =
+                    transaction;
+
+                buscarCommand.CommandText = """
+                SELECT
+                    bd.id_material,
+
+                    UPPER(
+                        TRIM(
+                            m.numero_parte_material
+                        )
+                    ) AS numero_material,
+
+                    bd.id_estacion
+                        AS id_estacion_anterior,
+
+                    COALESCE(
+                        UPPER(
+                            TRIM(
+                                e_actual.nombre
+                            )
+                        ),
+                        'SIN ESTACION'
+                    ) AS estacion_anterior,
+
+                    UPPER(
+                        TRIM(
+                            e_nueva.nombre
+                        )
+                    ) AS estacion_nueva
+
+                FROM bom_detalle AS bd
+
+                INNER JOIN bom AS b
+                    ON b.id_bom =
+                       bd.id_bom
+
+                INNER JOIN arneses AS a
+                    ON a.id_arnes =
+                       b.id_arnes
+
+                INNER JOIN familias AS f
+                    ON f.id_familia =
+                       a.id_familia
+
+                INNER JOIN proyectos AS p
+                    ON p.id_proyecto =
+                       f.id_proyecto
+
+                INNER JOIN materiales AS m
+                    ON m.id_material =
+                       bd.id_material
+
+                LEFT JOIN estaciones AS e_actual
+                    ON e_actual.id_estacion =
+                       bd.id_estacion
+
+                INNER JOIN estaciones AS e_nueva
+                    ON e_nueva.id_estacion =
+                       @idEstacionNueva
+
+                   AND e_nueva.id_familia =
+                       f.id_familia
+
+                   AND e_nueva.activo =
+                       TRUE
+
+                WHERE bd.id_detalle =
+                      @idDetalle
+
+                  AND b.vigente =
+                      TRUE
+
+                  AND a.activo =
+                      TRUE
+
+                  AND f.activo =
+                      TRUE
+
+                  AND p.activo =
+                      TRUE
+
+                  AND m.activo =
+                      TRUE
+
+                LIMIT 1
+
+                FOR UPDATE;
+                """;
+
+                buscarCommand.Parameters
+                    .AddWithValue(
+                        "@idDetalle",
+                        idDetalle
+                    );
+
+                buscarCommand.Parameters
+                    .AddWithValue(
+                        "@idEstacionNueva",
+                        idEstacionNueva
+                    );
+
+                await using var reader =
+                    await buscarCommand
+                        .ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    await transaction
+                        .RollbackAsync();
+
+                    return null;
+                }
+
+                idMaterial =
+                    reader.GetInt32(
+                        "id_material"
+                    );
+
+                numeroMaterial =
+                    reader.GetString(
+                        "numero_material"
+                    );
+
+                idEstacionAnterior =
+                    reader.IsDBNull(
+                        reader.GetOrdinal(
+                            "id_estacion_anterior"
+                        )
+                    )
+                        ? null
+                        : reader.GetInt32(
+                            "id_estacion_anterior"
+                        );
+
+                estacionAnterior =
+                    reader.GetString(
+                        "estacion_anterior"
+                    );
+
+                estacionNueva =
+                    reader.GetString(
+                        "estacion_nueva"
+                    );
+            }
+
+            // Si el material ya tiene esa estación,
+            // no realiza cambios ni genera otro QR.
+            if (
+                idEstacionAnterior ==
+                idEstacionNueva
+            )
+            {
+                await transaction
+                    .RollbackAsync();
+
+                return new CambioEstacionDetalleBomDto
+                {
+                    IdBomDetalle =
+                        idDetalle,
+
+                    IdMaterial =
+                        idMaterial,
+
+                    NumeroMaterial =
+                        numeroMaterial,
+
+                    IdEstacionAnterior =
+                        idEstacionAnterior,
+
+                    EstacionAnterior =
+                        estacionAnterior,
+
+                    IdEstacionNueva =
+                        idEstacionNueva,
+
+                    EstacionNueva =
+                        estacionNueva,
+
+                    RequiereReemplazarQr =
+                        false,
+
+                    ContenidoQr =
+                        string.Empty
+                };
+            }
+
+            // Actualiza únicamente el detalle BOM elegido.
+            await using (
+                var actualizarCommand =
+                    connection.CreateCommand()
+            )
+            {
+                actualizarCommand.Transaction =
+                    transaction;
+
+                actualizarCommand.CommandText = """
+                UPDATE bom_detalle
+                SET
+                    id_estacion =
+                        @idEstacionNueva,
+
+                    localizacion_bom =
+                        @estacionNueva,
+
+                    tiene_advertencia =
+                        FALSE,
+
+                    detalle_advertencia =
+                        NULL
+
+                WHERE id_detalle =
+                      @idDetalle;
+                """;
+
+                actualizarCommand.Parameters
+                    .AddWithValue(
+                        "@idDetalle",
+                        idDetalle
+                    );
+
+                actualizarCommand.Parameters
+                    .AddWithValue(
+                        "@idEstacionNueva",
+                        idEstacionNueva
+                    );
+
+                actualizarCommand.Parameters
+                    .AddWithValue(
+                        "@estacionNueva",
+                        estacionNueva
+                    );
+
+                var filasActualizadas =
+                    await actualizarCommand
+                        .ExecuteNonQueryAsync();
+
+                if (filasActualizadas != 1)
+                {
+                    throw new InvalidOperationException(
+                        "No se pudo actualizar el detalle BOM."
+                    );
+                }
+            }
+
+            // Registra el movimiento en la bitácora.
+            await using (
+                var bitacoraCommand =
+                    connection.CreateCommand()
+            )
+            {
+                bitacoraCommand.Transaction =
+                    transaction;
+
+                bitacoraCommand.CommandText = """
+                INSERT INTO bitacora (
+                    id_usuario,
+                    accion,
+                    tabla_afectada,
+                    id_registro,
+                    detalle
+                )
+                VALUES (
+                    @idUsuario,
+                    'CAMBIO_ESTACION_BOM',
+                    'bom_detalle',
+                    @idRegistro,
+                    @detalle
+                );
+                """;
+
+                bitacoraCommand.Parameters
+                    .AddWithValue(
+                        "@idUsuario",
+                        idUsuario
+                    );
+
+                bitacoraCommand.Parameters
+                    .AddWithValue(
+                        "@idRegistro",
+                        idDetalle.ToString()
+                    );
+
+                bitacoraCommand.Parameters
+                    .AddWithValue(
+                        "@detalle",
+                        $"Material {numeroMaterial}. " +
+                        $"Estación anterior: " +
+                        $"{estacionAnterior} " +
+                        $"(ID " +
+                        $"{idEstacionAnterior?.ToString() ?? "N/A"}). " +
+                        $"Estación nueva: " +
+                        $"{estacionNueva} " +
+                        $"(ID {idEstacionNueva}). " +
+                        $"Motivo: {motivoLimpio}"
+                    );
+
+                await bitacoraCommand
+                    .ExecuteNonQueryAsync();
+            }
+
+            await transaction
+                .CommitAsync();
+
+            // El endpoint completará ContenidoQr
+            // consultando nuevamente la relación oficial.
+            return new CambioEstacionDetalleBomDto
+            {
+                IdBomDetalle =
+                    idDetalle,
+
+                IdMaterial =
+                    idMaterial,
+
+                NumeroMaterial =
+                    numeroMaterial,
+
+                IdEstacionAnterior =
+                    idEstacionAnterior,
+
+                EstacionAnterior =
+                    estacionAnterior,
+
+                IdEstacionNueva =
+                    idEstacionNueva,
+
+                EstacionNueva =
+                    estacionNueva,
+
+                RequiereReemplazarQr =
+                    true,
+
+                ContenidoQr =
+                    string.Empty
+            };
+        }
+        catch
+        {
+            await transaction
+                .RollbackAsync();
+
+            throw;
+        }
+    }
+
+
+
+
     public async Task<int>
         AsignarConveyerAFaltantesAsync(
             int idFamilia)

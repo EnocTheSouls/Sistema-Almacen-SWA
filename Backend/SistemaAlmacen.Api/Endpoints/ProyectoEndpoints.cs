@@ -1,6 +1,7 @@
 using MySqlConnector;
 using SistemaAlmacen.Api.Data;
 using SistemaAlmacen.Api.Dtos;
+using System.Security.Claims;
 namespace SistemaAlmacen.Api.Endpoints;
 
 // Define las rutas HTTP del módulo de proyectos.
@@ -197,6 +198,181 @@ public static class ProyectoEndpoints
         .RequireAuthorization(policy =>
             policy.RequireRole("Administrador")
         );
+
+
+        // Obtiene los materiales relacionados con los BOM
+        // para mostrarlos y administrarlos por estación.
+        grupo.MapGet(
+            "/materiales-estaciones",
+            async (
+                BomRepository bomRepository) =>
+            {
+                var relaciones =
+                    await bomRepository
+                        .ObtenerRelacionesCodigosBarrasAsync();
+
+                return Results.Ok(
+                    relaciones
+                );
+            }
+        )
+        .WithName(
+            "ObtenerMaterialesPorEstacion"
+        )
+        .RequireAuthorization(
+            policy =>
+                policy.RequireRole(
+                    "Administrador"
+                )
+        );
+
+        // Cambia la estación de un detalle BOM específico
+        // y devuelve el contenido actualizado del QR.
+        grupo.MapPut(
+            "/bom-detalles/{idDetalle:long}/estacion",
+            async (
+                long idDetalle,
+                CambiarEstacionDetalleBomDto dto,
+                HttpContext httpContext,
+                BomRepository bomRepository) =>
+            {
+                if (idDetalle <= 0)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "El detalle BOM no es válido."
+                        }
+                    );
+                }
+
+                if (dto.IdEstacion <= 0)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "Selecciona una estación válida."
+                        }
+                    );
+                }
+
+                var motivo =
+                    dto.Motivo?.Trim() ??
+                    string.Empty;
+
+                if (motivo.Length < 5)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "Escribe el motivo del cambio de estación."
+                        }
+                    );
+                }
+
+                if (motivo.Length > 500)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "El motivo no puede exceder 500 caracteres."
+                        }
+                    );
+                }
+
+                var idUsuarioTexto =
+                    httpContext.User.FindFirstValue(
+                        ClaimTypes.NameIdentifier
+                    );
+
+                if (
+                    !int.TryParse(
+                        idUsuarioTexto,
+                        out var idUsuario
+                    )
+                )
+                {
+                    return Results.Unauthorized();
+                }
+
+                // Cambia la estación y registra
+                // el movimiento en bitácora.
+                var resultado =
+                    await bomRepository
+                        .CambiarEstacionDetalleAsync(
+                            idDetalle,
+                            dto.IdEstacion,
+                            idUsuario,
+                            motivo
+                        );
+
+                if (resultado is null)
+                {
+                    return Results.NotFound(
+                        new
+                        {
+                            mensaje =
+                                "No se encontró el detalle BOM o la estación no pertenece a la misma familia."
+                        }
+                    );
+                }
+
+                // Vuelve a consultar el detalle actualizado.
+                // MaterialBarcodeRelationRow genera
+                // el contenido oficial del QR.
+                var relacionQr =
+                    await bomRepository
+                        .ObtenerRelacionCodigoBarrasAsync(
+                            idDetalle
+                        );
+
+                if (relacionQr is null)
+                {
+                    return Results.Problem(
+                        title:
+                            "La estación fue actualizada, pero no se pudo obtener el QR.",
+
+                        detail:
+                            "No se encontró el contexto activo del detalle BOM.",
+
+                        statusCode:
+                            StatusCodes
+                                .Status500InternalServerError
+                    );
+                }
+
+                resultado.ContenidoQr =
+                    relacionQr.ContenidoQr;
+
+                return Results.Ok(
+                    new
+                    {
+                        mensaje =
+                            resultado
+                                .RequiereReemplazarQr
+                                ? "La estación se actualizó. Reemplaza la etiqueta QR anterior."
+                                : "El material ya estaba relacionado con esa estación.",
+
+                        resultado
+                    }
+                );
+            }
+        )
+        .WithName(
+            "CambiarEstacionDetalleBom"
+        )
+        .RequireAuthorization(
+            policy =>
+                policy.RequireRole(
+                    "Administrador"
+                )
+        );
+
+
 
 
         // Elimina un proyecto únicamente cuando no tiene relaciones.

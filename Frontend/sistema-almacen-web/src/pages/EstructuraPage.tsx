@@ -40,6 +40,7 @@ import {
   obtenerEstaciones,
 } from "../services/estacionService";
 
+
 import {
   importarEstacionesMateriales,
 } from "../services/materialStationImportService";
@@ -66,6 +67,8 @@ import type {
 import type {
   Estacion,
 } from "../types/estacion";
+
+
 
 type TabActiva =
   | "proyectos"
@@ -145,6 +148,8 @@ export function EstructuraPage() {
 
   const [estaciones, setEstaciones] =
     useState<Estacion[]>([]);
+
+  
 
 
   // Controla la importación que asigna
@@ -293,16 +298,27 @@ export function EstructuraPage() {
         proyectosData,
         familiasData,
         estacionesData,
+
       ] = await Promise.all([
         obtenerProyectos(),
         obtenerFamilias(),
         obtenerEstaciones(),
+
       ]);
 
-      setProyectos(proyectosData);
-      setFamilias(familiasData);
-      setEstaciones(estacionesData);
+      setProyectos(
+        proyectosData
+      );
 
+      setFamilias(
+        familiasData
+      );
+
+      setEstaciones(
+        estacionesData
+      );
+
+      
     } catch (error) {
       console.error(
         "Error al cargar la estructura:",
@@ -325,6 +341,7 @@ export function EstructuraPage() {
     setPaginaProyectos(1);
     setPaginaFamilias(1);
     setPaginaEstaciones(1);
+
   }, [
     textoFiltro,
     filtroEstado,
@@ -519,6 +536,10 @@ export function EstructuraPage() {
     ]);
 
 
+
+
+
+
   const totalPaginasProyectos =
     Math.max(
       1,
@@ -590,7 +611,6 @@ export function EstructuraPage() {
       estacionesFiltradas,
       paginaEstaciones,
     ]);
-
 
 
   // Reinicia todos los filtros.
@@ -1583,7 +1603,6 @@ export function EstructuraPage() {
               <h1 style={titleStyle}>
                 Proyectos
               </h1>
-
               <p style={descriptionStyle}>
                 Administración de proyectos,
                 familias y estaciones.
@@ -1596,14 +1615,11 @@ export function EstructuraPage() {
                 gap: "10px",
               }}
             >
-
-
-
-
-
               <button
                 type="button"
-                onClick={manejarNuevoRegistro}
+                onClick={
+                  manejarNuevoRegistro
+                }
                 style={primaryButtonStyle}
               >
                 {tabActiva === "proyectos" &&
@@ -1616,16 +1632,12 @@ export function EstructuraPage() {
                   "+ Nueva estación"}
               </button>
             </div>
-
-
           </div>
-
           {mensajeExito && (
             <div style={successStyle}>
               {mensajeExito}
             </div>
           )}
-
           {errorFormulario &&
             !mostrarFormularioProyecto &&
             !mostrarFormularioFamilia &&
@@ -1682,6 +1694,7 @@ export function EstructuraPage() {
               >
                 Estaciones
               </button>
+
             </div>
 
             <button
@@ -1703,7 +1716,6 @@ export function EstructuraPage() {
               Cargando información...
             </div>
           )}
-
           <div className="estructura-filters">
             <div className="estructura-filter-group">
               <label
@@ -1763,18 +1775,19 @@ export function EstructuraPage() {
                       Todos los proyectos
                     </option>
 
-                    {proyectos.map((proyecto) => (
-                      <option
-                        key={
-                          proyecto.idProyecto
-                        }
-                        value={
-                          proyecto.idProyecto
-                        }
-                      >
-                        {proyecto.nombre}
-                      </option>
-                    )
+                    {proyectos.map(
+                      (proyecto) => (
+                        <option
+                          key={
+                            proyecto.idProyecto
+                          }
+                          value={
+                            proyecto.idProyecto
+                          }
+                        >
+                          {proyecto.nombre}
+                        </option>
+                      )
                     )}
                   </select>
                 </div>
@@ -1868,7 +1881,6 @@ export function EstructuraPage() {
               Limpiar filtros
             </button>
           </div>
-
           <div className="estructura-results-header">
             <h2 className="estructura-results-title">
               {tituloResultados}
@@ -1963,10 +1975,10 @@ export function EstructuraPage() {
                   1
                 }
               />
-
             )}
           {tabActiva === "proyectos" &&
             totalPaginasProyectos > 1 && (
+
               <Paginacion
                 paginaActual={
                   paginaProyectos
@@ -2009,10 +2021,8 @@ export function EstructuraPage() {
                 }
               />
             )}
-
         </section>
-      </div >
-
+      </div>
       {mostrarFormularioProyecto && (
         <div style={modalOverlayStyle}>
           <section style={modalStyle}>
@@ -3680,3 +3690,4 @@ const paginationTextStyle = {
   fontSize: "13px",
   fontWeight: "700",
 };
+

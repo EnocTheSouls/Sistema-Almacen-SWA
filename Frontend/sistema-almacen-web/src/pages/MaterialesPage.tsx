@@ -24,6 +24,40 @@ import {
   eliminarMaterial,
   obtenerMateriales,
 } from "../services/materialService";
+import {
+  importarMaterialKits,
+} from "../services/materialKitService";
+
+import type {
+  ResultadoImportacionMaterialKit,
+} from "../services/materialKitService";
+
+import {
+  obtenerMaterialesPorEstacion,
+} from "../services/materialEstacionService";
+
+import {
+  agregarEstacionAMaterial,
+  obtenerEstacionesDeMaterial,
+  quitarEstacionDeMaterial,
+} from "../services/materialEstacionRelacionService";
+
+import type {
+  MaterialEstacionRelacion,
+} from "../services/materialEstacionRelacionService";
+
+
+import {
+  obtenerEstaciones,
+} from "../services/estacionService";
+
+import type {
+  Estacion,
+} from "../types/estacion";
+
+import type {
+  MaterialEstacion,
+} from "../types/materialEstacion";
 
 import {
   importarBom,
@@ -140,6 +174,66 @@ export function MaterialesPage() {
   ] = useState<MaterialCatalogo | null>(
     null
   );
+  // Material seleccionado para consultar
+  // sus relaciones BOM y estaciones.
+  const [
+    materialDetalle,
+    setMaterialDetalle,
+  ] = useState<MaterialCatalogo | null>(
+    null
+  );
+
+  // Estaciones relacionadas directamente
+  // con el material seleccionado.
+  const [
+    estacionesMaterial,
+    setEstacionesMaterial,
+  ] = useState<MaterialEstacionRelacion[]>(
+    []
+  );
+
+  const [
+    cargandoRelaciones,
+    setCargandoRelaciones,
+  ] = useState(false);
+
+  const [
+    errorRelaciones,
+    setErrorRelaciones,
+  ] = useState("");
+
+  const [
+    mostrarAgregarEstacion,
+    setMostrarAgregarEstacion,
+  ] = useState(false);
+
+  const [
+    estacionesDisponiblesRelacion,
+    setEstacionesDisponiblesRelacion,
+  ] = useState<Estacion[]>(
+    []
+  );
+
+  const [
+    idEstacionNueva,
+    setIdEstacionNueva,
+  ] = useState(0);
+
+  const [
+    cargandoEstaciones,
+    setCargandoEstaciones,
+  ] = useState(false);
+
+  const [
+    guardandoEstacion,
+    setGuardandoEstacion,
+  ] = useState(false);
+
+  const [
+    errorCambioEstacion,
+    setErrorCambioEstacion,
+  ] = useState("");
+
 
 
   const [
@@ -222,6 +316,20 @@ export function MaterialesPage() {
   ] = useState<FiltroEstado>(
     "todos"
   );
+  const [
+    filtroProyecto,
+    setFiltroProyecto,
+  ] = useState("");
+
+  const [
+    filtroFamilia,
+    setFiltroFamilia,
+  ] = useState("");
+
+  const [
+    filtroEstacion,
+    setFiltroEstacion,
+  ] = useState("");
 
   const [
     formulario,
@@ -230,19 +338,62 @@ export function MaterialesPage() {
     crearFormularioVacio
   );
 
+  const [
+    mostrarImportacionKits,
+    setMostrarImportacionKits,
+  ] = useState(false);
+
+  const [
+    archivoKits,
+    setArchivoKits,
+  ] = useState<File | null>(
+    null
+  );
+
+  const [
+    importandoKits,
+    setImportandoKits,
+  ] = useState(false);
+
+  const [
+    resultadoImportacionKits,
+    setResultadoImportacionKits,
+  ] =
+    useState<
+      ResultadoImportacionMaterialKit | null
+    >(null);
+
   const cargarMateriales = async () => {
     try {
       setCargando(true);
       setErrorCarga("");
 
-      const resultado =
-        await obtenerMateriales();
+      const [
+        materialesData,
+        relacionesData,
+      ] = await Promise.all([
+        obtenerMateriales(),
+        obtenerMaterialesPorEstacion(),
+      ]);
 
-      setMateriales(resultado);
+      setMateriales(
+        materialesData
+      );
+
+      setRelacionesCatalogo(
+        relacionesData
+      );
     } catch (error) {
       console.error(
         "Error al cargar materiales:",
         error
+      );
+
+      setErrorCarga(
+        obtenerMensajeError(
+          error,
+          "No se pudieron cargar los materiales."
+        )
       );
     } finally {
       setCargando(false);
@@ -260,19 +411,29 @@ export function MaterialesPage() {
     setMostrarBomList,
   ] = useState(false);
 
+  const [
+    relacionesCatalogo,
+    setRelacionesCatalogo,
+  ] = useState<MaterialEstacion[]>(
+    []
+  );
+
 
 
   useEffect(() => {
     cargarMateriales();
   }, []);
-
   useEffect(() => {
     setPaginaActual(1);
   }, [
     busqueda,
     filtroGenericCode,
     filtroEstado,
+    filtroProyecto,
+    filtroFamilia,
+    filtroEstacion,
   ]);
+
 
   const genericCodesDisponibles =
     useMemo(() => {
@@ -293,45 +454,116 @@ export function MaterialesPage() {
         ).sort(),
       ];
     }, [materiales]);
+  const proyectosDisponibles =
+    useMemo(() => {
+      return Array.from(
+        new Set(
+          relacionesCatalogo
+            .map(
+              (relacion) =>
+                relacion.proyecto.trim()
+            )
+            .filter(Boolean)
+        )
+      ).sort();
+    }, [relacionesCatalogo]);
 
+  const familiasDisponibles =
+    useMemo(() => {
+      const relacionesFiltradas =
+        filtroProyecto
+          ? relacionesCatalogo.filter(
+            (relacion) =>
+              relacion.proyecto ===
+              filtroProyecto
+          )
+          : relacionesCatalogo;
+
+      return Array.from(
+        new Set(
+          relacionesFiltradas
+            .map(
+              (relacion) =>
+                relacion.familia.trim()
+            )
+            .filter(Boolean)
+        )
+      ).sort();
+    }, [
+      relacionesCatalogo,
+      filtroProyecto,
+    ]);
+
+  const estacionesDisponibles =
+    useMemo(() => {
+      const relacionesFiltradas =
+        relacionesCatalogo.filter(
+          (relacion) => {
+            const coincideProyecto =
+              !filtroProyecto ||
+              relacion.proyecto ===
+              filtroProyecto;
+
+            const coincideFamilia =
+              !filtroFamilia ||
+              relacion.familia ===
+              filtroFamilia;
+
+            return (
+              coincideProyecto &&
+              coincideFamilia
+            );
+          }
+        );
+
+      return Array.from(
+        new Set(
+          relacionesFiltradas
+            .filter(
+              (relacion) =>
+                relacion.idEstacion !==
+                null &&
+                Boolean(
+                  relacion.estacion?.trim()
+                )
+            )
+            .map(
+              (relacion) =>
+                relacion.estacion.trim()
+            )
+        )
+      ).sort();
+    }, [
+      relacionesCatalogo,
+      filtroProyecto,
+      filtroFamilia,
+    ]);
   const materialesFiltrados =
     useMemo(() => {
       const texto =
         busqueda
           .trim()
-          .toLocaleLowerCase(
-            "es-MX"
-          );
+          .toLocaleLowerCase("es-MX");
 
       return [...materiales]
         .filter((material) => {
           const numeroParte =
             material.numeroParteMaterial
-              .toLocaleLowerCase(
-                "es-MX"
-              );
+              .toLocaleLowerCase("es-MX");
 
           const descripcion =
             material.descripcion
-              .toLocaleLowerCase(
-                "es-MX"
-              );
+              .toLocaleLowerCase("es-MX");
 
           const codigoBarras =
             (
-              material.codigoBarras ??
-              ""
-            ).toLocaleLowerCase(
-              "es-MX"
-            );
+              material.codigoBarras ?? ""
+            ).toLocaleLowerCase("es-MX");
 
           const serialKits =
             (
-              material.serialKits ??
-              ""
-            ).toLocaleLowerCase(
-              "es-MX"
-            );
+              material.serialKits ?? ""
+            ).toLocaleLowerCase("es-MX");
 
           const coincideTexto =
             !texto ||
@@ -341,48 +573,87 @@ export function MaterialesPage() {
             serialKits.includes(texto);
 
           const coincideGeneric =
-            filtroGenericCode ===
-            "Todos" ||
+            filtroGenericCode === "Todos" ||
             material.genericCode
               .trim()
               .toUpperCase() ===
             filtroGenericCode;
 
           const coincideEstado =
-            filtroEstado ===
-            "todos" ||
+            filtroEstado === "todos" ||
             (
-              filtroEstado ===
-              "activos" &&
+              filtroEstado === "activos" &&
               material.activo
             ) ||
             (
-              filtroEstado ===
-              "inactivos" &&
+              filtroEstado === "inactivos" &&
               !material.activo
             );
+
+          const relacionesDelMaterial =
+            relacionesCatalogo.filter(
+              (relacion) =>
+                relacion.idMaterial ===
+                material.idMaterial
+            );
+
+          const coincideEstructura =
+            !filtroProyecto &&
+              !filtroFamilia &&
+              !filtroEstacion
+              ? true
+              : relacionesDelMaterial.some(
+                (relacion) => {
+                  const coincideProyecto =
+                    !filtroProyecto ||
+                    relacion.proyecto ===
+                    filtroProyecto;
+
+                  const coincideFamilia =
+                    !filtroFamilia ||
+                    relacion.familia ===
+                    filtroFamilia;
+
+                  const coincideEstacion =
+                    !filtroEstacion ||
+                    (
+                      filtroEstacion ===
+                        "SIN ESTACIÓN"
+                        ? relacion.idEstacion === null
+                        : relacion.estacion ===
+                        filtroEstacion
+                    );
+
+                  return (
+                    coincideProyecto &&
+                    coincideFamilia &&
+                    coincideEstacion
+                  );
+                }
+              );
 
           return (
             coincideTexto &&
             coincideGeneric &&
-            coincideEstado
+            coincideEstado &&
+            coincideEstructura
           );
         })
         .sort(
-          (
-            materialA,
-            materialB
-          ) =>
+          (materialA, materialB) =>
             materialA.idMaterial -
             materialB.idMaterial
         );
     }, [
       materiales,
+      relacionesCatalogo,
       busqueda,
       filtroGenericCode,
       filtroEstado,
+      filtroProyecto,
+      filtroFamilia,
+      filtroEstacion,
     ]);
-
   const totalPaginas =
     Math.max(
       1,
@@ -430,6 +701,204 @@ export function MaterialesPage() {
       MATERIALES_POR_PAGINA,
       materialesFiltrados.length
     );
+
+  // Abre el detalle y consulta
+  // las estaciones directas del material.
+  const abrirDetalleMaterial = async (
+    material: MaterialCatalogo
+  ) => {
+    try {
+      setMaterialDetalle(material);
+      setEstacionesMaterial([]);
+      setErrorRelaciones("");
+      setCargandoRelaciones(true);
+
+      const estaciones =
+        await obtenerEstacionesDeMaterial(
+          material.idMaterial
+        );
+
+      setEstacionesMaterial(
+        estaciones
+      );
+    } catch (error) {
+      console.error(
+        "Error al cargar estaciones:",
+        error
+      );
+
+      setErrorRelaciones(
+        obtenerMensajeError(
+          error,
+          "No se pudieron cargar las estaciones del material."
+        )
+      );
+    } finally {
+      setCargandoRelaciones(false);
+    }
+  };
+
+  // Cierra el detalle del material.
+  const cerrarDetalleMaterial = () => {
+    if (
+      cargandoRelaciones ||
+      guardandoEstacion
+    ) {
+      return;
+    }
+
+    setMaterialDetalle(null);
+    setEstacionesMaterial([]);
+    setErrorRelaciones("");
+    setMostrarAgregarEstacion(false);
+    setIdEstacionNueva(0);
+    setErrorCambioEstacion("");
+  };
+
+  // Abre el selector para agregar
+  // una estación al material.
+  const abrirAgregarEstacion = async () => {
+    try {
+      setMostrarAgregarEstacion(true);
+      setIdEstacionNueva(0);
+      setErrorCambioEstacion("");
+      setCargandoEstaciones(true);
+
+      const estaciones =
+        await obtenerEstaciones();
+
+      setEstacionesDisponiblesRelacion(
+        estaciones.filter(
+          (estacion) =>
+            estacion.activo &&
+            !estacionesMaterial.some(
+              (relacion) =>
+                relacion.idEstacion ===
+                estacion.idEstacion
+            )
+        )
+      );
+    } catch (error) {
+      setErrorCambioEstacion(
+        obtenerMensajeError(
+          error,
+          "No se pudieron cargar las estaciones disponibles."
+        )
+      );
+    } finally {
+      setCargandoEstaciones(false);
+    }
+  };
+
+  // Relaciona la estación seleccionada.
+  const guardarEstacionMaterial = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (!materialDetalle) {
+      return;
+    }
+
+    if (idEstacionNueva <= 0) {
+      setErrorCambioEstacion(
+        "Selecciona una estación."
+      );
+
+      return;
+    }
+
+    try {
+      setGuardandoEstacion(true);
+      setErrorCambioEstacion("");
+
+      const respuesta =
+        await agregarEstacionAMaterial(
+          materialDetalle.idMaterial,
+          idEstacionNueva
+        );
+
+      setEstacionesMaterial(
+        (actuales) => [
+          ...actuales,
+          respuesta.relacion,
+        ].sort(
+          (a, b) =>
+            a.estacion.localeCompare(
+              b.estacion,
+              "es-MX"
+            )
+        )
+      );
+
+      setMensajeExito(
+        respuesta.mensaje
+      );
+
+      setMostrarAgregarEstacion(false);
+      setIdEstacionNueva(0);
+    } catch (error) {
+      setErrorCambioEstacion(
+        obtenerMensajeError(
+          error,
+          "No se pudo relacionar la estación."
+        )
+      );
+    } finally {
+      setGuardandoEstacion(false);
+    }
+  };
+
+  // Quita una estación del material.
+  const quitarEstacionMaterial = async (
+    relacion: MaterialEstacionRelacion
+  ) => {
+    if (!materialDetalle) {
+      return;
+    }
+
+    const continuar =
+      window.confirm(
+        `¿Quitar la estación "${relacion.estacion}" del material?`
+      );
+
+    if (!continuar) {
+      return;
+    }
+
+    try {
+      setGuardandoEstacion(true);
+      setErrorRelaciones("");
+
+      await quitarEstacionDeMaterial(
+        materialDetalle.idMaterial,
+        relacion.idEstacion
+      );
+
+      setEstacionesMaterial(
+        (actuales) =>
+          actuales.filter(
+            (actual) =>
+              actual.idMaterialEstacion !==
+              relacion.idMaterialEstacion
+          )
+      );
+
+      setMensajeExito(
+        `La estación "${relacion.estacion}" fue retirada del material.`
+      );
+    } catch (error) {
+      setErrorRelaciones(
+        obtenerMensajeError(
+          error,
+          "No se pudo quitar la estación."
+        )
+      );
+    } finally {
+      setGuardandoEstacion(false);
+    }
+  };
+
   const abrirNuevoMaterial = () => {
     setMaterialEnEdicion(null);
 
@@ -846,7 +1315,11 @@ export function MaterialesPage() {
     setBusqueda("");
     setFiltroGenericCode("Todos");
     setFiltroEstado("todos");
+    setFiltroProyecto("");
+    setFiltroFamilia("");
+    setFiltroEstacion("");
   };
+
 
   const abrirImportacionFiveMf = () => {
     setArchivoFiveMf(null);
@@ -957,6 +1430,77 @@ export function MaterialesPage() {
         );
       }
     };
+
+  // Abre el formulario de importación
+  // del reporte de cajas o kits.
+  const abrirImportacionKits = () => {
+    setArchivoKits(null);
+    setResultadoImportacionKits(null);
+    setErrorFormulario("");
+    setMensajeExito("");
+    setMostrarImportacionKits(true);
+  };
+
+  // Cierra el formulario de kits.
+  const cerrarImportacionKits = () => {
+    if (importandoKits) {
+      return;
+    }
+
+    setMostrarImportacionKits(false);
+    setArchivoKits(null);
+    setResultadoImportacionKits(null);
+    setErrorFormulario("");
+  };
+
+  // Envía el reporte PICSFR010 al backend.
+  const ejecutarImportacionKits = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (!archivoKits) {
+      setErrorFormulario(
+        "Selecciona el archivo PICSFR010."
+      );
+
+      return;
+    }
+
+    try {
+      setImportandoKits(true);
+      setErrorFormulario("");
+      setResultadoImportacionKits(null);
+      setMensajeExito("");
+
+      const respuesta =
+        await importarMaterialKits(
+          archivoKits
+        );
+
+      setResultadoImportacionKits(
+        respuesta.resultado
+      );
+
+      setMensajeExito(
+        respuesta.mensaje
+      );
+    } catch (error) {
+      console.error(
+        "Error al importar kits:",
+        error
+      );
+
+      setErrorFormulario(
+        obtenerMensajeError(
+          error,
+          "No se pudo importar la lista de kits."
+        )
+      );
+    } finally {
+      setImportandoKits(false);
+    }
+  };
 
   const abrirImportacionBom = () => {
     setArchivoBom(null);
@@ -1146,6 +1690,13 @@ export function MaterialesPage() {
                     >
                       Importar BOM
                     </button>
+                    <button
+                      type="button"
+                      onClick={abrirImportacionKits}
+                      style={importButtonStyle}
+                    >
+                      Importar kits
+                    </button>
 
                     <button
                       type="button"
@@ -1237,6 +1788,119 @@ export function MaterialesPage() {
                       value={codigo}
                     >
                       {codigo}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+            <div style={filterGroupStyle}>
+              <label
+                htmlFor="filtroProyecto"
+                style={labelStyle}
+              >
+                Proyecto
+              </label>
+
+              <select
+                id="filtroProyecto"
+                value={filtroProyecto}
+                onChange={(event) => {
+                  setFiltroProyecto(
+                    event.target.value
+                  );
+
+                  setFiltroFamilia("");
+                  setFiltroEstacion("");
+                }}
+                style={inputStyle}
+              >
+                <option value="">
+                  Todos los proyectos
+                </option>
+
+                {proyectosDisponibles.map(
+                  (proyecto) => (
+                    <option
+                      key={proyecto}
+                      value={proyecto}
+                    >
+                      {proyecto}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label
+                htmlFor="filtroFamilia"
+                style={labelStyle}
+              >
+                Familia
+              </label>
+
+              <select
+                id="filtroFamilia"
+                value={filtroFamilia}
+                onChange={(event) => {
+                  setFiltroFamilia(
+                    event.target.value
+                  );
+
+                  setFiltroEstacion("");
+                }}
+                style={inputStyle}
+              >
+                <option value="">
+                  Todas las familias
+                </option>
+
+                {familiasDisponibles.map(
+                  (familia) => (
+                    <option
+                      key={familia}
+                      value={familia}
+                    >
+                      {familia}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label
+                htmlFor="filtroEstacion"
+                style={labelStyle}
+              >
+                Estación
+              </label>
+
+              <select
+                id="filtroEstacion"
+                value={filtroEstacion}
+                onChange={(event) => {
+                  setFiltroEstacion(
+                    event.target.value
+                  );
+                }}
+                style={inputStyle}
+              >
+                <option value="">
+                  Todas las estaciones
+                </option>
+
+                <option value="SIN ESTACIÓN">
+                  Sin estación
+                </option>
+
+                {estacionesDisponibles.map(
+                  (estacion) => (
+                    <option
+                      key={estacion}
+                      value={estacion}
+                    >
+                      {estacion}
                     </option>
                   )
                 )}
@@ -1440,7 +2104,20 @@ export function MaterialesPage() {
 
                 <tbody>
                   {materialesPaginados.map((material, indice) => (
-                    <tr key={material.idMaterial}>
+                    <tr
+                      key={material.idMaterial}
+                      onClick={() => {
+                        abrirDetalleMaterial(
+                          material
+                        );
+                      }}
+                      title="Ver detalle y estaciones"
+                      style={{
+                        cursor: "pointer",
+                        transition:
+                          "background 0.15s ease",
+                      }}
+                    >
                       <td
                         style={{
                           textAlign: "center",
@@ -1501,7 +2178,9 @@ export function MaterialesPage() {
                           disabled={
                             !esAdministrador
                           }
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
+
                             manejarCambioEstado(
                               material
                             );
@@ -1516,6 +2195,11 @@ export function MaterialesPage() {
                             ? "Activo"
                             : "Inactivo"}
                         </button>
+
+
+
+
+
                       </td>
                       {esAdministrador && (
                         <td
@@ -1527,7 +2211,9 @@ export function MaterialesPage() {
                         >
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
+
                               abrirEdicionMaterial(
                                 material
                               );
@@ -1537,9 +2223,12 @@ export function MaterialesPage() {
                             Modificar
                           </button>
 
+
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
+
                               solicitarEliminacion(
                                 material
                               );
@@ -1548,6 +2237,7 @@ export function MaterialesPage() {
                           >
                             Eliminar
                           </button>
+
                         </td>
                       )}
                     </tr>
@@ -1616,6 +2306,293 @@ export function MaterialesPage() {
           </button>
         </div>
       )}
+      {materialDetalle && (
+        <div
+          style={modalOverlayStyle}
+          onClick={cerrarDetalleMaterial}
+        >
+          <section
+            style={{
+              ...modalStyle,
+              maxWidth: "720px",
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div style={modalHeaderStyle}>
+              <div>
+                <h2 style={modalTitleStyle}>
+                  Detalle del material
+                </h2>
+
+                <p style={modalDescriptionStyle}>
+                  Información general y estaciones
+                  relacionadas.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={cerrarDetalleMaterial}
+                disabled={
+                  cargandoRelaciones ||
+                  guardandoEstacion
+                }
+                aria-label="Cerrar"
+                style={closeButtonStyle}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={materialDetailGridStyle}>
+              <div style={materialDetailItemStyle}>
+                <span style={materialDetailLabelStyle}>
+                  Número de parte
+                </span>
+
+                <strong>
+                  {materialDetalle.numeroParteMaterial}
+                </strong>
+              </div>
+
+              <div style={materialDetailItemStyle}>
+                <span style={materialDetailLabelStyle}>
+                  Descripción
+                </span>
+
+                <strong>
+                  {materialDetalle.descripcion}
+                </strong>
+              </div>
+
+              <div style={materialDetailItemStyle}>
+                <span style={materialDetailLabelStyle}>
+                  Generic Code
+                </span>
+
+                <strong>
+                  {materialDetalle.genericCode}
+                </strong>
+              </div>
+
+              <div style={materialDetailItemStyle}>
+                <span style={materialDetailLabelStyle}>
+                  Unidad
+                </span>
+
+                <strong>
+                  {materialDetalle.unidadMedida ??
+                    "N/A"}
+                </strong>
+              </div>
+            </div>
+
+            <div style={stationSectionHeaderStyle}>
+              <h3 style={relationsTitleStyle}>
+                Estaciones del material
+              </h3>
+
+              {esAdministrador && (
+                <button
+                  type="button"
+                  onClick={abrirAgregarEstacion}
+                  disabled={
+                    cargandoRelaciones ||
+                    guardandoEstacion
+                  }
+                  style={primaryButtonStyle}
+                >
+                  + Agregar estación
+                </button>
+              )}
+            </div>
+
+            {cargandoRelaciones && (
+              <div style={messageStyle}>
+                Cargando estaciones...
+              </div>
+            )}
+
+            {errorRelaciones && (
+              <div style={errorStyle}>
+                {errorRelaciones}
+              </div>
+            )}
+
+            {!cargandoRelaciones &&
+              !errorRelaciones &&
+              estacionesMaterial.length === 0 && (
+                <div style={emptyStyle}>
+                  Este material no tiene estaciones
+                  relacionadas.
+                </div>
+              )}
+
+            {!cargandoRelaciones &&
+              estacionesMaterial.length > 0 && (
+                <div style={stationSummaryListStyle}>
+                  {estacionesMaterial.map(
+                    (relacion) => (
+                      <div
+                        key={
+                          relacion.idMaterialEstacion
+                        }
+                        style={stationSummaryItemStyle}
+                      >
+                        <div>
+                          <span style={assignedStationStyle}>
+                            {relacion.estacion}
+                          </span>
+
+                          <div style={qrCodeTextStyle}>
+                            QR: {relacion.contenidoQr}
+                          </div>
+                        </div>
+
+                        {esAdministrador && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              quitarEstacionMaterial(
+                                relacion
+                              );
+                            }}
+                            disabled={guardandoEstacion}
+                            style={deleteButtonStyle}
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+            {mostrarAgregarEstacion && (
+              <form
+                onSubmit={
+                  guardarEstacionMaterial
+                }
+                style={addStationFormStyle}
+              >
+                <div style={formGroupFullStyle}>
+                  <label
+                    htmlFor="idEstacionMaterial"
+                    style={labelStyle}
+                  >
+                    Nueva estación
+                  </label>
+
+                  <select
+                    id="idEstacionMaterial"
+                    value={
+                      idEstacionNueva > 0
+                        ? idEstacionNueva
+                        : ""
+                    }
+                    onChange={(event) => {
+                      setIdEstacionNueva(
+                        Number(
+                          event.target.value
+                        )
+                      );
+
+                      setErrorCambioEstacion("");
+                    }}
+                    disabled={
+                      cargandoEstaciones ||
+                      guardandoEstacion
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="">
+                      Selecciona una estación
+                    </option>
+
+                    {estacionesDisponiblesRelacion.map(
+                      (estacion) => (
+                        <option
+                          key={estacion.idEstacion}
+                          value={estacion.idEstacion}
+                        >
+                          {estacion.nombre}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                {cargandoEstaciones && (
+                  <div style={messageStyle}>
+                    Cargando estaciones...
+                  </div>
+                )}
+
+                {errorCambioEstacion && (
+                  <div style={errorStyle}>
+                    {errorCambioEstacion}
+                  </div>
+                )}
+
+                <div style={modalActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarAgregarEstacion(
+                        false
+                      );
+
+                      setIdEstacionNueva(0);
+                      setErrorCambioEstacion("");
+                    }}
+                    disabled={guardandoEstacion}
+                    style={secondaryButtonStyle}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      guardandoEstacion ||
+                      cargandoEstaciones ||
+                      idEstacionNueva <= 0
+                    }
+                    style={{
+                      ...primaryButtonStyle,
+                      opacity:
+                        guardandoEstacion ||
+                          cargandoEstaciones ||
+                          idEstacionNueva <= 0
+                          ? 0.65
+                          : 1,
+                    }}
+                  >
+                    {guardandoEstacion
+                      ? "Guardando..."
+                      : "Agregar estación"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                onClick={cerrarDetalleMaterial}
+                disabled={guardandoEstacion}
+                style={secondaryButtonStyle}
+              >
+                Cerrar
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {materialEtiqueta && (
         <div style={modalOverlayStyle}>
           <section
@@ -2403,9 +3380,303 @@ export function MaterialesPage() {
           </div>
         )}
 
+      {mostrarImportacionKits &&
+        esAdministrador && (
+          <div style={modalOverlayStyle}>
+            <section style={modalStyle}>
+              <div style={modalHeaderStyle}>
+                <div>
+                  <h2 style={modalTitleStyle}>
+                    Importar cajas o kits
+                  </h2>
 
+                  <p style={modalDescriptionStyle}>
+                    Importa el reporte PICSFR010 con
+                    seriales, materiales y cantidades.
+                  </p>
+                </div>
 
+                <button
+                  type="button"
+                  onClick={cerrarImportacionKits}
+                  disabled={importandoKits}
+                  aria-label="Cerrar"
+                  style={closeButtonStyle}
+                >
+                  ×
+                </button>
+              </div>
 
+              <form
+                onSubmit={
+                  ejecutarImportacionKits
+                }
+              >
+                <div style={formGroupFullStyle}>
+                  <label
+                    htmlFor="archivoMaterialKits"
+                    style={labelStyle}
+                  >
+                    Archivo PICSFR010 *
+                  </label>
+
+                  <input
+                    id="archivoMaterialKits"
+                    type="file"
+                    accept=".xlsx"
+                    disabled={importandoKits}
+                    style={inputStyle}
+                    onChange={(event) => {
+                      const archivo =
+                        event.target.files?.[0] ??
+                        null;
+
+                      setArchivoKits(archivo);
+                      setResultadoImportacionKits(
+                        null
+                      );
+                      setErrorFormulario("");
+                    }}
+                  />
+
+                  <small style={helpTextStyle}>
+                    Debe contener PICSFR010 o
+                    PICSFR010_1.
+                  </small>
+                </div>
+
+                {archivoKits && (
+                  <div style={selectedFileStyle}>
+                    Archivo seleccionado:{" "}
+                    <strong>
+                      {archivoKits.name}
+                    </strong>
+                  </div>
+                )}
+
+                {errorFormulario && (
+                  <div style={errorStyle}>
+                    {errorFormulario}
+                  </div>
+                )}
+
+                {importandoKits && (
+                  <div style={messageStyle}>
+                    Importando kits. No cierres esta
+                    ventana.
+                  </div>
+                )}
+
+                {resultadoImportacionKits && (
+                  <div style={importResultStyle}>
+                    <h3 style={importResultTitleStyle}>
+                      Resultado de la importación
+                    </h3>
+
+                    <div style={importSummaryStyle}>
+                      <span>
+                        Total:{" "}
+                        <strong>
+                          {
+                            resultadoImportacionKits
+                              .totalFilas
+                          }
+                        </strong>
+                      </span>
+
+                      <span>
+                        Correctas:{" "}
+                        <strong>
+                          {
+                            resultadoImportacionKits
+                              .filasCorrectas
+                          }
+                        </strong>
+                      </span>
+
+                      <span>
+                        Errores:{" "}
+                        <strong>
+                          {
+                            resultadoImportacionKits
+                              .filasConError
+                          }
+                        </strong>
+                      </span>
+
+                      <span>
+                        Creados:{" "}
+                        <strong>
+                          {
+                            resultadoImportacionKits
+                              .kitsCreados
+                          }
+                        </strong>
+                      </span>
+
+                      <span>
+                        Actualizados:{" "}
+                        <strong>
+                          {
+                            resultadoImportacionKits
+                              .kitsActualizados
+                          }
+                        </strong>
+                      </span>
+
+                      <span>
+                        Sin cambios:{" "}
+                        <strong>
+                          {
+                            resultadoImportacionKits
+                              .kitsSinCambios
+                          }
+                        </strong>
+                      </span>
+                    </div>
+
+                    {resultadoImportacionKits
+                      .errores.length > 0 && (
+                        <details
+                          style={
+                            importDetailsErrorStyle
+                          }
+                        >
+                          <summary
+                            style={
+                              importDetailsSummaryStyle
+                            }
+                          >
+                            Ver errores (
+                            {
+                              resultadoImportacionKits
+                                .errores.length
+                            }
+                            )
+                          </summary>
+
+                          <div
+                            style={
+                              importTableContainerStyle
+                            }
+                          >
+                            <table
+                              style={importTableStyle}
+                            >
+                              <thead>
+                                <tr>
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
+                                    }
+                                  >
+                                    Hoja
+                                  </th>
+
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
+                                    }
+                                  >
+                                    Fila
+                                  </th>
+
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
+                                    }
+                                  >
+                                    Error
+                                  </th>
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {resultadoImportacionKits
+                                  .errores.map(
+                                    (
+                                      error,
+                                      indice
+                                    ) => (
+                                      <tr
+                                        key={
+                                          `${error.hoja}-` +
+                                          `${error.numeroFila}-` +
+                                          `${indice}`
+                                        }
+                                      >
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {error.hoja}
+                                        </td>
+
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {
+                                            error.numeroFila
+                                          }
+                                        </td>
+
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {error.mensaje}
+                                        </td>
+                                      </tr>
+                                    )
+                                  )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </details>
+                      )}
+                  </div>
+                )}
+
+                <div style={modalActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={cerrarImportacionKits}
+                    disabled={importandoKits}
+                    style={secondaryButtonStyle}
+                  >
+                    Cerrar
+                  </button>
+
+                  {!resultadoImportacionKits && (
+                    <button
+                      type="submit"
+                      disabled={
+                        importandoKits ||
+                        !archivoKits
+                      }
+                      style={{
+                        ...primaryButtonStyle,
+                        opacity:
+                          importandoKits ||
+                            !archivoKits
+                            ? 0.65
+                            : 1,
+                      }}
+                    >
+                      {importandoKits
+                        ? "Importando..."
+                        : "Importar kits"}
+                    </button>
+                  )}
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
       {mostrarImportacionBom &&
         esAdministrador && (
           <div style={modalOverlayStyle}>
@@ -2420,6 +3691,7 @@ export function MaterialesPage() {
                     Carga el archivo BOM.
                   </p>
                 </div>
+
                 <button
                   type="button"
                   onClick={cerrarImportacionBom}
@@ -2430,7 +3702,12 @@ export function MaterialesPage() {
                   ×
                 </button>
               </div>
-              <form onSubmit={ejecutarImportacionBom}>
+
+              <form
+                onSubmit={
+                  ejecutarImportacionBom
+                }
+              >
                 <div style={formGridStyle}>
                   <div style={formGroupFullStyle}>
                     <label
@@ -2444,6 +3721,8 @@ export function MaterialesPage() {
                       id="archivoBom"
                       type="file"
                       accept=".xlsx"
+                      disabled={importandoBom}
+                      style={inputStyle}
                       onChange={(event) => {
                         const archivoSeleccionado =
                           event.target.files?.[0] ??
@@ -2459,12 +3738,11 @@ export function MaterialesPage() {
 
                         setErrorFormulario("");
                       }}
-                      disabled={importandoBom}
-                      style={inputStyle}
                     />
 
                     <small style={helpTextStyle}>
-                      Solo archivos con extensión .xlsx
+                      Solo archivos con extensión
+                      .xlsx
                     </small>
                   </div>
                 </div>
@@ -2483,24 +3761,37 @@ export function MaterialesPage() {
                     {errorFormulario}
                   </div>
                 )}
+
                 {resultadoImportacion && (
                   <div style={importResultStyle}>
-                    <h3 style={importResultTitleStyle}>
+                    <h3
+                      style={
+                        importResultTitleStyle
+                      }
+                    >
                       Resultado de la importación
                     </h3>
 
-                    <div style={importSummaryStyle}>
+                    <div
+                      style={importSummaryStyle}
+                    >
                       <span>
                         Total:{" "}
                         <strong>
-                          {resultadoImportacion.totalFilas}
+                          {
+                            resultadoImportacion
+                              .totalFilas
+                          }
                         </strong>
                       </span>
 
                       <span>
                         Correctas:{" "}
                         <strong>
-                          {resultadoImportacion.filasCorrectas}
+                          {
+                            resultadoImportacion
+                              .filasCorrectas
+                          }
                         </strong>
                       </span>
 
@@ -2517,62 +3808,118 @@ export function MaterialesPage() {
                       <span>
                         Errores:{" "}
                         <strong>
-                          {resultadoImportacion.filasConError}
+                          {
+                            resultadoImportacion
+                              .filasConError
+                          }
                         </strong>
                       </span>
                     </div>
 
-                    {resultadoImportacion.errores.length > 0 && (
-                      <details style={importDetailsErrorStyle}>
-                        <summary style={importDetailsSummaryStyle}>
-                          Ver errores (
-                          {resultadoImportacion.errores.length}
-                          )
-                        </summary>
+                    {resultadoImportacion
+                      .errores.length > 0 && (
+                        <details
+                          style={
+                            importDetailsErrorStyle
+                          }
+                        >
+                          <summary
+                            style={
+                              importDetailsSummaryStyle
+                            }
+                          >
+                            Ver errores (
+                            {
+                              resultadoImportacion
+                                .errores.length
+                            }
+                            )
+                          </summary>
 
-                        <div style={importTableContainerStyle}>
-                          <table style={importTableStyle}>
-                            <thead>
-                              <tr>
-                                <th style={importTableHeaderStyle}>
-                                  Fila
-                                </th>
-
-                                <th style={importTableHeaderStyle}>
-                                  Error
-                                </th>
-                              </tr>
-                            </thead>
-
-                            <tbody>
-                              {resultadoImportacion.errores.map(
-                                (error, indice) => (
-                                  <tr
-                                    key={
-                                      `${error.numeroFila}-` +
-                                      `${indice}`
+                          <div
+                            style={
+                              importTableContainerStyle
+                            }
+                          >
+                            <table
+                              style={
+                                importTableStyle
+                              }
+                            >
+                              <thead>
+                                <tr>
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
                                     }
                                   >
-                                    <td style={importTableCellStyle}>
-                                      {error.numeroFila}
-                                    </td>
+                                    Fila
+                                  </th>
 
-                                    <td style={importTableCellStyle}>
-                                      {error.mensaje}
-                                    </td>
-                                  </tr>
-                                )
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </details>
-                    )}
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
+                                    }
+                                  >
+                                    Error
+                                  </th>
+                                </tr>
+                              </thead>
 
-                    {resultadoImportacion.advertencias.length >
+                              <tbody>
+                                {resultadoImportacion
+                                  .errores.map(
+                                    (
+                                      error,
+                                      indice
+                                    ) => (
+                                      <tr
+                                        key={
+                                          `${error.numeroFila}-` +
+                                          `${indice}`
+                                        }
+                                      >
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {
+                                            error.numeroFila
+                                          }
+                                        </td>
+
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {
+                                            error.mensaje
+                                          }
+                                        </td>
+                                      </tr>
+                                    )
+                                  )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </details>
+                      )}
+
+                    {resultadoImportacion
+                      .advertencias.length >
                       0 && (
-                        <details style={importDetailsWarningStyle}>
-                          <summary style={importDetailsSummaryStyle}>
+                        <details
+                          style={
+                            importDetailsWarningStyle
+                          }
+                        >
+                          <summary
+                            style={
+                              importDetailsSummaryStyle
+                            }
+                          >
                             Ver advertencias (
                             {
                               resultadoImportacion
@@ -2581,39 +3928,71 @@ export function MaterialesPage() {
                             )
                           </summary>
 
-                          <div style={importTableContainerStyle}>
-                            <table style={importTableStyle}>
+                          <div
+                            style={
+                              importTableContainerStyle
+                            }
+                          >
+                            <table
+                              style={
+                                importTableStyle
+                              }
+                            >
                               <thead>
                                 <tr>
-                                  <th style={importTableHeaderStyle}>
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
+                                    }
+                                  >
                                     Fila
                                   </th>
 
-                                  <th style={importTableHeaderStyle}>
+                                  <th
+                                    style={
+                                      importTableHeaderStyle
+                                    }
+                                  >
                                     Advertencia
                                   </th>
                                 </tr>
                               </thead>
 
                               <tbody>
-                                {resultadoImportacion.advertencias.map(
-                                  (advertencia, indice) => (
-                                    <tr
-                                      key={
-                                        `${advertencia.numeroFila}-` +
-                                        `${indice}`
-                                      }
-                                    >
-                                      <td style={importTableCellStyle}>
-                                        {advertencia.numeroFila}
-                                      </td>
+                                {resultadoImportacion
+                                  .advertencias.map(
+                                    (
+                                      advertencia,
+                                      indice
+                                    ) => (
+                                      <tr
+                                        key={
+                                          `${advertencia.numeroFila}-` +
+                                          `${indice}`
+                                        }
+                                      >
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {
+                                            advertencia.numeroFila
+                                          }
+                                        </td>
 
-                                      <td style={importTableCellStyle}>
-                                        {advertencia.mensaje}
-                                      </td>
-                                    </tr>
-                                  )
-                                )}
+                                        <td
+                                          style={
+                                            importTableCellStyle
+                                          }
+                                        >
+                                          {
+                                            advertencia.mensaje
+                                          }
+                                        </td>
+                                      </tr>
+                                    )
+                                  )}
                               </tbody>
                             </table>
                           </div>
@@ -2625,7 +4004,9 @@ export function MaterialesPage() {
                 <div style={modalActionsStyle}>
                   <button
                     type="button"
-                    onClick={cerrarImportacionBom}
+                    onClick={
+                      cerrarImportacionBom
+                    }
                     disabled={importandoBom}
                     style={secondaryButtonStyle}
                   >
@@ -2641,6 +4022,7 @@ export function MaterialesPage() {
                       }
                       style={{
                         ...primaryButtonStyle,
+
                         opacity:
                           importandoBom ||
                             !archivoBom
@@ -2658,6 +4040,9 @@ export function MaterialesPage() {
             </section>
           </div>
         )}
+
+
+
 
       {mostrarConfirmacionEliminar &&
         materialAEliminar && (
@@ -2695,7 +4080,7 @@ export function MaterialesPage() {
 
               <p style={warningTextStyle}>
                 Solo podrá eliminarse si no
-                tiene inventario, solicitudes,
+                tiene inventario, historial,
                 movimientos o BOM relacionados.
                 En caso contrario, deberás
                 marcarlo como inactivo.
@@ -3399,4 +4784,89 @@ const bomListProjectButtonStyle = {
   fontSize: "15px",
   fontWeight: "800",
   cursor: "pointer",
+};
+
+const materialDetailGridStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "12px",
+  marginBottom: "24px",
+};
+
+const materialDetailItemStyle = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: "5px",
+  padding: "13px",
+  border: "1px solid #e2e8f0",
+  borderRadius: "9px",
+  background: "#f8fafc",
+  color: "#102957",
+  fontSize: "13px",
+};
+
+const materialDetailLabelStyle = {
+  color: "#64748b",
+  fontSize: "11px",
+  fontWeight: "700",
+  textTransform: "uppercase" as const,
+};
+
+const relationsTitleStyle = {
+  margin: "0 0 13px",
+  color: "#102957",
+  fontSize: "18px",
+};
+
+const assignedStationStyle = {
+  display: "inline-block",
+  padding: "5px 9px",
+  border: "1px solid #bbf7d0",
+  borderRadius: "999px",
+  background: "#dcfce7",
+  color: "#166534",
+  fontSize: "11px",
+  fontWeight: "700",
+};
+
+
+const stationSectionHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap" as const,
+  gap: "12px",
+  marginBottom: "14px",
+};
+
+const stationSummaryListStyle = {
+  display: "grid",
+  gap: "10px",
+};
+
+const stationSummaryItemStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "14px",
+  padding: "14px",
+  border: "1px solid #e2e8f0",
+  borderRadius: "9px",
+  background: "#f8fafc",
+};
+
+const qrCodeTextStyle = {
+  marginTop: "7px",
+  color: "#64748b",
+  fontSize: "11px",
+  fontFamily: "monospace",
+};
+
+const addStationFormStyle = {
+  marginTop: "18px",
+  padding: "16px",
+  border: "1px solid #bfdbfe",
+  borderRadius: "10px",
+  background: "#eff6ff",
 };

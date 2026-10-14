@@ -239,27 +239,10 @@ public sealed class EstacionImportService
                 );
             }
         }
-        // Relaciona las estaciones importadas
-        // y asigna CONVEYER a los materiales
-        // que continúen sin estación.
-        var asignacionesConveyer =
-        await _bomRepository
-            .AsignarConveyerAFaltantesAsync(
-                idFamilia
-            );
 
-        Console.WriteLine(
-     $"Asignaciones oficiales realizadas: " +
-     $"{resultado.AsignacionesRealizadas}. " +
-     $"Asignaciones automáticas a CONVEYER: " +
-     $"{asignacionesConveyer}."
- );
 
         return resultado;
-
-
     }
-
     public async Task<EstacionImportResult>
         ImportarAsync(
             Stream archivo,
@@ -340,8 +323,8 @@ public sealed class EstacionImportService
                         fila,
                         columnas,
                         "PRODUCTNUMBER"
-                    );
-
+                    )
+                    .ToUpperInvariant();
                 var custDsg1 =
                     ObtenerTexto(
                         fila,
@@ -370,12 +353,13 @@ public sealed class EstacionImportService
                     $"{custDsg1}{custDsg2}{intDsg}";
 
                 var numeroMaterial =
-                    ObtenerTexto(
-                        fila,
-                        columnas,
-                        "MATERIALNUMBER"
+                    NormalizarNumeroMaterial(
+                        ObtenerTexto(
+                            fila,
+                            columnas,
+                            "MATERIALNUMBER"
+                        )
                     );
-
                 var nombreEstacion =
                     ObtenerTexto(
                         fila,
@@ -431,10 +415,10 @@ public sealed class EstacionImportService
                 }
 
                 if (
-    string.IsNullOrWhiteSpace(
-        nombreEstacion
-    )
-)
+                        string.IsNullOrWhiteSpace(
+                            nombreEstacion
+                        )
+                    )
                 {
                     resultado
                         .FilasConAdvertencia++;
@@ -627,8 +611,46 @@ public sealed class EstacionImportService
             }
         }
 
+        // Después de procesar todas las filas,
+        // asigna CONVEYER a los detalles BOM
+        // vigentes de la familia que continúan
+        // sin una estación.
+        var asignacionesConveyer =
+            await _bomRepository
+                .AsignarConveyerAFaltantesAsync(
+                    idFamilia
+                );
+
+        Console.WriteLine(
+            $"Asignaciones oficiales realizadas: " +
+            $"{resultado.AsignacionesRealizadas}. " +
+            $"Asignaciones automáticas a CONVEYER: " +
+            $"{asignacionesConveyer}."
+        );
+
         return resultado;
     }
+
+    // TEMPORALMENTE DESACTIVADO.
+    // No asignar CONVEYER automáticamente hasta revisar
+    // los QR existentes y aprobar los cambios.
+    /*
+    var asignacionesConveyer =
+        await _bomRepository
+            .AsignarConveyerAFaltantesAsync(
+                idFamilia
+            );
+
+    Console.WriteLine(
+        $"Asignaciones oficiales realizadas: " +
+        $"{resultado.AsignacionesRealizadas}. " +
+        $"Asignaciones automáticas a CONVEYER: " +
+        $"{asignacionesConveyer}."
+    );
+    */
+
+
+
 
     private static Dictionary<string, int>
         ObtenerColumnas(
@@ -777,4 +799,38 @@ public sealed class EstacionImportService
             .Replace("_", "")
             .Replace("-", "");
     }
+
+    // Normaliza el número de material conservando
+    // los ceros iniciales registrados en Excel.
+    private static string
+        NormalizarNumeroMaterial(
+            string numeroMaterial)
+    {
+        var valor =
+            numeroMaterial
+                .Trim()
+                .Replace(
+                    ".0",
+                    ""
+                );
+
+        // Los números de material usados por el sistema
+        // tienen ocho posiciones cuando son numéricos.
+        if (
+            valor.All(char.IsDigit) &&
+            valor.Length < 8
+        )
+        {
+            valor =
+                valor.PadLeft(
+                    8,
+                    '0'
+                );
+        }
+
+        return valor;
+    }
+
+
+
 }

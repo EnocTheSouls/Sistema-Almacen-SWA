@@ -280,6 +280,205 @@ public static class MaterialEndpoints
             "ObtenerContextoMaterialEstacion"
         );
 
+        // Obtiene las estaciones relacionadas
+        // directamente con un material.
+        grupo.MapGet(
+            "/{idMaterial:int}/estaciones",
+            async (
+                int idMaterial,
+                MaterialRepository materialRepository,
+                MaterialEstacionRepository
+                    materialEstacionRepository) =>
+            {
+                if (idMaterial <= 0)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "El material no es válido."
+                        }
+                    );
+                }
+
+                var material =
+                    await materialRepository
+                        .ObtenerPorIdAsync(
+                            idMaterial
+                        );
+
+                if (material is null)
+                {
+                    return Results.NotFound(
+                        new
+                        {
+                            mensaje =
+                                $"No existe el material {idMaterial}."
+                        }
+                    );
+                }
+
+                var estaciones =
+                    await materialEstacionRepository
+                        .ObtenerPorMaterialAsync(
+                            idMaterial
+                        );
+
+                return Results.Ok(
+                    estaciones
+                );
+            }
+        )
+        .WithName(
+            "ObtenerEstacionesDeMaterial"
+        );
+
+
+        // Relaciona una estación
+        // directamente con un material.
+        grupo.MapPost(
+            "/{idMaterial:int}/estaciones",
+            async (
+                int idMaterial,
+                AgregarMaterialEstacionDto dto,
+                MaterialRepository materialRepository,
+                MaterialEstacionRepository
+                    materialEstacionRepository) =>
+            {
+                if (idMaterial <= 0)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "El material no es válido."
+                        }
+                    );
+                }
+
+                if (dto.IdEstacion <= 0)
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "Selecciona una estación válida."
+                        }
+                    );
+                }
+
+                var material =
+                    await materialRepository
+                        .ObtenerPorIdAsync(
+                            idMaterial
+                        );
+
+                if (material is null)
+                {
+                    return Results.NotFound(
+                        new
+                        {
+                            mensaje =
+                                $"No existe el material {idMaterial}."
+                        }
+                    );
+                }
+
+                var relacion =
+                    await materialEstacionRepository
+                        .AgregarAsync(
+                            idMaterial,
+                            dto.IdEstacion
+                        );
+
+                if (relacion is null)
+                {
+                    return Results.NotFound(
+                        new
+                        {
+                            mensaje =
+                                "No se encontró una estación activa con ese identificador."
+                        }
+                    );
+                }
+
+                return Results.Ok(
+                    new
+                    {
+                        mensaje =
+                            "La estación fue relacionada con el material.",
+
+                        relacion
+                    }
+                );
+            }
+        )
+        .WithName(
+            "AgregarEstacionAMaterial"
+        )
+        .RequireAuthorization(
+            policy =>
+                policy.RequireRole(
+                    "Administrador"
+                )
+        );
+
+
+        // Quita la relación entre
+        // un material y una estación.
+        grupo.MapDelete(
+            "/{idMaterial:int}/estaciones/{idEstacion:int}",
+            async (
+                int idMaterial,
+                int idEstacion,
+                MaterialEstacionRepository
+                    materialEstacionRepository) =>
+            {
+                if (
+                    idMaterial <= 0 ||
+                    idEstacion <= 0
+                )
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            mensaje =
+                                "El material o la estación no son válidos."
+                        }
+                    );
+                }
+
+                var eliminada =
+                    await materialEstacionRepository
+                        .QuitarAsync(
+                            idMaterial,
+                            idEstacion
+                        );
+
+                if (!eliminada)
+                {
+                    return Results.NotFound(
+                        new
+                        {
+                            mensaje =
+                                "No existe una relación activa entre el material y la estación."
+                        }
+                    );
+                }
+
+                return Results.NoContent();
+            }
+        )
+        .WithName(
+            "QuitarEstacionDeMaterial"
+        )
+        .RequireAuthorization(
+            policy =>
+                policy.RequireRole(
+                    "Administrador"
+                )
+        );
+
         // Crea un material nuevo.
         grupo.MapPost(
             "/",

@@ -645,8 +645,7 @@ export function Sidebar({
                       "1px",
                   }}
                 >
-                  {currentUser?.role ?? "SIN ROL"}
-
+                 
                 </div>
 
               </div>
