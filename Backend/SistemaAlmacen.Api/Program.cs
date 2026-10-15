@@ -301,5 +301,6 @@ app.MapControllers();
 app.MapMaterialStationImportEndpoints();
 app.MapMrpEndpoints();
 app.MapMaterialKitEndpoints();
+app.MapSurtidoMrpEndpoints();
 app.MapHub<NotificacionHub>("/hubs/notificaciones");
 app.Run();

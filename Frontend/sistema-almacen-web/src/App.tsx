@@ -56,6 +56,11 @@ import {
   BitacoraPage,
 } from "./pages/BitacoraPage";
 
+import {
+  SurtidoMrpPage,
+} from "./pages/SurtidoMrpPage";
+
+
 export default function App() {
   return (
     <Routes>
@@ -145,6 +150,16 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/surtido-mrp"
+        element={
+          <ProtectedRoute>
+            <RutaSurtidoMrp>
+              <SurtidoMrpPage />
+            </RutaSurtidoMrp>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/kardex"
@@ -181,6 +196,9 @@ interface RutaMaterialesProps {
 }
 
 interface RutaInventarioProps {
+  children: ReactNode;
+}
+interface RutaSurtidoMrpProps {
   children: ReactNode;
 }
 
@@ -271,6 +289,37 @@ function RutaInventario({
 
   return children;
 }
+// Permite el módulo de surtido MRP
+// a los roles responsables del almacén.
+function RutaSurtidoMrp({
+  children,
+}: RutaSurtidoMrpProps) {
+  const usuario =
+    obtenerUsuarioActual();
+
+  const rolActual =
+    normalizarRol(
+      usuario?.role
+    );
+
+  const tieneAccesoSurtidoMrp =
+    rolActual === "ADMIN" ||
+    rolActual === "ADMINISTRADOR" ||
+    rolActual === "SUPERVISOR" ||
+    rolActual === "SURTIDOR";
+
+  if (!tieneAccesoSurtidoMrp) {
+    return (
+      <Navigate
+        to="/solicitudes"
+        replace
+      />
+    );
+  }
+
+  return children;
+}
+
 // Envía a cada usuario a su página principal.
 function RutaInicial() {
   const usuario =

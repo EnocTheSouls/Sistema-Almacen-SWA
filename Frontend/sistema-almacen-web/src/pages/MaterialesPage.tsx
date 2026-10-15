@@ -1,12 +1,14 @@
 import Barcode from "react-barcode";
+
 import {
-  useEffect,
-  useMemo,
-  useState,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from "react";
 
 import type {
-  FormEvent,
+    FormEvent,
 } from "react";
 
 import axios from "axios";
@@ -337,32 +339,6 @@ export function MaterialesPage() {
   ] = useState<FormularioMaterial>(
     crearFormularioVacio
   );
-
-  const [
-    mostrarImportacionKits,
-    setMostrarImportacionKits,
-  ] = useState(false);
-
-  const [
-    archivoKits,
-    setArchivoKits,
-  ] = useState<File | null>(
-    null
-  );
-
-  const [
-    importandoKits,
-    setImportandoKits,
-  ] = useState(false);
-
-  const [
-    resultadoImportacionKits,
-    setResultadoImportacionKits,
-  ] =
-    useState<
-      ResultadoImportacionMaterialKit | null
-    >(null);
-
   const cargarMateriales = async () => {
     try {
       setCargando(true);
@@ -1431,76 +1407,8 @@ export function MaterialesPage() {
       }
     };
 
-  // Abre el formulario de importación
-  // del reporte de cajas o kits.
-  const abrirImportacionKits = () => {
-    setArchivoKits(null);
-    setResultadoImportacionKits(null);
-    setErrorFormulario("");
-    setMensajeExito("");
-    setMostrarImportacionKits(true);
-  };
+  
 
-  // Cierra el formulario de kits.
-  const cerrarImportacionKits = () => {
-    if (importandoKits) {
-      return;
-    }
-
-    setMostrarImportacionKits(false);
-    setArchivoKits(null);
-    setResultadoImportacionKits(null);
-    setErrorFormulario("");
-  };
-
-  // Envía el reporte PICSFR010 al backend.
-  const ejecutarImportacionKits = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    if (!archivoKits) {
-      setErrorFormulario(
-        "Selecciona el archivo PICSFR010."
-      );
-
-      return;
-    }
-
-    try {
-      setImportandoKits(true);
-      setErrorFormulario("");
-      setResultadoImportacionKits(null);
-      setMensajeExito("");
-
-      const respuesta =
-        await importarMaterialKits(
-          archivoKits
-        );
-
-      setResultadoImportacionKits(
-        respuesta.resultado
-      );
-
-      setMensajeExito(
-        respuesta.mensaje
-      );
-    } catch (error) {
-      console.error(
-        "Error al importar kits:",
-        error
-      );
-
-      setErrorFormulario(
-        obtenerMensajeError(
-          error,
-          "No se pudo importar la lista de kits."
-        )
-      );
-    } finally {
-      setImportandoKits(false);
-    }
-  };
 
   const abrirImportacionBom = () => {
     setArchivoBom(null);
@@ -1690,14 +1598,6 @@ export function MaterialesPage() {
                     >
                       Importar BOM
                     </button>
-                    <button
-                      type="button"
-                      onClick={abrirImportacionKits}
-                      style={importButtonStyle}
-                    >
-                      Importar kits
-                    </button>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -3374,304 +3274,6 @@ export function MaterialesPage() {
                       ? "Importando..."
                       : "Importar 5MF"}
                   </button>
-                </div>
-              </form>
-            </section>
-          </div>
-        )}
-
-      {mostrarImportacionKits &&
-        esAdministrador && (
-          <div style={modalOverlayStyle}>
-            <section style={modalStyle}>
-              <div style={modalHeaderStyle}>
-                <div>
-                  <h2 style={modalTitleStyle}>
-                    Importar cajas o kits
-                  </h2>
-
-                  <p style={modalDescriptionStyle}>
-                    Importa el reporte PICSFR010 con
-                    seriales, materiales y cantidades.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={cerrarImportacionKits}
-                  disabled={importandoKits}
-                  aria-label="Cerrar"
-                  style={closeButtonStyle}
-                >
-                  ×
-                </button>
-              </div>
-
-              <form
-                onSubmit={
-                  ejecutarImportacionKits
-                }
-              >
-                <div style={formGroupFullStyle}>
-                  <label
-                    htmlFor="archivoMaterialKits"
-                    style={labelStyle}
-                  >
-                    Archivo PICSFR010 *
-                  </label>
-
-                  <input
-                    id="archivoMaterialKits"
-                    type="file"
-                    accept=".xlsx"
-                    disabled={importandoKits}
-                    style={inputStyle}
-                    onChange={(event) => {
-                      const archivo =
-                        event.target.files?.[0] ??
-                        null;
-
-                      setArchivoKits(archivo);
-                      setResultadoImportacionKits(
-                        null
-                      );
-                      setErrorFormulario("");
-                    }}
-                  />
-
-                  <small style={helpTextStyle}>
-                    Debe contener PICSFR010 o
-                    PICSFR010_1.
-                  </small>
-                </div>
-
-                {archivoKits && (
-                  <div style={selectedFileStyle}>
-                    Archivo seleccionado:{" "}
-                    <strong>
-                      {archivoKits.name}
-                    </strong>
-                  </div>
-                )}
-
-                {errorFormulario && (
-                  <div style={errorStyle}>
-                    {errorFormulario}
-                  </div>
-                )}
-
-                {importandoKits && (
-                  <div style={messageStyle}>
-                    Importando kits. No cierres esta
-                    ventana.
-                  </div>
-                )}
-
-                {resultadoImportacionKits && (
-                  <div style={importResultStyle}>
-                    <h3 style={importResultTitleStyle}>
-                      Resultado de la importación
-                    </h3>
-
-                    <div style={importSummaryStyle}>
-                      <span>
-                        Total:{" "}
-                        <strong>
-                          {
-                            resultadoImportacionKits
-                              .totalFilas
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Correctas:{" "}
-                        <strong>
-                          {
-                            resultadoImportacionKits
-                              .filasCorrectas
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Errores:{" "}
-                        <strong>
-                          {
-                            resultadoImportacionKits
-                              .filasConError
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Creados:{" "}
-                        <strong>
-                          {
-                            resultadoImportacionKits
-                              .kitsCreados
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Actualizados:{" "}
-                        <strong>
-                          {
-                            resultadoImportacionKits
-                              .kitsActualizados
-                          }
-                        </strong>
-                      </span>
-
-                      <span>
-                        Sin cambios:{" "}
-                        <strong>
-                          {
-                            resultadoImportacionKits
-                              .kitsSinCambios
-                          }
-                        </strong>
-                      </span>
-                    </div>
-
-                    {resultadoImportacionKits
-                      .errores.length > 0 && (
-                        <details
-                          style={
-                            importDetailsErrorStyle
-                          }
-                        >
-                          <summary
-                            style={
-                              importDetailsSummaryStyle
-                            }
-                          >
-                            Ver errores (
-                            {
-                              resultadoImportacionKits
-                                .errores.length
-                            }
-                            )
-                          </summary>
-
-                          <div
-                            style={
-                              importTableContainerStyle
-                            }
-                          >
-                            <table
-                              style={importTableStyle}
-                            >
-                              <thead>
-                                <tr>
-                                  <th
-                                    style={
-                                      importTableHeaderStyle
-                                    }
-                                  >
-                                    Hoja
-                                  </th>
-
-                                  <th
-                                    style={
-                                      importTableHeaderStyle
-                                    }
-                                  >
-                                    Fila
-                                  </th>
-
-                                  <th
-                                    style={
-                                      importTableHeaderStyle
-                                    }
-                                  >
-                                    Error
-                                  </th>
-                                </tr>
-                              </thead>
-
-                              <tbody>
-                                {resultadoImportacionKits
-                                  .errores.map(
-                                    (
-                                      error,
-                                      indice
-                                    ) => (
-                                      <tr
-                                        key={
-                                          `${error.hoja}-` +
-                                          `${error.numeroFila}-` +
-                                          `${indice}`
-                                        }
-                                      >
-                                        <td
-                                          style={
-                                            importTableCellStyle
-                                          }
-                                        >
-                                          {error.hoja}
-                                        </td>
-
-                                        <td
-                                          style={
-                                            importTableCellStyle
-                                          }
-                                        >
-                                          {
-                                            error.numeroFila
-                                          }
-                                        </td>
-
-                                        <td
-                                          style={
-                                            importTableCellStyle
-                                          }
-                                        >
-                                          {error.mensaje}
-                                        </td>
-                                      </tr>
-                                    )
-                                  )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </details>
-                      )}
-                  </div>
-                )}
-
-                <div style={modalActionsStyle}>
-                  <button
-                    type="button"
-                    onClick={cerrarImportacionKits}
-                    disabled={importandoKits}
-                    style={secondaryButtonStyle}
-                  >
-                    Cerrar
-                  </button>
-
-                  {!resultadoImportacionKits && (
-                    <button
-                      type="submit"
-                      disabled={
-                        importandoKits ||
-                        !archivoKits
-                      }
-                      style={{
-                        ...primaryButtonStyle,
-                        opacity:
-                          importandoKits ||
-                            !archivoKits
-                            ? 0.65
-                            : 1,
-                      }}
-                    >
-                      {importandoKits
-                        ? "Importando..."
-                        : "Importar kits"}
-                    </button>
-                  )}
                 </div>
               </form>
             </section>

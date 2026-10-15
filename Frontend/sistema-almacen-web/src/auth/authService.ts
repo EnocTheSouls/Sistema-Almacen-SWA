@@ -44,17 +44,29 @@ export function estaAutenticado(): boolean {
       cerrarSesion();
       return false;
     }
-
-    const payloadTexto =
+    const payloadBase64 =
       partes[1]
         .replace(/-/g, "+")
         .replace(/_/g, "/");
 
+    const relleno =
+      "=".repeat(
+        (
+          4 -
+          (
+            payloadBase64.length % 4
+          )
+        ) % 4
+      );
+
     const payload = JSON.parse(
-      window.atob(payloadTexto)
+      window.atob(
+        payloadBase64 + relleno
+      )
     ) as {
       exp?: number;
     };
+
 
     if (!payload.exp) {
       cerrarSesion();

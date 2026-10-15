@@ -106,7 +106,6 @@ export function NotificationProvider({
   }, [
     sonidoActivo,
   ]);
-
   // Abre una sola conexión SignalR.
   useEffect(() => {
     const token =
@@ -140,10 +139,17 @@ export function NotificationProvider({
       return;
     }
 
+    let componenteActivo =
+      true;
+
     const conexion =
       crearConexionNotificaciones(
         token,
         (notificacion) => {
+          if (!componenteActivo) {
+            return;
+          }
+
           setNotificaciones(
             (actuales) => {
               const yaExiste =
@@ -163,7 +169,6 @@ export function NotificationProvider({
               ];
             }
           );
-          
 
           if (
             sonidoActivoRef.current &&
@@ -179,48 +184,50 @@ export function NotificationProvider({
 
             audioNotificacion
               .play()
-              .then(() => {
-                
-              })
               .catch((error) => {
                 console.error(
                   "No se pudo reproducir el sonido:",
                   error
                 );
               });
-          } else {
-            console.warn(
-              "Llegó la solicitud, pero el sonido está desactivado."
-            );
           }
-          ``
-
-
-
         }
       );
 
     conexionRef.current =
       conexion;
 
-    iniciarConexion(
-      conexion
-    )
-      .then(() => {
-        
-      })
-      .catch((error) => {
-        console.error(
-          "No se pudo conectar SignalR:",
-          error
-        );
-      });
+    const conectar =
+      async () => {
+        try {
+          await iniciarConexion(
+            conexion
+          );
+        } catch (error) {
+          if (componenteActivo) {
+            console.error(
+              "No se pudo conectar SignalR:",
+              error
+            );
+          }
+        }
+      };
+
+    void conectar();
 
     return () => {
-      conexionRef.current =
-        null;
+      componenteActivo =
+        false;
 
-      conexion
+      if (
+        conexionRef.current ===
+        conexion
+      ) {
+        conexionRef.current =
+          null;
+      }
+
+      void conexion
         .stop()
         .catch(() => {
           // Evita errores al desmontar.
@@ -230,7 +237,7 @@ export function NotificationProvider({
 
 
   const activarSonido = async () => {
-    
+
 
     const nuevoEstado =
       !sonidoActivoRef.current;
@@ -246,7 +253,7 @@ export function NotificationProvider({
         "notificaciones_sonido"
       );
 
-      
+
 
       return;
     }
@@ -282,7 +289,7 @@ export function NotificationProvider({
         "activo"
       );
 
-      
+
     } catch (error) {
       sonidoActivoRef.current =
         false;

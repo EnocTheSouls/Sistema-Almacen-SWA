@@ -538,7 +538,21 @@ export function Sidebar({
                     "/inventario"
                   )}
                 >
-                  Plan MRP
+                MRP
+                </Link>
+              )}
+            {(
+              puedeVerModulosAdministrativos ||
+              esSurtidor
+            ) && (
+                <Link
+                  to="/surtido-mrp"
+                  onClick={cerrarMenuMovil}
+                  style={linkStyle(
+                    "/surtido-mrp"
+                  )}
+                >
+                   Plan Surtido
                 </Link>
               )}
             {puedeVerModulosAdministrativos && (
@@ -645,7 +659,7 @@ export function Sidebar({
                       "1px",
                   }}
                 >
-                 
+
                 </div>
 
               </div>

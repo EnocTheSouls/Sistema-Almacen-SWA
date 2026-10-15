@@ -624,4 +624,3 @@ const mobileOverlayStyle = {
     "rgba(15, 23, 42, 0.58)",
   cursor: "pointer",
 };
-``
