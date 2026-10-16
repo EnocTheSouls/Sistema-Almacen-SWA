@@ -6,8 +6,10 @@ import {
 } from "react";
 
 import type {
+    CSSProperties,
     FormEvent,
 } from "react";
+
 import type {
     ResultadoImportacionMaterialKit,
 } from "../services/materialKitService";
@@ -21,25 +23,167 @@ import {
 import {
     obtenerFamiliasSurtidoMrp,
     obtenerFechasSurtidoMrp,
-    obtenerMaterialesSurtidoMrp,
-
-    obtenerProyectosSurtidoMrp,
+    obtenerKitsIndividualesMrp,
     obtenerKitsNoRecibidosMrp,
+    obtenerMaterialesSurtidoMrp,
+    obtenerProyectosSurtidoMrp,
 } from "../services/surtidoMrpService";
 
 import type {
     EstadoAbastecimiento,
-    MaterialSurtidoMrp,
+    KitIndividualMrp,
     KitNoRecibidoMrp,
-
+    MaterialSurtidoMrp,
 } from "../services/surtidoMrpService";
 
 import {
     importarMaterialKits,
 } from "../services/materialKitService";
 
+const SURTIDO_MRP_FILTROS_KEY =
+    "surtido_mrp_filtros";
+
+interface FiltrosGuardadosSurtidoMrp {
+    fecha: string;
+    proyecto: string;
+    familia: string;
+    busqueda: string;
+    estado: EstadoAbastecimiento | "";
+    tiposMaterial: string[];
+    recepcionPics: string;
+}
+
+interface MaterialNoRecibidoAgrupado {
+    numeroMaterial: string;
+    nombreMaterial: string | null;
+
+    tipoMaterial:
+    | "C"
+    | "P"
+    | "S"
+    | "W"
+    | null;
+
+    cantidadRequeridaDia: number;
+
+    totalKits: number;
+    cantidadTotal: number;
+}
+
+
+
+function obtenerFiltrosGuardados():
+    FiltrosGuardadosSurtidoMrp {
+    const filtrosPredeterminados:
+        FiltrosGuardadosSurtidoMrp = {
+        fecha: "",
+        proyecto: "",
+        familia: "",
+        busqueda: "",
+        estado: "",
+        tiposMaterial: [],
+        recepcionPics: "",
+    };
+
+    try {
+        const filtrosJson =
+            localStorage.getItem(
+                SURTIDO_MRP_FILTROS_KEY
+            );
+
+        if (!filtrosJson) {
+            return filtrosPredeterminados;
+        }
+
+        const filtros =
+            JSON.parse(
+                filtrosJson
+            ) as Partial<
+                FiltrosGuardadosSurtidoMrp
+            >;
+
+        return {
+            fecha:
+                typeof filtros.fecha === "string"
+                    ? filtros.fecha
+                    : "",
+
+            proyecto:
+                typeof filtros.proyecto === "string"
+                    ? filtros.proyecto
+                    : "",
+
+            familia:
+                typeof filtros.familia === "string"
+                    ? filtros.familia
+                    : "",
+
+            busqueda:
+                typeof filtros.busqueda === "string"
+                    ? filtros.busqueda
+                    : "",
+
+            estado:
+                typeof filtros.estado === "string"
+                    ? filtros.estado as
+                    | EstadoAbastecimiento
+                    | ""
+                    : "",
+
+            tiposMaterial:
+                Array.isArray(
+                    filtros.tiposMaterial
+                )
+                    ? filtros.tiposMaterial
+                    : [],
+
+            recepcionPics:
+                typeof filtros.recepcionPics ===
+                    "string"
+                    ? filtros.recepcionPics
+                    : "",
+        };
+    } catch {
+        localStorage.removeItem(
+            SURTIDO_MRP_FILTROS_KEY
+        );
+
+        return filtrosPredeterminados;
+    }
+}
+
+// Devuelve la fecha local en formato YYYY-MM-DD.
+function obtenerFechaActualLocal() {
+    const hoy = new Date();
+
+    const anio =
+        hoy.getFullYear();
+
+    const mes =
+        String(
+            hoy.getMonth() + 1
+        ).padStart(2, "0");
+
+    const dia =
+        String(
+            hoy.getDate()
+        ).padStart(2, "0");
+
+    return `${anio}-${mes}-${dia}`;
+}
+
 
 export function SurtidoMrpPage() {
+
+    const filtrosGuardadosRef =
+        useRef(
+            obtenerFiltrosGuardados()
+        );
+
+    const filtrosGuardados =
+        filtrosGuardadosRef.current;
+
+
     const [
         proyectos,
         setProyectos,
@@ -60,29 +204,39 @@ export function SurtidoMrpPage() {
     const [
         proyecto,
         setProyecto,
-    ] = useState("");
+    ] = useState(
+        filtrosGuardados.proyecto
+    );
 
     const [
         familia,
         setFamilia,
-    ] = useState("");
+    ] = useState(
+        filtrosGuardados.familia
+    );
 
     const [
         busqueda,
         setBusqueda,
-    ] = useState("");
+    ] = useState(
+        filtrosGuardados.busqueda
+    );
 
     const [
         estado,
         setEstado,
     ] = useState<
         EstadoAbastecimiento | ""
-    >("");
+    >(
+        filtrosGuardados.estado
+    );
 
     const [
         tiposMaterial,
         setTiposMaterial,
-    ] = useState<string[]>([]);
+    ] = useState<string[]>(
+        filtrosGuardados.tiposMaterial
+    );
 
     const [
         mostrarTiposMaterial,
@@ -101,12 +255,53 @@ export function SurtidoMrpPage() {
 
     const tamanoPagina = 15;
 
+    const tamanoPaginaKits = 20;
+
+    const [
+        paginaKitsIndividuales,
+        setPaginaKitsIndividuales,
+    ] = useState(1);
+
+    const [
+        paginaKitsNoRecibidos,
+        setPaginaKitsNoRecibidos,
+    ] = useState(1);
+
     const [
         materialSeleccionado,
         setMaterialSeleccionado,
     ] = useState<
         MaterialSurtidoMrp | null
     >(null);
+
+    const [
+        mostrarDetalleKits,
+        setMostrarDetalleKits,
+    ] = useState(false);
+
+    const [
+        kitsDetalleMaterial,
+        setKitsDetalleMaterial,
+    ] = useState<KitIndividualMrp[]>([]);
+
+    const [
+        cargandoDetalleKits,
+        setCargandoDetalleKits,
+    ] = useState(false);
+
+    const [
+        errorDetalleKits,
+        setErrorDetalleKits,
+    ] = useState("");
+
+    const [
+        kitDetalleSeleccionado,
+        setKitDetalleSeleccionado,
+    ] = useState<KitIndividualMrp | null>(
+        null
+    );
+
+
 
     const [
         cargandoProyectos,
@@ -136,7 +331,9 @@ export function SurtidoMrpPage() {
     const [
         fecha,
         setFecha,
-    ] = useState("");
+    ] = useState(
+        filtrosGuardados.fecha
+    );
 
     const [
         cargandoFechas,
@@ -178,7 +375,9 @@ export function SurtidoMrpPage() {
     const [
         recepcionPics,
         setRecepcionPics,
-    ] = useState("");
+    ] = useState(
+        filtrosGuardados.recepcionPics
+    );
 
     const [
         kitsNoRecibidos,
@@ -186,9 +385,40 @@ export function SurtidoMrpPage() {
     ] = useState<KitNoRecibidoMrp[]>([]);
 
     const [
+        ,
+        setKitNoRecibidoSeleccionado,
+    ] = useState<KitNoRecibidoMrp | null>(
+        null
+    );
+
+    const [
         cargandoKitsNoRecibidos,
         setCargandoKitsNoRecibidos,
     ] = useState(false);
+
+
+    const [
+        kitsIndividuales,
+        setKitsIndividuales,
+    ] = useState<KitIndividualMrp[]>([]);
+
+    const [
+        cargandoKitsIndividuales,
+        setCargandoKitsIndividuales,
+    ] = useState(false);
+
+    const [
+        errorKitsIndividuales,
+        setErrorKitsIndividuales,
+    ] = useState("");
+
+    const [
+        ,
+        setKitIndividualSeleccionado,
+    ] = useState<KitIndividualMrp | null>(
+        null
+    );
+
 
     const [
         errorKitsNoRecibidos,
@@ -277,6 +507,14 @@ export function SurtidoMrpPage() {
                     null
                 );
 
+                setKitDetalleSeleccionado(
+                    null
+                );
+
+                setMostrarDetalleKits(false);
+                setKitsDetalleMaterial([]);
+                setErrorDetalleKits("");
+
                 setPagina(1);
             }
         } catch (errorImportacion) {
@@ -296,6 +534,36 @@ export function SurtidoMrpPage() {
         }
     };
 
+    // Conserva los filtros al navegar
+    // entre páginas del sistema.
+    useEffect(() => {
+        const filtros:
+            FiltrosGuardadosSurtidoMrp = {
+            fecha,
+            proyecto,
+            familia,
+            busqueda,
+            estado,
+            tiposMaterial,
+            recepcionPics,
+        };
+
+        localStorage.setItem(
+            SURTIDO_MRP_FILTROS_KEY,
+            JSON.stringify(
+                filtros
+            )
+        );
+    }, [
+        fecha,
+        proyecto,
+        familia,
+        busqueda,
+        estado,
+        tiposMaterial,
+        recepcionPics,
+    ]);
+
 
 
 
@@ -313,11 +581,45 @@ export function SurtidoMrpPage() {
 
                     setFechas(datos);
 
-                    if (datos.length > 0) {
-                        setFecha(
-                            datos[0]
-                        );
+                    if (datos.length === 0) {
+                        setFecha("");
+
+                        return;
                     }
+                    setFecha(
+                        (fechaGuardada) => {
+                            const fechaActual =
+                                obtenerFechaActualLocal();
+
+                            // Conserva la fecha guardada
+                            // si todavía está disponible.
+                            if (
+                                fechaGuardada &&
+                                datos.includes(
+                                    fechaGuardada
+                                )
+                            ) {
+                                return fechaGuardada;
+                            }
+
+                            // En una sesión nueva selecciona
+                            // automáticamente la fecha de hoy.
+                            if (
+                                datos.includes(
+                                    fechaActual
+                                )
+                            ) {
+                                return fechaActual;
+                            }
+
+                            // Si hoy no está disponible,
+                            // selecciona la primera fecha.
+                            return [...datos].sort()[0];
+                        }
+                    );
+
+
+
                 } catch (errorCarga) {
                     console.error(
                         "Error al cargar fechas:",
@@ -357,17 +659,11 @@ export function SurtidoMrpPage() {
         const cargarProyectos =
             async () => {
                 try {
+
                     setCargandoProyectos(true);
                     setError("");
 
-                    setProyecto("");
-                    setFamilias([]);
-                    setFamilia("");
                     setMateriales([]);
-                    setBusqueda("");
-                    setEstado("");
-                    setRecepcionPics("");
-                    setTiposMaterial([]);
                     setMaterialSeleccionado(null);
                     setPagina(1);
 
@@ -377,6 +673,21 @@ export function SurtidoMrpPage() {
                         );
 
                     setProyectos(datos);
+
+                    setProyecto(
+                        (proyectoActual) => {
+                            if (
+                                proyectoActual &&
+                                datos.includes(
+                                    proyectoActual
+                                )
+                            ) {
+                                return proyectoActual;
+                            }
+
+                            return "";
+                        }
+                    );
                 } catch (errorCarga) {
                     console.error(
                         "Error al cargar proyectos:",
@@ -404,22 +715,29 @@ export function SurtidoMrpPage() {
     // Carga las familias cuando
     // cambia el proyecto.
     useEffect(() => {
-        if (!fecha || !proyecto) {
+        // En las vistas normales se requiere
+        // fecha y proyecto seleccionados.
+        //
+        // En No recibido, proyecto vacío
+        // significa Todos los proyectos.
+        if (
+            !fecha ||
+            (
+                !proyecto &&
+                estado !== "NO_RECIBIDO"
+            )
+        ) {
             setFamilias([]);
             setFamilia("");
-            setMateriales([]);
+
 
             return;
         }
-
         const cargarFamilias =
             async () => {
                 try {
                     setCargandoFamilias(true);
                     setError("");
-
-                    setFamilia("");
-                    setMateriales([]);
 
                     const datos =
                         await obtenerFamiliasSurtidoMrp(
@@ -428,6 +746,28 @@ export function SurtidoMrpPage() {
                         );
 
                     setFamilias(datos);
+
+                    setFamilia(
+                        (familiaActual) => {
+                            if (
+                                estado === "NO_RECIBIDO" &&
+                                !familiaActual
+                            ) {
+                                return "";
+                            }
+
+                            if (
+                                familiaActual &&
+                                datos.includes(
+                                    familiaActual
+                                )
+                            ) {
+                                return familiaActual;
+                            }
+
+                            return "";
+                        }
+                    );
                 } catch (errorCarga) {
                     console.error(
                         "Error al cargar familias:",
@@ -435,6 +775,7 @@ export function SurtidoMrpPage() {
                     );
 
                     setFamilias([]);
+                    setFamilia("");
 
                     setError(
                         obtenerMensajeError(
@@ -447,14 +788,23 @@ export function SurtidoMrpPage() {
                 }
             };
 
+
+
         void cargarFamilias();
     }, [
         fecha,
         proyecto,
+        estado,
     ]);
     // Carga los materiales cuando
     // se completa proyecto y familia.
     useEffect(() => {
+        if (
+            estado === "NO_RECIBIDO"
+        ) {
+            return;
+        }
+
         if (
             !fecha ||
             !proyecto ||
@@ -503,24 +853,28 @@ export function SurtidoMrpPage() {
         fecha,
         proyecto,
         familia,
+        estado,
     ]);
+
+
+
+
+
+
 
 
     // Carga únicamente los seriales que PICS
     // todavía marca como no recibidos.
     useEffect(() => {
         if (
-            recepcionPics !== "NO_RECIBIDOS" ||
-            !fecha ||
-            !proyecto ||
-            !familia
+            estado !== "NO_RECIBIDO" ||
+            !fecha
         ) {
             setKitsNoRecibidos([]);
             setErrorKitsNoRecibidos("");
 
             return;
         }
-
         const cargarKitsNoRecibidos =
             async () => {
                 try {
@@ -563,11 +917,76 @@ export function SurtidoMrpPage() {
 
         void cargarKitsNoRecibidos();
     }, [
+        estado,
+        fecha,
+        proyecto,
+        familia,
+    ]);
+    // Carga todos los kits PICS
+    // separados por número de serie.
+    useEffect(() => {
+        if (
+            recepcionPics !==
+            "KITS_INDIVIDUALES" ||
+            !fecha ||
+            !proyecto ||
+            !familia
+        ) {
+            setKitsIndividuales([]);
+            setErrorKitsIndividuales("");
+
+            return;
+        }
+
+        const cargarKitsIndividuales =
+            async () => {
+                try {
+                    setCargandoKitsIndividuales(
+                        true
+                    );
+
+                    setErrorKitsIndividuales("");
+
+                    const datos =
+                        await obtenerKitsIndividualesMrp(
+                            fecha,
+                            proyecto,
+                            familia
+                        );
+
+                    setKitsIndividuales(
+                        datos
+                    );
+                } catch (errorCarga) {
+                    console.error(
+                        "Error al cargar kits individuales:",
+                        errorCarga
+                    );
+
+                    setKitsIndividuales([]);
+
+                    setErrorKitsIndividuales(
+                        obtenerMensajeError(
+                            errorCarga,
+                            "No se pudieron cargar los kits individuales."
+                        )
+                    );
+                } finally {
+                    setCargandoKitsIndividuales(
+                        false
+                    );
+                }
+            };
+
+        void cargarKitsIndividuales();
+    }, [
         recepcionPics,
         fecha,
         proyecto,
         familia,
     ]);
+
+
 
     // Cierra el selector de tipos
     // al hacer clic fuera.
@@ -602,6 +1021,226 @@ export function SurtidoMrpPage() {
             );
         };
     }, []);
+
+    const totalPaginasKitsIndividuales =
+        Math.max(
+            1,
+            Math.ceil(
+                kitsIndividuales.length /
+                tamanoPaginaKits
+            )
+        );
+
+    const kitsIndividualesPaginados =
+        useMemo(() => {
+            const inicio =
+                (
+                    paginaKitsIndividuales -
+                    1
+                ) *
+                tamanoPaginaKits;
+
+            return kitsIndividuales.slice(
+                inicio,
+                inicio + tamanoPaginaKits
+            );
+        }, [
+            kitsIndividuales,
+            paginaKitsIndividuales,
+        ]);
+
+
+
+    // Regresa a la primera página
+    // cuando cambia la lista de kits.
+    useEffect(() => {
+        setPaginaKitsIndividuales(1);
+    }, [
+        fecha,
+        proyecto,
+        familia,
+        kitsIndividuales.length,
+    ]);
+
+    useEffect(() => {
+        setPaginaKitsNoRecibidos(1);
+    }, [
+        fecha,
+        proyecto,
+        familia,
+        kitsNoRecibidos.length,
+    ]);
+
+    // Agrupa los kits no recibidos
+    // por número de material.
+    const materialesNoRecibidos =
+        useMemo<
+            MaterialNoRecibidoAgrupado[]
+        >(() => {
+            const agrupados =
+                new Map<
+                    string,
+                    MaterialNoRecibidoAgrupado
+                >();
+
+            kitsNoRecibidos.forEach(
+                (kit) => {
+                    const numeroNormalizado =
+                        normalizarTexto(
+                            kit.numeroMaterial
+                        );
+
+                    const materialMrp =
+                        materiales.find(
+                            (material) =>
+                                normalizarTexto(
+                                    material.numeroMaterial
+                                ) === numeroNormalizado
+                        );
+
+                    const existente =
+                        agrupados.get(
+                            numeroNormalizado
+                        );
+
+                    if (existente) {
+                        existente.totalKits += 1;
+
+                        existente.cantidadTotal +=
+                            kit.cantidad;
+
+                        return;
+                    }
+
+                    agrupados.set(
+                        numeroNormalizado,
+                        {
+                            numeroMaterial:
+                                kit.numeroMaterial,
+
+                            nombreMaterial:
+                                materialMrp
+                                    ?.nombreMaterial ??
+                                null,
+
+                            tipoMaterial:
+                                materialMrp
+                                    ?.tipoMaterial ??
+                                null,
+
+                            cantidadRequeridaDia:
+                                materialMrp
+                                    ?.cantidadRequeridaDia ??
+                                0,
+
+                            totalKits: 1,
+
+                            cantidadTotal:
+                                kit.cantidad,
+                        }
+                    );
+                }
+            );
+
+            return Array.from(
+                agrupados.values()
+            ).sort(
+                (
+                    materialA,
+                    materialB
+                ) =>
+                    materialA.numeroMaterial
+                        .localeCompare(
+                            materialB
+                                .numeroMaterial
+                        )
+            );
+        }, [
+            kitsNoRecibidos,
+            materiales,
+        ]);
+
+    // Filtra materiales no recibidos
+    // por búsqueda y tipo.
+    const materialesNoRecibidosFiltrados =
+        useMemo(() => {
+            const texto =
+                normalizarTexto(
+                    busqueda
+                );
+
+            return materialesNoRecibidos.filter(
+                (material) => {
+                    const coincideBusqueda =
+                        !texto ||
+                        normalizarTexto(
+                            material.numeroMaterial
+                        ).includes(texto) ||
+                        normalizarTexto(
+                            material.nombreMaterial
+                        ).includes(texto);
+
+                    const coincideTipo =
+                        tiposMaterial.length === 0 ||
+                        (
+                            material.tipoMaterial !==
+                            null &&
+                            tiposMaterial.includes(
+                                material.tipoMaterial
+                            )
+                        );
+
+                    return (
+                        coincideBusqueda &&
+                        coincideTipo
+                    );
+                }
+            );
+        }, [
+            materialesNoRecibidos,
+            busqueda,
+            tiposMaterial,
+        ]);
+
+
+
+
+
+
+    const totalPaginasKitsNoRecibidos =
+        Math.max(
+            1,
+            Math.ceil(
+                materialesNoRecibidosFiltrados
+                    .length /
+                tamanoPaginaKits
+            )
+        );
+
+
+    const materialesNoRecibidosPaginados =
+        useMemo(() => {
+            const inicio =
+                (
+                    paginaKitsNoRecibidos -
+                    1
+                ) *
+                tamanoPaginaKits;
+
+            return materialesNoRecibidosFiltrados.slice(
+                inicio,
+                inicio + tamanoPaginaKits
+            );
+        }, [
+            materialesNoRecibidosFiltrados,
+            paginaKitsNoRecibidos,
+            tamanoPaginaKits,
+        ]);
+
+
+
+
+
 
     const materialesFiltrados =
         useMemo(() => {
@@ -649,8 +1288,7 @@ export function SurtidoMrpPage() {
             busqueda,
             estado,
             tiposMaterial,
-            recepcionPics,
-            
+
         ]);
 
     // Regresa a la primera página
@@ -663,6 +1301,8 @@ export function SurtidoMrpPage() {
         busqueda,
         estado,
         tiposMaterial,
+        recepcionPics,
+
     ]);
 
     const totalPaginas =
@@ -688,42 +1328,6 @@ export function SurtidoMrpPage() {
             materialesFiltrados,
             pagina,
         ]);
-
-
-    const resumen =
-        useMemo(() => {
-            return materiales.reduce(
-                (acumulado, material) => {
-                    acumulado.requeridoDia +=
-                        material.cantidadRequeridaDia;
-
-                    acumulado.requeridoAcumulado +=
-                        material.cantidadRequeridaAcumulada;
-
-                    acumulado.surtidoAcumulado +=
-                        material.cantidadSurtidaAcumulada;
-
-                    acumulado.pendienteAcumulado +=
-                        material.cantidadPendienteAcumulada;
-
-                    acumulado.surtibleAhora +=
-                        material.cantidadSurtibleAcumulada;
-
-                    return acumulado;
-                },
-                {
-                    requeridoDia: 0,
-                    requeridoAcumulado: 0,
-                    surtidoAcumulado: 0,
-                    pendienteAcumulado: 0,
-                    surtibleAhora: 0,
-                }
-            );
-        }, [
-            materiales,
-        ]);
-
-
     const alternarTipoMaterial = (
         tipo: string
     ) => {
@@ -750,17 +1354,99 @@ export function SurtidoMrpPage() {
         setPagina(1);
     };
 
+    // Carga los kits asociados al material
+    // seleccionado en el modal.
+    const cargarDetalleKitsMaterial =
+        async (
+            material: MaterialSurtidoMrp
+        ) => {
+            if (mostrarDetalleKits) {
+                setMostrarDetalleKits(false);
+                setKitDetalleSeleccionado(null);
+
+                return;
+            }
+
+            try {
+                setMostrarDetalleKits(true);
+                setCargandoDetalleKits(true);
+                setErrorDetalleKits("");
+                setKitDetalleSeleccionado(null);
+
+                const kits =
+                    await obtenerKitsIndividualesMrp(
+                        fecha,
+                        proyecto,
+                        familia
+                    );
+
+                const numeroMaterial =
+                    normalizarTexto(
+                        material.numeroMaterial
+                    );
+
+                const kitsDelMaterial =
+                    kits.filter(
+                        (kit) =>
+                            normalizarTexto(
+                                kit.numeroMaterial
+                            ) === numeroMaterial
+                    );
+
+                setKitsDetalleMaterial(
+                    kitsDelMaterial
+                );
+            } catch (errorCarga) {
+                console.error(
+                    "Error al cargar el detalle de kits:",
+                    errorCarga
+                );
+
+                setKitsDetalleMaterial([]);
+
+                setErrorDetalleKits(
+                    obtenerMensajeError(
+                        errorCarga,
+                        "No se pudieron cargar los kits del material."
+                    )
+                );
+            } finally {
+                setCargandoDetalleKits(false);
+            }
+        };
+
+
 
 
 
     const limpiarFiltros = () => {
+        // Limpia filtros secundarios.
         setBusqueda("");
         setEstado("");
         setRecepcionPics("");
         setTiposMaterial([]);
+
+        // Limpia la vista de kits no recibidos.
+        setKitsNoRecibidos([]);
+        setErrorKitsNoRecibidos("");
+        setKitNoRecibidoSeleccionado(
+            null
+        );
+
+        // Limpia la vista de kits individuales.
+        setKitsIndividuales([]);
+        setErrorKitsIndividuales("");
+        setKitIndividualSeleccionado(
+            null
+        );
+
+        // Reinicia las paginaciones.
+        setPagina(1);
+        setPaginaKitsIndividuales(1);
+        setPaginaKitsNoRecibidos(1);
+
         setMaterialSeleccionado(null);
         setMostrarTiposMaterial(false);
-        setPagina(1);
         setError("");
     };
 
@@ -817,14 +1503,28 @@ export function SurtidoMrpPage() {
                                 Fecha de surtido
                             </label>
 
-                            <select
+                            <input
                                 id="fechaSurtido"
+                                type="date"
                                 value={fecha}
                                 disabled={cargandoFechas}
+                                min={
+                                    fechas.length > 0
+                                        ? [...fechas].sort()[0]
+                                        : undefined
+                                }
+                                max={
+                                    fechas.length > 0
+                                        ? [...fechas].sort()[
+                                        fechas.length - 1
+                                        ]
+                                        : undefined
+                                }
                                 onChange={(event) => {
-                                    setFecha(
-                                        event.target.value
-                                    );
+                                    const nuevaFecha =
+                                        event.target.value;
+
+                                    setFecha(nuevaFecha);
 
                                     setProyecto("");
                                     setFamilia("");
@@ -834,30 +1534,44 @@ export function SurtidoMrpPage() {
                                     setEstado("");
                                     setRecepcionPics("");
                                     setTiposMaterial([]);
+
+                                    setKitsNoRecibidos([]);
+                                    setErrorKitsNoRecibidos("");
+                                    setKitNoRecibidoSeleccionado(
+                                        null
+                                    );
+
+                                    setKitsIndividuales([]);
+                                    setErrorKitsIndividuales("");
+                                    setKitIndividualSeleccionado(
+                                        null
+                                    );
+
                                     setMostrarTiposMaterial(false);
                                     setMaterialSeleccionado(null);
-                                    setPagina(1);
-                                }}
-                                style={inputStyle}
-                            >
-                                <option value="">
-                                    {cargandoFechas
-                                        ? "Cargando fechas..."
-                                        : "Selecciona una fecha"}
-                                </option>
 
-                                {fechas.map(
-                                    (valor) => (
-                                        <option
-                                            key={valor}
-                                            value={valor}
-                                        >
-                                            {formatearFecha(valor)}
-                                        </option>
-                                    )
-                                )}
-                            </select>
+                                    setPagina(1);
+                                    setPaginaKitsIndividuales(1);
+                                    setPaginaKitsNoRecibidos(1);
+
+                                    setError("");
+                                }}
+                                style={{
+                                    ...inputStyle,
+                                    colorScheme: "light",
+
+                                    cursor:
+                                        cargandoFechas
+                                            ? "not-allowed"
+                                            : "pointer",
+                                }}
+                            />
                         </div>
+
+
+
+
+
                         <div style={formGroupStyle}>
                             <label
                                 htmlFor="busquedaSurtido"
@@ -870,11 +1584,17 @@ export function SurtidoMrpPage() {
                                 id="busquedaSurtido"
                                 type="text"
                                 value={busqueda}
-                                disabled={!familia}
+                                disabled={
+                                    !familia &&
+                                    estado !== "NO_RECIBIDO"
+                                }
                                 onChange={(event) => {
                                     setBusqueda(
                                         event.target.value
                                     );
+
+                                    setPagina(1);
+                                    setPaginaKitsNoRecibidos(1);
                                 }}
                                 placeholder="Número o descripción"
                                 style={inputStyle}
@@ -896,24 +1616,36 @@ export function SurtidoMrpPage() {
                                     cargandoProyectos
                                 }
                                 onChange={(event) => {
+                                    const nuevoProyecto =
+                                        event.target.value;
+
                                     setProyecto(
-                                        event.target.value
+                                        nuevoProyecto
                                     );
 
+                                    setFamilia("");
+                                    setFamilias([]);
+                                    setMateriales([]);
                                     setBusqueda("");
-                                    setEstado("");
-                                    setRecepcionPics("");
                                     setTiposMaterial([]);
-                                    setMostrarTiposMaterial(false);
+                                    setKitsNoRecibidos([]);
+                                    setErrorKitsNoRecibidos("");
                                     setPagina(1);
+                                    setPaginaKitsNoRecibidos(1);
                                 }}
                                 style={inputStyle}
                             >
                                 <option value="">
-                                    {cargandoProyectos
-                                        ? "Cargando proyectos..."
-                                        : "Selecciona un proyecto"}
+                                    {cargandoFamilias
+                                        ? "Cargando familias..."
+                                        : estado === "NO_RECIBIDO"
+                                            ? "Todas las familias"
+                                            : !proyecto
+                                                ? "Selecciona primero un proyecto"
+                                                : "Selecciona una familia"}
                                 </option>
+
+
 
                                 {proyectos.map(
                                     (valor) => (
@@ -941,8 +1673,11 @@ export function SurtidoMrpPage() {
                                 id="familiaSurtido"
                                 value={familia}
                                 disabled={
-                                    !proyecto ||
-                                    cargandoFamilias
+                                    cargandoFamilias ||
+                                    (
+                                        !proyecto &&
+                                        estado !== "NO_RECIBIDO"
+                                    )
                                 }
                                 onChange={(event) => {
                                     setFamilia(
@@ -950,20 +1685,26 @@ export function SurtidoMrpPage() {
                                     );
 
                                     setBusqueda("");
-                                    setEstado("");
                                     setTiposMaterial([]);
+                                    setRecepcionPics("");
+                                    setKitsNoRecibidos([]);
+                                    setErrorKitsNoRecibidos("");
                                     setMostrarTiposMaterial(false);
                                     setPagina(1);
+                                    setPaginaKitsNoRecibidos(1);
                                 }}
                                 style={inputStyle}
                             >
                                 <option value="">
-                                    {!proyecto
-                                        ? "Selecciona primero un proyecto"
-                                        : cargandoFamilias
-                                            ? "Cargando familias..."
-                                            : "Selecciona una familia"}
+                                    {cargandoFamilias
+                                        ? "Cargando familias..."
+                                        : estado === "NO_RECIBIDO"
+                                            ? "Todas las familias"
+                                            : !proyecto
+                                                ? "Selecciona primero un proyecto"
+                                                : "Selecciona una familia"}
                                 </option>
+
 
                                 {familias.map(
                                     (valor) => (
@@ -992,23 +1733,34 @@ export function SurtidoMrpPage() {
                             <select
                                 id="estadoSurtido"
                                 value={estado}
-                                disabled={!familia}
+                                disabled={!fecha}
                                 onChange={(event) => {
-                                    setEstado(
-                                        event.target
-                                            .value as
+                                    const nuevoEstado =
+                                        event.target.value as
                                         | EstadoAbastecimiento
-                                        | ""
-                                    );
+                                        | "";
+
+                                    setEstado(nuevoEstado);
+
+                                    setBusqueda("");
+                                    setTiposMaterial([]);
+                                    setMostrarTiposMaterial(false);
+
+                                    setKitsNoRecibidos([]);
+                                    setErrorKitsNoRecibidos("");
+
+                                    setMaterialSeleccionado(null);
+                                    setKitDetalleSeleccionado(null);
+
+                                    setPagina(1);
+                                    setPaginaKitsIndividuales(1);
+                                    setPaginaKitsNoRecibidos(1);
                                 }}
+
                                 style={inputStyle}
                             >
                                 <option value="">
                                     Todos
-                                </option>
-
-                                <option value="COMPLETADO">
-                                    Completado
                                 </option>
 
                                 <option value="DISPONIBLE">
@@ -1039,7 +1791,10 @@ export function SurtidoMrpPage() {
 
                                 <button
                                     type="button"
-                                    disabled={!familia}
+                                    disabled={
+                                        !familia &&
+                                        estado !== "NO_RECIBIDO"
+                                    }
                                     onClick={() => {
                                         setMostrarTiposMaterial(
                                             (valorActual) =>
@@ -1054,12 +1809,14 @@ export function SurtidoMrpPage() {
                                         ...multiSelectButtonStyle,
 
                                         opacity:
-                                            !familia
+                                            !familia &&
+                                                estado !== "NO_RECIBIDO"
                                                 ? 0.55
                                                 : 1,
 
                                         cursor:
-                                            !familia
+                                            !familia &&
+                                                estado !== "NO_RECIBIDO"
                                                 ? "not-allowed"
                                                 : "pointer",
                                     }}
@@ -1086,9 +1843,13 @@ export function SurtidoMrpPage() {
                                         ▼
                                     </span>
                                 </button>
-
                                 {mostrarTiposMaterial &&
-                                    familia && (
+                                    (
+                                        familia ||
+                                        estado === "NO_RECIBIDO"
+                                    ) && (
+
+
                                         <div
                                             role="listbox"
                                             aria-multiselectable="true"
@@ -1147,37 +1908,6 @@ export function SurtidoMrpPage() {
                                     )}
                             </div>
                         </div>
-                        <div style={formGroupStyle}>
-                            <label
-                                htmlFor="recepcionPics"
-                                style={labelStyle}
-                            >
-                                Vista
-                            </label>
-
-                            <select
-                                id="recepcionPics"
-                                value={recepcionPics}
-                                disabled={!familia}
-                                onChange={(event) => {
-                                    setRecepcionPics(
-                                        event.target.value
-                                    );
-
-                                    setEstado("");
-                                    setPagina(1);
-                                }}
-                                style={inputStyle}
-                            >
-                                <option value="">
-                                    Materiales requeridos
-                                </option>
-
-                                <option value="NO_RECIBIDOS">
-                                    Kits no recibidos
-                                </option>
-                            </select>
-                        </div>
 
                         <div style={filterActionsStyle}>
                             <button
@@ -1235,51 +1965,256 @@ export function SurtidoMrpPage() {
                         </div>
                     )}
 
-                    {proyecto && familia && (
-                        <div style={summaryGridStyle}>
-                            <ResumenCard
-                                titulo="Requerido del día"
-                                valor={resumen.requeridoDia}
-                                color="#1d4ed8"
-                                fondo="#eff6ff"
-                            />
+                    {recepcionPics === "KITS_INDIVIDUALES" && (
+                        <>
+                            <div style={resultsHeaderStyle}>
+                                <div>
+                                    <h2 style={sectionTitleStyle}>
+                                        Kits individuales por serial
+                                    </h2>
 
-                            <ResumenCard
-                                titulo="Requerido acumulado"
-                                valor={
-                                    resumen.requeridoAcumulado
-                                }
-                                color="#4338ca"
-                                fondo="#eef2ff"
-                            />
+                                    <p style={resultsDescriptionStyle}>
+                                        Cada fila corresponde a un kit
+                                        o caja registrada en PICS.
+                                    </p>
+                                </div>
 
-                            <ResumenCard
-                                titulo="Surtido acumulado"
-                                valor={
-                                    resumen.surtidoAcumulado
-                                }
-                                color="#0f766e"
-                                fondo="#f0fdfa"
-                            />
+                                <span style={counterStyle}>
+                                    {kitsIndividuales.length.toLocaleString(
+                                        "es-MX"
+                                    )}{" "}
+                                    kits
+                                </span>
+                            </div>
 
-                            <ResumenCard
-                                titulo="Pendiente acumulado"
-                                valor={
-                                    resumen.pendienteAcumulado
-                                }
-                                color="#b45309"
-                                fondo="#fffbeb"
-                            />
+                            {errorKitsIndividuales && (
+                                <div style={errorStyle}>
+                                    {errorKitsIndividuales}
+                                </div>
+                            )}
 
-                            <ResumenCard
-                                titulo="Surtible ahora"
-                                valor={resumen.surtibleAhora}
-                                color="#166534"
-                                fondo="#f0fdf4"
-                            />
-                        </div>
+                            {cargandoKitsIndividuales ? (
+                                <div style={emptyStyle}>
+                                    Cargando kits individuales...
+                                </div>
+                            ) : kitsIndividuales.length === 0 ? (
+                                <div style={emptyStyle}>
+                                    No existen kits PICS para
+                                    esta selección.
+                                </div>
+                            ) : (
+                                <div style={tableContainerStyle}>
+                                    <table style={kitsIndividualTableStyle}>
+                                        <thead>
+                                            <tr style={tableHeaderStyle}>
+                                                <th style={materialKitThStyle}>
+                                                    Material
+                                                </th>
+
+                                                <th style={descriptionKitThStyle}>
+                                                    Descripción
+                                                </th>
+                                                <th style={serialKitThStyle}>
+                                                    Serial Kit
+                                                </th>
+
+                                                <th style={typeKitThStyle}>
+                                                    Tipo
+                                                </th>
+
+
+
+                                                <th style={quantityKitThStyle}>
+                                                    Cantidad del kit
+                                                </th>
+
+                                                <th style={quantityKitThStyle}>
+                                                    Disponible
+                                                </th>
+
+                                                <th style={statusKitThStyle}>
+                                                    Estado
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {kitsIndividualesPaginados.map(
+                                                (kit) => (
+                                                    <tr
+                                                        key={kit.idMaterialKit}
+                                                        tabIndex={0}
+                                                        onClick={() => {
+                                                            setKitIndividualSeleccionado(
+                                                                kit
+                                                            );
+                                                        }}
+                                                        onKeyDown={(event) => {
+                                                            if (
+                                                                event.key === "Enter" ||
+                                                                event.key === " "
+                                                            ) {
+                                                                event.preventDefault();
+
+                                                                setKitIndividualSeleccionado(
+                                                                    kit
+                                                                );
+                                                            }
+                                                        }}
+                                                        style={kitRowStyle}
+                                                        title="Haz clic para ver los detalles del kit"
+                                                    >
+                                                        <td style={materialKitTdStyle}>
+                                                            <strong style={materialNumberStyle}>
+                                                                {kit.numeroMaterial}
+                                                            </strong>
+                                                        </td>
+
+                                                        <td style={descriptionKitTdStyle}>
+                                                            {kit.nombreMaterial ??
+                                                                "Sin descripción"}
+                                                        </td>
+
+                                                        <td style={serialKitTdStyle}>
+                                                            <strong>
+                                                                {kit.serialCaja}
+                                                            </strong>
+                                                        </td>
+
+
+                                                        <td style={typeKitTdStyle}>
+                                                            <span
+                                                                style={{
+                                                                    ...typeBadgeStyle,
+                                                                    background:
+                                                                        obtenerColorTipo(
+                                                                            kit.tipoMaterial
+                                                                        ).fondo,
+                                                                    color:
+                                                                        obtenerColorTipo(
+                                                                            kit.tipoMaterial
+                                                                        ).texto,
+                                                                }}
+                                                            >
+                                                                {kit.tipoMaterial ??
+                                                                    "N/A"}
+                                                            </span>
+                                                        </td>
+
+
+                                                        <td style={quantityKitTdStyle}>
+                                                            {formatearCantidad(
+                                                                kit.cantidadInicial
+                                                            )}
+                                                        </td>
+
+                                                        <td style={quantityAvailableKitTdStyle}>
+                                                            <strong>
+                                                                {formatearCantidad(
+                                                                    kit.estadoKit === "POR_RECIBIR"
+                                                                        ? 0
+                                                                        : kit.cantidadDisponible
+                                                                )}
+                                                            </strong>
+                                                        </td>
+
+                                                        <td style={statusKitTdStyle}>
+                                                            <span
+                                                                style={obtenerEstiloEstadoKit(
+                                                                    kit.estadoKit
+                                                                )}
+                                                            >
+                                                                {obtenerTextoEstadoKit(
+                                                                    kit.estadoKit
+                                                                )}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                            {kitsIndividuales.length > 0 && (
+                                <div style={paginationStyle}>
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            paginaKitsIndividuales <= 1
+                                        }
+                                        onClick={() => {
+                                            setPaginaKitsIndividuales(
+                                                (paginaActual) =>
+                                                    Math.max(
+                                                        1,
+                                                        paginaActual - 1
+                                                    )
+                                            );
+                                        }}
+                                        style={{
+                                            ...paginationButtonStyle,
+
+                                            opacity:
+                                                paginaKitsIndividuales <= 1
+                                                    ? 0.5
+                                                    : 1,
+
+                                            cursor:
+                                                paginaKitsIndividuales <= 1
+                                                    ? "not-allowed"
+                                                    : "pointer",
+                                        }}
+                                    >
+                                        Anterior
+                                    </button>
+
+                                    <span style={paginationTextStyle}>
+                                        Página{" "}
+                                        {paginaKitsIndividuales} de{" "}
+                                        {totalPaginasKitsIndividuales}
+                                    </span>
+
+
+
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            paginaKitsIndividuales >=
+                                            totalPaginasKitsIndividuales
+                                        }
+                                        onClick={() => {
+                                            setPaginaKitsIndividuales(
+                                                (paginaActual) =>
+                                                    Math.min(
+                                                        totalPaginasKitsIndividuales,
+                                                        paginaActual + 1
+                                                    )
+                                            );
+                                        }}
+                                        style={{
+                                            ...paginationButtonStyle,
+
+                                            opacity:
+                                                paginaKitsIndividuales >=
+                                                    totalPaginasKitsIndividuales
+                                                    ? 0.5
+                                                    : 1,
+
+                                            cursor:
+                                                paginaKitsIndividuales >=
+                                                    totalPaginasKitsIndividuales
+                                                    ? "not-allowed"
+                                                    : "pointer",
+                                        }}
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
-                    {recepcionPics === "NO_RECIBIDOS" ? (
+
+                    {estado === "NO_RECIBIDO" && (<>
                         <div style={resultsHeaderStyle}>
                             <div>
                                 <h2 style={sectionTitleStyle}>
@@ -1287,143 +2222,128 @@ export function SurtidoMrpPage() {
                                 </h2>
 
                                 <p style={resultsDescriptionStyle}>
-                                    Seriales que PICS todavía marca
-                                    como pendientes de recepción.
+                                    Solo se muestran los seriales que
+                                    PICS todavía marca sin recepción.
                                 </p>
                             </div>
 
                             <span style={counterStyle}>
-                                {kitsNoRecibidos.length.toLocaleString(
-                                    "es-MX"
-                                )}{" "}
-                                kits
-                            </span>
-                        </div>
-                    ) : (
-
-
-                        <div style={resultsHeaderStyle}>
-                            <div>
-                                <h2 style={sectionTitleStyle}>
-                                    Materiales disponibles para surtido
-                                </h2>
-
-                                <p style={resultsDescriptionStyle}>
-                                    Consulta el requerimiento diario,
-                                    la existencia física y los kits sin
-                                    recepción registrada.
-                                </p>
-                            </div>
-
-                            <span style={counterStyle}>
-                                {materialesFiltrados.length.toLocaleString(
-                                    "es-MX"
-                                )}{" "}
+                                {materialesNoRecibidosFiltrados
+                                    .length
+                                    .toLocaleString(
+                                        "es-MX"
+                                    )}{" "}
                                 materiales
                             </span>
                         </div>
 
-                    {!proyecto ? (
-                        <div style={emptyStyle}>
-                            Selecciona un proyecto para
-                            comenzar.
-                        </div>
-                    ) : !familia ? (
-                        <div style={emptyStyle}>
-                            Selecciona una familia del
-                            proyecto {proyecto}.
-                        </div>
-                    ) : cargandoMateriales ? (
-                        <div style={emptyStyle}>
-                            Cargando disponibilidad de
-                            materiales...
-                        </div>
-                    ) : materialesFiltrados.length ===
-                        0 ? (
-                        <div style={emptyStyle}>
-                            No hay materiales que coincidan
-                            con los filtros seleccionados.
-                        </div>
-                    ) : (
-                        <div style={tableContainerStyle}>
-                            <table style={tableStyle}>
-                                <thead>
-                                    <tr style={tableHeaderStyle}>
-                                        <th style={thStyle}>
-                                            Número de parte
-                                        </th>
+                        {errorKitsNoRecibidos && (
+                            <div style={errorStyle}>
+                                {errorKitsNoRecibidos}
+                            </div>
+                        )}
 
-                                        <th style={thStyle}>
-                                            Descripción
-                                        </th>
-                                        <th style={numericThStyle}>
-                                            Requerido del día
-                                        </th>
+                        {cargandoKitsNoRecibidos ? (
+                            <div style={emptyStyle}>
+                                Cargando kits no recibidos...
+                            </div>
+                        ) : materialesNoRecibidosFiltrados
+                            .length === 0 ? (
+                            <div style={emptyStyle}>
+                                {busqueda ||
+                                    tiposMaterial.length > 0
+                                    ? "No hay materiales no recibidos que coincidan con los filtros."
+                                    : "No existen materiales pendientes de recepción para esta fecha."}
+                            </div>
+                        ) : (
+                            <div style={tableContainerStyle}>
+                                <table style={kitsMissingTableStyle}>
+                                    <thead>
+                                        <tr style={tableHeaderStyle}>
+                                            <th style={materialTotalThStyle}>
+                                                Material
+                                            </th>
 
-                                        <th style={numericThStyle}>
-                                            Pendiente acumulado
-                                        </th>
+                                            <th style={descriptionTotalThStyle}>
+                                                Descripción
+                                            </th>
 
-                                        <th style={numericThStyle}>
-                                            Disponible físico
-                                        </th>
-                                        <th style={numericThStyle}>
-                                            Cantidad de kits
-                                        </th>
+                                            <th style={typeTotalThStyle}>
+                                                Tipo
+                                            </th>
 
-                                        <th style={thStyle}>
-                                            Estado
-                                        </th>
-                                    </tr>
-                                </thead>
+                                            <th style={quantityTotalThStyle}>
+                                                Requerido del día
+                                            </th>
 
-                                <tbody>
-                                    {materialesPaginados.map(
-                                        (material) => {
-                                            const colores =
-                                                obtenerColorEstado(
-                                                    material.estadoSurtido
-                                                );
+                                            <th style={quantityTotalThStyle}>
+                                                Total de kits
+                                            </th>
 
-                                            const colorTipo =
-                                                obtenerColorTipo(
-                                                    material.tipoMaterial
-                                                );
+                                            <th style={quantityTotalThStyle}>
+                                                Cantidad faltante
+                                            </th>
 
-                                            return (
-                                                <tr
-                                                    key={
-                                                        material.idRequerimiento
-                                                    }
-                                                    tabIndex={0}
-                                                    onClick={() => {
-                                                        setMaterialSeleccionado(
-                                                            material
-                                                        );
-                                                    }}
-                                                    onKeyDown={(event) => {
-                                                        if (
-                                                            event.key === "Enter" ||
-                                                            event.key === " "
-                                                        ) {
-                                                            event.preventDefault();
+                                            <th style={statusTotalThStyle}>
+                                                Estado
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {materialesNoRecibidosPaginados.map(
+                                            (material) => {
+                                                const colorTipo =
+                                                    obtenerColorTipo(
+                                                        material.tipoMaterial
+                                                    );
 
-                                                            setMaterialSeleccionado(
-                                                                material
-                                                            );
+                                                return (
+                                                    <tr
+                                                        key={
+                                                            material.numeroMaterial
                                                         }
-                                                    }}
-                                                    style={clickableRowStyle}
-                                                    title="Haz clic para ver los detalles"
-                                                >
-                                                    <td style={tdStyle}>
-                                                        <div style={materialCellStyle}>
+                                                        style={
+                                                            materialTotalRowStyle
+                                                        }
+                                                        title="Material pendiente de recepción"
+                                                    >
+                                                        <td
+                                                            style={
+                                                                materialTotalTdStyle
+                                                            }
+                                                        >
                                                             <strong
-                                                                style={materialNumberStyle}
+                                                                style={
+                                                                    materialNumberStyle
+                                                                }
                                                             >
-                                                                {material.numeroMaterial}
+                                                                {
+                                                                    material
+                                                                        .numeroMaterial
+                                                                }
                                                             </strong>
+                                                        </td>
 
+                                                        <td
+                                                            style={
+                                                                descriptionTotalTdStyle
+                                                            }
+                                                            title={
+                                                                material
+                                                                    .nombreMaterial ??
+                                                                "Sin descripción"
+                                                            }
+                                                        >
+                                                            {material
+                                                                .nombreMaterial ??
+                                                                "Sin descripción"}
+                                                        </td>
+
+                                                        <td
+                                                            style={
+                                                                typeTotalTdStyle
+                                                            }
+                                                        >
                                                             <span
                                                                 style={{
                                                                     ...typeBadgeStyle,
@@ -1433,195 +2353,446 @@ export function SurtidoMrpPage() {
                                                                         colorTipo.texto,
                                                                 }}
                                                             >
-                                                                {material.tipoMaterial ??
+                                                                {material
+                                                                    .tipoMaterial ??
                                                                     "N/A"}
                                                             </span>
-                                                        </div>
-                                                    </td>
+                                                        </td>
 
-                                                    <td style={tdStyle}>
-                                                        {material.nombreMaterial ??
-                                                            "Sin descripción"}
-                                                    </td>
-
-                                                    <td style={numericTdStyle}>
-                                                        <strong>
-                                                            {formatearCantidad(
-                                                                material
-                                                                    .cantidadRequeridaDia
-                                                            )}
-                                                        </strong>
-                                                    </td>
-
-                                                    <td style={numericTdStyle}>
-                                                        <strong
-                                                            style={{
-                                                                color:
-                                                                    material.cantidadPendienteAcumulada >
-                                                                        0
-                                                                        ? "#b45309"
-                                                                        : "#166534",
-                                                            }}
+                                                        <td
+                                                            style={
+                                                                quantityTotalTdStyle
+                                                            }
                                                         >
-                                                            {formatearCantidad(
-                                                                material
-                                                                    .cantidadPendienteAcumulada
-                                                            )}
-                                                        </strong>
-                                                    </td>
-
-                                                    <td style={numericTdStyle}>
-                                                        <strong
-                                                            style={{
-                                                                color:
-                                                                    material.cantidadDisponible >
-                                                                        0
-                                                                        ? "#166534"
-                                                                        : "#b91c1c",
-                                                            }}
-                                                        >
-                                                            {formatearCantidad(
-                                                                material
-                                                                    .cantidadDisponible
-                                                            )}
-                                                        </strong>
-                                                    </td>
-
-                                                    <td style={numericTdStyle}>
-                                                        <div style={kitsCellStyle}>
-                                                            {material.kitsDisponibles >
-                                                                0 && (
-                                                                    <span
-                                                                        style={kitsAvailableStyle}
-                                                                    >
-                                                                        {material.kitsDisponibles.toLocaleString(
-                                                                            "es-MX"
-                                                                        )}{" "}
-                                                                        Kits
-                                                                    </span>
+                                                            <strong>
+                                                                {formatearCantidad(
+                                                                    material
+                                                                        .cantidadRequeridaDia
                                                                 )}
+                                                            </strong>
+                                                        </td>
 
-                                                        </div>
-                                                    </td>
-
-                                                    <td style={tdStyle}>
-                                                        <span
-                                                            style={{
-                                                                ...statusBadgeStyle,
-                                                                background:
-                                                                    colores.fondo,
-                                                                color:
-                                                                    colores.texto,
-                                                            }}
+                                                        <td
+                                                            style={
+                                                                quantityTotalTdStyle
+                                                            }
                                                         >
-                                                            {obtenerTextoEstado(
-                                                                material.estadoSurtido
-                                                            )}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        }
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                                            <span
+                                                                style={
+                                                                    kitsPendingStyle
+                                                                }
+                                                            >
+                                                                {material
+                                                                    .totalKits
+                                                                    .toLocaleString(
+                                                                        "es-MX"
+                                                                    )}{" "}
+                                                                kits
+                                                            </span>
+                                                        </td>
 
-                    {proyecto &&
-                        familia &&
-                        !cargandoMateriales &&
-                        materialesFiltrados.length >
-                        0 && (
-                            <div style={paginationStyle}>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setPagina(
-                                            (paginaActual) =>
-                                                Math.max(
-                                                    1,
-                                                    paginaActual - 1
-                                                )
-                                        );
-                                    }}
-                                    disabled={pagina <= 1}
-                                    style={{
-                                        ...paginationButtonStyle,
+                                                        <td
+                                                            style={
+                                                                pendingQuantityTdStyle
+                                                            }
+                                                        >
+                                                            <strong>
+                                                                {formatearCantidad(
+                                                                    material
+                                                                        .cantidadTotal
+                                                                )}
+                                                            </strong>
+                                                        </td>
 
-                                        opacity:
-                                            pagina <= 1
-                                                ? 0.5
-                                                : 1,
-
-                                        cursor:
-                                            pagina <= 1
-                                                ? "not-allowed"
-                                                : "pointer",
-                                    }}
-                                >
-                                    Anterior
-                                </button>
-
-                                <span style={paginationTextStyle}>
-                                    Página {pagina} de{" "}
-                                    {totalPaginas}
-                                </span>
-
-                                <span style={paginationRangeStyle}>
-                                    Mostrando{" "}
-                                    {(
-                                        (pagina - 1) *
-                                        tamanoPagina +
-                                        1
-                                    ).toLocaleString(
-                                        "es-MX"
-                                    )}
-                                    {" - "}
-                                    {Math.min(
-                                        pagina * tamanoPagina,
-                                        materialesFiltrados.length
-                                    ).toLocaleString(
-                                        "es-MX"
-                                    )}{" "}
-                                    de{" "}
-                                    {materialesFiltrados.length.toLocaleString(
-                                        "es-MX"
-                                    )}
-                                </span>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setPagina(
-                                            (paginaActual) =>
-                                                Math.min(
-                                                    totalPaginas,
-                                                    paginaActual + 1
-                                                )
-                                        );
-                                    }}
-                                    disabled={
-                                        pagina >= totalPaginas
-                                    }
-                                    style={{
-                                        ...paginationButtonStyle,
-
-                                        opacity:
-                                            pagina >= totalPaginas
-                                                ? 0.5
-                                                : 1,
-
-                                        cursor:
-                                            pagina >= totalPaginas
-                                                ? "not-allowed"
-                                                : "pointer",
-                                    }}
-                                >
-                                    Siguiente
-                                </button>
+                                                        <td
+                                                            style={
+                                                                statusTotalTdStyle
+                                                            }
+                                                        >
+                                                            <span
+                                                                style={
+                                                                    unavailableBadgeStyle
+                                                                }
+                                                            >
+                                                                No disponible
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
+                        {materialesNoRecibidosFiltrados
+                            .length > 0 && (
+                                <div style={paginationStyle}>
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            paginaKitsNoRecibidos <= 1
+                                        }
+                                        onClick={() => {
+                                            setPaginaKitsNoRecibidos(
+                                                (paginaActual) =>
+                                                    Math.max(
+                                                        1,
+                                                        paginaActual - 1
+                                                    )
+                                            );
+                                        }}
+                                        style={{
+                                            ...paginationButtonStyle,
+
+                                            opacity:
+                                                paginaKitsNoRecibidos <= 1
+                                                    ? 0.5
+                                                    : 1,
+
+                                            cursor:
+                                                paginaKitsNoRecibidos <= 1
+                                                    ? "not-allowed"
+                                                    : "pointer",
+                                        }}
+                                    >
+                                        Anterior
+                                    </button>
+
+                                    <span style={paginationTextStyle}>
+                                        Página{" "}
+                                        {paginaKitsNoRecibidos} de{" "}
+                                        {totalPaginasKitsNoRecibidos}
+                                    </span>
+
+
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            paginaKitsNoRecibidos >=
+                                            totalPaginasKitsNoRecibidos
+                                        }
+                                        onClick={() => {
+                                            setPaginaKitsNoRecibidos(
+                                                (paginaActual) =>
+                                                    Math.min(
+                                                        totalPaginasKitsNoRecibidos,
+                                                        paginaActual + 1
+                                                    )
+                                            );
+                                        }}
+                                        style={{
+                                            ...paginationButtonStyle,
+
+                                            opacity:
+                                                paginaKitsNoRecibidos >=
+                                                    totalPaginasKitsNoRecibidos
+                                                    ? 0.5
+                                                    : 1,
+
+                                            cursor:
+                                                paginaKitsNoRecibidos >=
+                                                    totalPaginasKitsNoRecibidos
+                                                    ? "not-allowed"
+                                                    : "pointer",
+                                        }}
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            )}
+
+
+                    </>
+                    )}
+
+                    {estado !== "NO_RECIBIDO" && (
+
+                        <>
+
+                            <div style={resultsHeaderStyle}>
+                                <div>
+                                    <h2 style={sectionTitleStyle}>
+                                        Materiales disponibles para surtido
+                                    </h2>
+
+                                    <p style={resultsDescriptionStyle}>
+                                        Consulta el requerimiento diario,
+                                        la existencia física y los kits sin
+                                        recepción registrada.
+                                    </p>
+                                </div>
+
+                                <span style={counterStyle}>
+                                    {materialesFiltrados.length.toLocaleString(
+                                        "es-MX"
+                                    )}{" "}
+                                    materiales
+                                </span>
+                            </div>
+
+                            {!proyecto ? (
+                                <div style={emptyStyle}>
+                                    Selecciona un proyecto para
+                                    comenzar.
+                                </div>
+                            ) : !familia ? (
+                                <div style={emptyStyle}>
+                                    Selecciona una familia del
+                                    proyecto {proyecto}.
+                                </div>
+                            ) : cargandoMateriales ? (
+                                <div style={emptyStyle}>
+                                    Cargando disponibilidad de
+                                    materiales...
+                                </div>
+                            ) : materialesFiltrados.length ===
+                                0 ? (
+                                <div style={emptyStyle}>
+                                    No hay materiales que coincidan
+                                    con los filtros seleccionados.
+                                </div>
+                            ) : (
+                                <div style={tableContainerStyle}>
+                                    <table style={materialTotalTableStyle}>
+
+                                        <thead>
+                                            <tr style={tableHeaderStyle}>
+                                                <th style={materialTotalThStyle}>
+                                                    Material
+                                                </th>
+
+                                                <th style={descriptionTotalThStyle}>
+                                                    Descripción
+                                                </th>
+
+                                                <th style={typeTotalThStyle}>
+                                                    Tipo
+                                                </th>
+
+                                                <th style={quantityTotalThStyle}>
+                                                    Requerido del día
+                                                </th>
+
+                                                <th style={quantityTotalThStyle}>
+                                                    Total de kits
+                                                </th>
+
+                                                <th style={quantityTotalThStyle}>
+                                                    Cantidad total
+                                                </th>
+
+                                                <th style={statusTotalThStyle}>
+                                                    Estado
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {materialesPaginados.map(
+                                                (material) => {
+                                                    const colores =
+                                                        obtenerColorEstado(
+                                                            material.estadoSurtido
+                                                        );
+
+                                                    const colorTipo =
+                                                        obtenerColorTipo(
+                                                            material.tipoMaterial
+                                                        );
+
+                                                    return (
+                                                        <tr
+                                                            key={material.idRequerimiento}
+                                                            tabIndex={0}
+                                                            onClick={() => {
+                                                                setMaterialSeleccionado(
+                                                                    material
+                                                                );
+
+                                                                setMostrarDetalleKits(false);
+                                                                setKitsDetalleMaterial([]);
+                                                                setKitDetalleSeleccionado(null);
+                                                                setErrorDetalleKits("");
+                                                            }}
+
+                                                            onKeyDown={(event) => {
+                                                                if (
+                                                                    event.key === "Enter" ||
+                                                                    event.key === " "
+                                                                ) {
+                                                                    event.preventDefault();
+
+                                                                    setMaterialSeleccionado(
+                                                                        material
+                                                                    );
+
+                                                                    setMostrarDetalleKits(false);
+                                                                    setKitsDetalleMaterial([]);
+                                                                    setKitDetalleSeleccionado(null);
+                                                                    setErrorDetalleKits("");
+                                                                }
+                                                            }}
+                                                            style={materialTotalRowStyle}
+                                                            title="Haz clic para ver los detalles del material"
+                                                        >
+                                                            <td style={materialTotalTdStyle}>
+                                                                <strong style={materialNumberStyle}>
+                                                                    {material.numeroMaterial}
+                                                                </strong>
+                                                            </td>
+
+                                                            <td
+                                                                style={descriptionTotalTdStyle}
+                                                                title={
+                                                                    material.nombreMaterial ??
+                                                                    "Sin descripción"
+                                                                }
+                                                            >
+                                                                {material.nombreMaterial ??
+                                                                    "Sin descripción"}
+                                                            </td>
+
+                                                            <td style={typeTotalTdStyle}>
+                                                                <span
+                                                                    style={{
+                                                                        ...typeBadgeStyle,
+                                                                        background:
+                                                                            colorTipo.fondo,
+                                                                        color:
+                                                                            colorTipo.texto,
+                                                                    }}
+                                                                >
+                                                                    {material.tipoMaterial ??
+                                                                        "N/A"}
+                                                                </span>
+                                                            </td>
+
+                                                            <td style={quantityTotalTdStyle}>
+                                                                <strong>
+                                                                    {formatearCantidad(
+                                                                        material
+                                                                            .cantidadRequeridaDia
+                                                                    )}
+                                                                </strong>
+                                                            </td>
+
+                                                            <td style={quantityTotalTdStyle}>
+                                                                <span style={kitsAvailableStyle}>
+                                                                    {material.kitsDisponibles.toLocaleString(
+                                                                        "es-MX"
+                                                                    )}{" "}
+                                                                    kits
+                                                                </span>
+                                                            </td>
+
+                                                            <td style={physicalTotalTdStyle}>
+                                                                <strong>
+                                                                    {formatearCantidad(
+                                                                        material
+                                                                            .cantidadDisponible
+                                                                    )}
+                                                                </strong>
+                                                            </td>
+
+                                                            <td style={statusTotalTdStyle}>
+                                                                <span
+                                                                    style={{
+                                                                        ...statusBadgeStyle,
+                                                                        background:
+                                                                            colores.fondo,
+                                                                        color:
+                                                                            colores.texto,
+                                                                    }}
+                                                                >
+                                                                    {obtenerTextoEstado(
+                                                                        material.estadoSurtido
+                                                                    )}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {proyecto &&
+                                familia &&
+                                !cargandoMateriales &&
+                                materialesFiltrados.length >
+                                0 && (
+                                    <div style={paginationStyle}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPagina(
+                                                    (paginaActual) =>
+                                                        Math.max(
+                                                            1,
+                                                            paginaActual - 1
+                                                        )
+                                                );
+                                            }}
+                                            disabled={pagina <= 1}
+                                            style={{
+                                                ...paginationButtonStyle,
+
+                                                opacity:
+                                                    pagina <= 1
+                                                        ? 0.5
+                                                        : 1,
+
+                                                cursor:
+                                                    pagina <= 1
+                                                        ? "not-allowed"
+                                                        : "pointer",
+                                            }}
+                                        >
+                                            Anterior
+                                        </button>
+
+                                        <span style={paginationTextStyle}>
+                                            Página {pagina} de{" "}
+                                            {totalPaginas}
+                                        </span>
+
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPagina(
+                                                    (paginaActual) =>
+                                                        Math.min(
+                                                            totalPaginas,
+                                                            paginaActual + 1
+                                                        )
+                                                );
+                                            }}
+                                            disabled={
+                                                pagina >= totalPaginas
+                                            }
+                                            style={{
+                                                ...paginationButtonStyle,
+
+                                                opacity:
+                                                    pagina >= totalPaginas
+                                                        ? 0.5
+                                                        : 1,
+
+                                                cursor:
+                                                    pagina >= totalPaginas
+                                                        ? "not-allowed"
+                                                        : "pointer",
+                                            }}
+                                        >
+                                            Siguiente
+                                        </button>
+                                    </div>
+                                )}
+                        </>
+                    )}
                 </section>
                 {materialSeleccionado && (
                     <div
@@ -1635,6 +2806,14 @@ export function SurtidoMrpPage() {
                                 setMaterialSeleccionado(
                                     null
                                 );
+
+                                setKitDetalleSeleccionado(
+                                    null
+                                );
+
+                                setMostrarDetalleKits(false);
+                                setKitsDetalleMaterial([]);
+                                setErrorDetalleKits("");
                             }
                         }}
                     >
@@ -1677,6 +2856,14 @@ export function SurtidoMrpPage() {
                                         setMaterialSeleccionado(
                                             null
                                         );
+
+                                        setKitDetalleSeleccionado(
+                                            null
+                                        );
+
+                                        setMostrarDetalleKits(false);
+                                        setKitsDetalleMaterial([]);
+                                        setErrorDetalleKits("");
                                     }}
                                     style={modalCloseStyle}
                                 >
@@ -1691,15 +2878,6 @@ export function SurtidoMrpPage() {
                                         materialSeleccionado.fecha
                                     )}
                                 />
-
-                                <DetalleTexto
-                                    etiqueta="Requisición"
-                                    valor={
-                                        materialSeleccionado
-                                            .numeroRequisicion
-                                    }
-                                />
-
                                 <DetalleTexto
                                     etiqueta="Proyecto"
                                     valor={
@@ -1733,36 +2911,33 @@ export function SurtidoMrpPage() {
                                     )}
                                 />
                             </div>
-
                             <div style={modalQuantityGridStyle}>
                                 <DetalleCantidad
-                                    etiqueta="Requerido del día"
+                                    etiqueta="Requerido hoy"
                                     valor={
                                         materialSeleccionado
                                             .cantidadRequeridaDia
                                     }
                                     color="#1d4ed8"
                                 />
+
                                 <DetalleCantidad
-                                    etiqueta="Surtido registrado"
+                                    etiqueta="Surtido hoy"
                                     valor={
                                         materialSeleccionado
-                                            .cantidadSurtidaAcumulada
+                                            .cantidadSurtidaDia
                                     }
                                     color="#0f766e"
                                 />
 
-                                {materialSeleccionado
-                                    .cantidadPendienteAcumulada > 0 && (
-                                        <DetalleCantidad
-                                            etiqueta="Surtido Pendiente"
-                                            valor={
-                                                materialSeleccionado
-                                                    .cantidadPendienteAcumulada
-                                            }
-                                            color="#b45309"
-                                        />
-                                    )}
+                                <DetalleCantidad
+                                    etiqueta="Pendiente hoy"
+                                    valor={
+                                        materialSeleccionado
+                                            .cantidadPendienteDia
+                                    }
+                                    color="#b45309"
+                                />
 
                                 <DetalleCantidad
                                     etiqueta="Disponible físico"
@@ -1772,11 +2947,12 @@ export function SurtidoMrpPage() {
                                     }
                                     color="#166534"
                                 />
+
                                 {obtenerFaltante(
                                     materialSeleccionado
                                 ) > 0 && (
                                         <DetalleCantidad
-                                            etiqueta="Faltante"
+                                            etiqueta="Faltante del día"
                                             valor={obtenerFaltante(
                                                 materialSeleccionado
                                             )}
@@ -1784,7 +2960,6 @@ export function SurtidoMrpPage() {
                                         />
                                     )}
                             </div>
-
                             <div style={modalKitSectionStyle}>
                                 <h3 style={modalSectionTitleStyle}>
                                     Kits físicos PICS
@@ -1817,8 +2992,185 @@ export function SurtidoMrpPage() {
                                         )}
                                     />
                                 </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void cargarDetalleKitsMaterial(
+                                            materialSeleccionado
+                                        );
+                                    }}
+                                    style={kitDetailsToggleStyle}
+                                >
+                                    <span>
+                                        {mostrarDetalleKits
+                                            ? "Ocultar detalle de kits"
+                                            : "Ver detalle de kits"}
+                                    </span>
+
+                                    <span style={kitDetailsCountStyle}>
+                                        {(
+                                            materialSeleccionado
+                                                .kitsDisponibles +
+                                            materialSeleccionado
+                                                .kitsNoRecibidos
+                                        ).toLocaleString(
+                                            "es-MX"
+                                        )}
+                                    </span>
+
+                                    <span
+                                        aria-hidden="true"
+                                        style={{
+                                            ...kitDetailsArrowStyle,
+                                            transform:
+                                                mostrarDetalleKits
+                                                    ? "rotate(180deg)"
+                                                    : "rotate(0deg)",
+                                        }}
+                                    >
+                                        ▼
+                                    </span>
+                                </button>
                             </div>
 
+
+                            {mostrarDetalleKits && (
+                                <div style={kitDetailsContainerStyle}>
+                                    {errorDetalleKits && (
+                                        <div style={errorStyle}>
+                                            {errorDetalleKits}
+                                        </div>
+                                    )}
+
+                                    {cargandoDetalleKits ? (
+                                        <div style={kitDetailsLoadingStyle}>
+                                            Cargando kits del material...
+                                        </div>
+                                    ) : kitsDetalleMaterial.length === 0 ? (
+                                        <div style={kitDetailsLoadingStyle}>
+                                            No existen kits relacionados con
+                                            este material.
+                                        </div>
+                                    ) : (
+                                        <div style={kitDetailsTableContainerStyle}>
+                                            <table style={kitDetailsTableStyle}>
+                                                <thead>
+                                                    <tr style={tableHeaderStyle}>
+                                                        <th style={kitDetailSerialThStyle}>
+                                                            Serial Kit
+                                                        </th>
+
+                                                        <th style={kitDetailQuantityThStyle}>
+                                                            Cantidad del kit
+                                                        </th>
+
+                                                        <th style={kitDetailQuantityThStyle}>
+                                                            Disponible
+                                                        </th>
+
+                                                        <th style={kitDetailStatusThStyle}>
+                                                            Estado
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+
+                                                <tbody>
+                                                    {kitsDetalleMaterial.map(
+                                                        (kit) => {
+                                                            const disponible =
+                                                                kit.estadoKit ===
+                                                                    "POR_RECIBIR"
+                                                                    ? 0
+                                                                    : kit
+                                                                        .cantidadDisponible;
+
+                                                            return (
+                                                                <tr
+                                                                    key={
+                                                                        kit.idMaterialKit
+                                                                    }
+                                                                    tabIndex={0}
+                                                                    onClick={() => {
+                                                                        setKitDetalleSeleccionado(
+                                                                            kit
+                                                                        );
+                                                                    }}
+                                                                    onKeyDown={(event) => {
+                                                                        if (
+                                                                            event.key ===
+                                                                            "Enter" ||
+                                                                            event.key === " "
+                                                                        ) {
+                                                                            event.preventDefault();
+
+                                                                            setKitDetalleSeleccionado(
+                                                                                kit
+                                                                            );
+                                                                        }
+                                                                    }}
+                                                                    style={
+                                                                        kitDetailTableRowStyle
+                                                                    }
+                                                                    title="Haz clic para ver los detalles del kit"
+                                                                >
+                                                                    <td
+                                                                        style={
+                                                                            kitDetailSerialTdStyle
+                                                                        }
+                                                                    >
+                                                                        <strong>
+                                                                            {kit.serialCaja}
+                                                                        </strong>
+                                                                    </td>
+
+                                                                    <td
+                                                                        style={
+                                                                            kitDetailQuantityTdStyle
+                                                                        }
+                                                                    >
+                                                                        {formatearCantidad(
+                                                                            kit.cantidadInicial
+                                                                        )}
+                                                                    </td>
+
+                                                                    <td
+                                                                        style={
+                                                                            kitDetailQuantityTdStyle
+                                                                        }
+                                                                    >
+                                                                        <strong>
+                                                                            {formatearCantidad(
+                                                                                disponible
+                                                                            )}
+                                                                        </strong>
+                                                                    </td>
+
+                                                                    <td
+                                                                        style={
+                                                                            kitDetailStatusTdStyle
+                                                                        }
+                                                                    >
+                                                                        <span
+                                                                            style={obtenerEstiloEstadoKit(
+                                                                                kit.estadoKit
+                                                                            )}
+                                                                        >
+                                                                            {obtenerTextoEstadoKit(
+                                                                                kit.estadoKit
+                                                                            )}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        }
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div
                                 style={{
                                     ...modalNoticeStyle,
@@ -1839,6 +3191,14 @@ export function SurtidoMrpPage() {
                                         setMaterialSeleccionado(
                                             null
                                         );
+
+                                        setKitDetalleSeleccionado(
+                                            null
+                                        );
+
+                                        setMostrarDetalleKits(false);
+                                        setKitsDetalleMaterial([]);
+                                        setErrorDetalleKits("");
                                     }}
                                     style={modalActionStyle}
                                 >
@@ -1849,6 +3209,210 @@ export function SurtidoMrpPage() {
                     </div>
                 )}
 
+                {kitDetalleSeleccionado && (
+                    <div
+                        style={miniModalOverlayStyle}
+                        role="presentation"
+                        onMouseDown={(event) => {
+                            if (
+                                event.target ===
+                                event.currentTarget
+                            ) {
+                                setKitDetalleSeleccionado(
+                                    null
+                                );
+                            }
+                        }}
+                    >
+                        <section
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="detalleSerialKitTitulo"
+                            style={miniModalStyle}
+                            onMouseDown={(event) => {
+                                event.stopPropagation();
+                            }}
+                        >
+                            <header style={modalHeaderStyle}>
+                                <div>
+                                    <span style={modalEyebrowStyle}>
+                                        Detalle del kit
+                                    </span>
+
+                                    <h2
+                                        id="detalleSerialKitTitulo"
+                                        style={miniModalTitleStyle}
+                                    >
+                                        {
+                                            kitDetalleSeleccionado
+                                                .serialCaja
+                                        }
+                                    </h2>
+
+                                    <p style={modalDescriptionStyle}>
+                                        Material{" "}
+                                        <strong>
+                                            {
+                                                kitDetalleSeleccionado
+                                                    .numeroMaterial
+                                            }
+                                        </strong>
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    aria-label="Cerrar detalle del kit"
+                                    onClick={() => {
+                                        setKitDetalleSeleccionado(
+                                            null
+                                        );
+                                    }}
+                                    style={modalCloseStyle}
+                                >
+                                    ×
+                                </button>
+                            </header>
+
+                            <div style={miniModalSummaryStyle}>
+                                <DetalleCantidad
+                                    etiqueta="Cantidad del kit"
+                                    valor={
+                                        kitDetalleSeleccionado
+                                            .cantidadInicial
+                                    }
+                                    color="#1d4ed8"
+                                />
+
+                                <DetalleCantidad
+                                    etiqueta="Disponible"
+                                    valor={
+                                        kitDetalleSeleccionado
+                                            .estadoKit ===
+                                            "POR_RECIBIR"
+                                            ? 0
+                                            : kitDetalleSeleccionado
+                                                .cantidadDisponible
+                                    }
+                                    color={
+                                        kitDetalleSeleccionado
+                                            .estadoKit ===
+                                            "POR_RECIBIR"
+                                            ? "#b91c1c"
+                                            : "#166534"
+                                    }
+                                />
+                            </div>
+
+                            <div style={miniModalStatusStyle}>
+                                <span
+                                    style={obtenerEstiloEstadoKit(
+                                        kitDetalleSeleccionado
+                                            .estadoKit
+                                    )}
+                                >
+                                    {obtenerTextoEstadoKit(
+                                        kitDetalleSeleccionado
+                                            .estadoKit
+                                    )}
+                                </span>
+                            </div>
+
+                            <div style={miniModalSectionStyle}>
+                                <h3 style={modalSectionTitleStyle}>
+                                    Información logística
+                                </h3>
+
+                                <div style={miniModalDetailsGridStyle}>
+                                    <DetalleTexto
+                                        etiqueta="ASN"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .numeroAsn ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Camión"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .numeroCamion ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Pallet"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .numeroPallet ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Localidad"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .localidad ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Rack"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .rack ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Ship From"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .shipFrom ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Estado PICS"
+                                        valor={
+                                            kitDetalleSeleccionado
+                                                .estadoOrigen ??
+                                            "Sin dato"
+                                        }
+                                    />
+
+                                    <DetalleTexto
+                                        etiqueta="Fecha de importación"
+                                        valor={formatearFechaHora(
+                                            kitDetalleSeleccionado
+                                                .fechaImportacion
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={modalActionsStyle}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setKitDetalleSeleccionado(
+                                            null
+                                        );
+                                    }}
+                                    style={modalActionStyle}
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                )}
                 {mostrarImportacionKits && (
                     <div style={modalOverlayStyle}>
                         <section style={modalStyle}>
@@ -2192,6 +3756,9 @@ export function SurtidoMrpPage() {
         </Layout>
     );
 }
+
+
+
 interface DetalleTextoProps {
     etiqueta: string;
     valor: string;
@@ -2243,41 +3810,6 @@ function DetalleCantidad({
     );
 }
 
-interface ResumenCardProps {
-    titulo: string;
-    valor: number;
-    color: string;
-    fondo: string;
-}
-
-function ResumenCard({
-    titulo,
-    valor,
-    color,
-    fondo,
-}: ResumenCardProps) {
-    return (
-        <div
-            style={{
-                ...summaryCardStyle,
-                background: fondo,
-            }}
-        >
-            <span style={summaryLabelStyle}>
-                {titulo}
-            </span>
-
-            <strong
-                style={{
-                    ...summaryValueStyle,
-                    color,
-                }}
-            >
-                {formatearCantidad(valor)}
-            </strong>
-        </div>
-    );
-}
 
 function formatearFecha(
     valor: string
@@ -2297,33 +3829,70 @@ function formatearFecha(
     return `${dia}/${mes}/${anio}`;
 }
 
+
+function formatearFechaHora(
+    valor: string
+) {
+    if (!valor) {
+        return "Sin dato";
+    }
+
+    const fechaNormalizada =
+        valor.replace(
+            " ",
+            "T"
+        );
+
+    const fechaValor =
+        new Date(
+            fechaNormalizada
+        );
+
+    if (
+        Number.isNaN(
+            fechaValor.getTime()
+        )
+    ) {
+        return valor;
+    }
+
+    return fechaValor.toLocaleString(
+        "es-MX",
+        {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        }
+    );
+}
+
 // Calcula cuánto no puede cubrirse
 // con la existencia física actual.
 function obtenerFaltante(
     material: MaterialSurtidoMrp
 ) {
     return Math.max(
-        material.cantidadPendienteAcumulada -
+        material.cantidadPendienteDia -
         material.cantidadDisponible,
         0
     );
 }
-
-// Calcula el saldo que quedaría después
-// de cubrir el pendiente del día.
-function obtenerSaldoRestante(
-    material: MaterialSurtidoMrp
-) {
-    return Math.max(
-        material.cantidadDisponible -
-        material.cantidadPendienteAcumulada,
-        0
-    );
-}
-
 function formatearCantidad(
-    cantidad: number
+    cantidad:
+        | number
+        | null
+        | undefined
 ) {
+    if (
+        cantidad === null ||
+        cantidad === undefined ||
+        !Number.isFinite(cantidad)
+    ) {
+        return "0";
+    }
+
     return cantidad.toLocaleString(
         "es-MX",
         {
@@ -2350,9 +3919,6 @@ function obtenerTextoEstado(
     estado: EstadoAbastecimiento
 ) {
     switch (estado) {
-        case "COMPLETADO":
-            return "Completado";
-
         case "DISPONIBLE":
             return "Disponible";
 
@@ -2415,12 +3981,6 @@ function obtenerColorEstado(
     estado: EstadoAbastecimiento
 ) {
     switch (estado) {
-        case "COMPLETADO":
-            return {
-                fondo: "#e0f2fe",
-                texto: "#0369a1",
-            };
-
         case "DISPONIBLE":
             return {
                 fondo: "#dcfce7",
@@ -2457,24 +4017,17 @@ function obtenerMensajeOperativo(
 ) {
     if (
         material.estadoSurtido ===
-        "COMPLETADO"
-    ) {
-        return (
-            "El requerimiento de este material " +
-            "ya está completado para esta fecha."
-        );
-    }
-
-    if (
-        material.estadoSurtido ===
         "DISPONIBLE"
     ) {
         return (
-            `Se pueden surtir ${formatearCantidad(
-                material.cantidadSurtibleAcumulada
-            )} para completar el pendiente del día.`
+            `Hay existencia suficiente para surtir ` +
+            `${formatearCantidad(
+                material.cantidadRequeridaDia
+            )} piezas requeridas para esta fecha.`
         );
     }
+
+
 
     if (
         material.estadoSurtido ===
@@ -2509,17 +4062,6 @@ function obtenerMensajeOperativo(
 function obtenerEstiloAviso(
     material: MaterialSurtidoMrp
 ) {
-    if (
-        material.estadoSurtido ===
-        "COMPLETADO"
-    ) {
-        return {
-            border: "1px solid #bae6fd",
-            background: "#f0f9ff",
-            color: "#0369a1",
-        };
-    }
-
     if (
         material.estadoSurtido ===
         "DISPONIBLE"
@@ -2599,6 +4141,77 @@ function obtenerMensajeError(
     }
 
     return mensajePredeterminado;
+}
+
+function obtenerTextoEstadoKit(
+    estadoKit: string
+) {
+    switch (estadoKit) {
+        case "DISPONIBLE":
+            return "Recibido";
+
+        case "POR_RECIBIR":
+            return "No recibido";
+
+        case "AGOTADO":
+            return "Agotado";
+
+        case "BLOQUEADO":
+            return "Bloqueado";
+
+        default:
+            return estadoKit;
+    }
+}
+
+function obtenerEstiloEstadoKit(
+    estadoKit: string
+) {
+    const estiloBase = {
+        display: "inline-block",
+        padding: "6px 9px",
+        borderRadius: "999px",
+        fontSize: "11px",
+        fontWeight: "900",
+        whiteSpace: "nowrap" as const,
+    };
+
+    switch (estadoKit) {
+        case "DISPONIBLE":
+            return {
+                ...estiloBase,
+                background: "#dcfce7",
+                color: "#166534",
+            };
+
+        case "POR_RECIBIR":
+            return {
+                ...estiloBase,
+                background: "#eff6ff",
+                color: "#1d4ed8",
+            };
+
+        case "AGOTADO":
+            return {
+                ...estiloBase,
+                background: "#f1f5f9",
+                color: "#64748b",
+            };
+
+        case "BLOQUEADO":
+            return {
+                ...estiloBase,
+                background: "#fee2e2",
+                color: "#b91c1c",
+            };
+
+        default:
+            return {
+                ...estiloBase,
+                background: "#f1f5f9",
+                color: "#475569",
+            };
+    }
 }
 
 
@@ -2737,33 +4350,6 @@ const selectionLabelStyle = {
     textTransform: "uppercase" as const,
 };
 
-const summaryGridStyle = {
-    display: "grid",
-    gridTemplateColumns:
-        "repeat(auto-fit, minmax(155px, 1fr))",
-    gap: "11px",
-    marginBottom: "23px",
-};
-
-const summaryCardStyle = {
-    minHeight: "85px",
-    boxSizing: "border-box" as const,
-    padding: "14px",
-    borderRadius: "10px",
-};
-
-const summaryLabelStyle = {
-    display: "block",
-    marginBottom: "8px",
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: "800",
-};
-
-const summaryValueStyle = {
-    display: "block",
-    fontSize: "22px",
-};
 
 const resultsHeaderStyle = {
     display: "flex",
@@ -2802,41 +4388,8 @@ const tableContainerStyle = {
     borderRadius: "10px",
 };
 
-const tableStyle = {
-    width: "100%",
-    minWidth: "850px",
-    borderCollapse: "collapse" as const,
-};
-
 const tableHeaderStyle = {
     background: "#f1f5f9",
-};
-
-const thStyle = {
-    padding: "11px",
-    borderBottom: "2px solid #cbd5e1",
-    color: "#102957",
-    fontSize: "12px",
-    textAlign: "left" as const,
-    whiteSpace: "nowrap" as const,
-};
-
-const numericThStyle = {
-    ...thStyle,
-    textAlign: "right" as const,
-};
-
-const tdStyle = {
-    padding: "11px",
-    borderBottom: "1px solid #e2e8f0",
-    color: "#334155",
-    fontSize: "13px",
-};
-
-const numericTdStyle = {
-    ...tdStyle,
-    textAlign: "right" as const,
-    whiteSpace: "nowrap" as const,
 };
 
 const statusBadgeStyle = {
@@ -2860,18 +4413,6 @@ const emptyStyle = {
     textAlign: "center" as const,
 };
 
-
-const clickableRowStyle = {
-    cursor: "pointer",
-    transition:
-        "background-color 0.15s ease",
-};
-
-const materialCellStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-};
 
 const materialNumberStyle = {
     color: "#102957",
@@ -3143,27 +4684,6 @@ const paginationTextStyle = {
     fontWeight: "800",
 };
 
-const paginationRangeStyle = {
-    color: "#64748b",
-    fontSize: "12px",
-};
-
-
-const withoutKitsStyle = {
-    color: "#94a3b8",
-    fontWeight: "700",
-    textAlign: "center" as const,
-
-
-};
-
-const kitsCellStyle = {
-    display: "flex",
-    alignItems: "flex-end",
-    flexDirection: "column" as const,
-    gap: "5px",
-};
-
 const kitsAvailableStyle = {
     display: "inline-block",
     padding: "5px 8px",
@@ -3304,4 +4824,469 @@ const importTableCellStyle = {
     color: "#475569",
     fontSize: "12px",
     verticalAlign: "top" as const,
+};
+const kitsMissingTableStyle = {
+    width: "100%",
+    minWidth: "1000px",
+    tableLayout: "fixed" as const,
+    borderCollapse: "collapse" as const,
+};
+
+
+const kitsIndividualTableStyle:
+    CSSProperties = {
+    width: "100%",
+    minWidth: "1000px",
+    tableLayout: "fixed",
+    borderCollapse: "collapse",
+};
+
+const kitHeaderBaseStyle = {
+    padding: "10px 8px",
+    borderBottom:
+        "2px solid #cbd5e1",
+    color: "#102957",
+    fontSize: "12px",
+    fontWeight: "800",
+    textAlign: "left" as const,
+    verticalAlign: "middle" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const materialKitThStyle = {
+    ...kitHeaderBaseStyle,
+    width: "11%",
+};
+
+const descriptionKitThStyle = {
+    ...kitHeaderBaseStyle,
+    width: "24%",
+};
+
+const typeKitThStyle = {
+    ...kitHeaderBaseStyle,
+    width: "6%",
+    textAlign: "center" as const,
+};
+
+const serialKitThStyle = {
+    ...kitHeaderBaseStyle,
+    width: "23%",
+};
+
+const quantityKitThStyle = {
+    ...kitHeaderBaseStyle,
+    width: "13%",
+    textAlign: "center" as const,
+};
+
+const statusKitThStyle = {
+    ...kitHeaderBaseStyle,
+    width: "10%",
+    textAlign: "center" as const,
+};
+
+const kitCellBaseStyle = {
+    padding: "8px",
+    height: "44px",
+    boxSizing: "border-box" as const,
+    borderBottom:
+        "1px solid #e2e8f0",
+    color: "#334155",
+    fontSize: "13px",
+    verticalAlign: "middle" as const,
+};
+
+const materialKitTdStyle = {
+    ...kitCellBaseStyle,
+    whiteSpace: "nowrap" as const,
+};
+
+const descriptionKitTdStyle = {
+    ...kitCellBaseStyle,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+};
+
+
+
+const typeKitTdStyle = {
+    ...kitCellBaseStyle,
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const serialKitTdStyle = {
+    ...kitCellBaseStyle,
+    color: "#17335f",
+    whiteSpace: "nowrap" as const,
+};
+
+const quantityKitTdStyle = {
+    ...kitCellBaseStyle,
+    width: "13%",
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+    fontVariantNumeric:
+        "tabular-nums",
+};
+
+const quantityAvailableKitTdStyle = {
+    ...quantityKitTdStyle,
+    color: "#102957",
+    fontWeight: "800",
+};
+
+
+const statusKitTdStyle = {
+    ...kitCellBaseStyle,
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+};
+const kitRowStyle = {
+    cursor: "pointer",
+    transition:
+        "background-color 0.15s ease",
+};
+
+const materialTotalTableStyle = {
+    width: "100%",
+    minWidth: "1000px",
+    tableLayout: "fixed" as const,
+    borderCollapse: "collapse" as const,
+};
+
+const materialTotalHeaderBaseStyle = {
+    padding: "10px 9px",
+    borderBottom:
+        "2px solid #cbd5e1",
+    color: "#102957",
+    fontSize: "12px",
+    fontWeight: "800",
+    verticalAlign: "middle" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const materialTotalThStyle = {
+    ...materialTotalHeaderBaseStyle,
+    width: "13%",
+    textAlign: "left" as const,
+};
+
+const descriptionTotalThStyle = {
+    ...materialTotalHeaderBaseStyle,
+    width: "27%",
+    textAlign: "left" as const,
+};
+
+const typeTotalThStyle = {
+    ...materialTotalHeaderBaseStyle,
+    width: "7%",
+    textAlign: "center" as const,
+};
+
+const quantityTotalThStyle = {
+    ...materialTotalHeaderBaseStyle,
+    width: "14%",
+    textAlign: "center" as const,
+};
+
+const statusTotalThStyle = {
+    ...materialTotalHeaderBaseStyle,
+    width: "11%",
+    textAlign: "center" as const,
+};
+
+const materialTotalCellBaseStyle = {
+    height: "46px",
+    boxSizing: "border-box" as const,
+    padding: "8px 9px",
+    borderBottom:
+        "1px solid #e2e8f0",
+    color: "#334155",
+    fontSize: "13px",
+    verticalAlign: "middle" as const,
+};
+
+const materialTotalTdStyle = {
+    ...materialTotalCellBaseStyle,
+    whiteSpace: "nowrap" as const,
+};
+
+const descriptionTotalTdStyle = {
+    ...materialTotalCellBaseStyle,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
+};
+
+const typeTotalTdStyle = {
+    ...materialTotalCellBaseStyle,
+    textAlign: "center" as const,
+};
+
+const quantityTotalTdStyle = {
+    ...materialTotalCellBaseStyle,
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+    fontVariantNumeric:
+        "tabular-nums",
+};
+
+const physicalTotalTdStyle = {
+    ...quantityTotalTdStyle,
+    color: "#166534",
+    fontWeight: "800",
+};
+
+const statusTotalTdStyle = {
+    ...materialTotalCellBaseStyle,
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const materialTotalRowStyle = {
+    cursor: "pointer",
+    transition:
+        "background-color 0.15s ease",
+};
+
+
+const kitDetailsToggleStyle = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    width: "100%",
+    minHeight: "44px",
+    marginTop: "4px",
+    padding: "10px 13px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "9px",
+    background: "#f8fafc",
+    color: "#102957",
+    fontSize: "13px",
+    fontWeight: "800",
+    textAlign: "left" as const,
+    cursor: "pointer",
+};
+
+const kitDetailsCountStyle = {
+    marginLeft: "auto",
+    padding: "4px 9px",
+    borderRadius: "999px",
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    fontSize: "13px",
+    fontWeight: "600",
+};
+
+const kitDetailsArrowStyle = {
+    display: "inline-block",
+    color: "#475569",
+    fontSize: "10px",
+    transition:
+        "transform 0.15s ease",
+};
+
+const kitDetailsContainerStyle = {
+    marginTop: "10px",
+};
+
+const kitDetailsLoadingStyle = {
+    padding: "20px",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "9px",
+    background: "#f8fafc",
+    color: "#64748b",
+    textAlign: "center" as const,
+    fontSize: "13px",
+};
+
+const kitDetailsTableContainerStyle = {
+    width: "100%",
+    maxHeight: "350px",
+    overflowX: "auto" as const,
+    overflowY: "auto" as const,
+    border: "1px solid #e2e8f0",
+    borderRadius: "9px",
+};
+
+const kitDetailsTableStyle = {
+    width: "100%",
+    minWidth: "650px",
+    tableLayout: "fixed" as const,
+    borderCollapse: "collapse" as const,
+    background: "#ffffff",
+};
+
+const kitDetailHeaderBaseStyle = {
+    position: "sticky" as const,
+    top: 0,
+    zIndex: 1,
+    padding: "10px",
+    borderBottom:
+        "2px solid #cbd5e1",
+    background: "#f1f5f9",
+    color: "#102957",
+    fontSize: "11px",
+    fontWeight: "900",
+    textTransform: "uppercase" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const kitDetailSerialThStyle = {
+    ...kitDetailHeaderBaseStyle,
+    width: "42%",
+    textAlign: "left" as const,
+};
+
+const kitDetailQuantityThStyle = {
+    ...kitDetailHeaderBaseStyle,
+    width: "19%",
+    textAlign: "center" as const,
+};
+
+const kitDetailStatusThStyle = {
+    ...kitDetailHeaderBaseStyle,
+    width: "20%",
+    textAlign: "center" as const,
+};
+
+const kitDetailCellBaseStyle = {
+    height: "46px",
+    boxSizing: "border-box" as const,
+    padding: "8px 10px",
+    borderBottom:
+        "1px solid #e2e8f0",
+    color: "#334155",
+    fontSize: "12px",
+    verticalAlign: "middle" as const,
+};
+
+const kitDetailSerialTdStyle = {
+    ...kitDetailCellBaseStyle,
+    color: "#102957",
+    textAlign: "left" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const kitDetailQuantityTdStyle = {
+    ...kitDetailCellBaseStyle,
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+    fontVariantNumeric:
+        "tabular-nums",
+};
+
+const kitDetailStatusTdStyle = {
+    ...kitDetailCellBaseStyle,
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+const kitDetailTableRowStyle = {
+    cursor: "pointer",
+    background: "#ffffff",
+    transition:
+        "background-color 0.15s ease",
+};
+
+
+
+const miniModalOverlayStyle = {
+    position: "fixed" as const,
+    inset: 0,
+    zIndex: 3000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    background:
+        "rgba(15, 23, 42, 0.45)",
+};
+
+const miniModalStyle = {
+    width: "100%",
+    maxWidth: "650px",
+    maxHeight: "85vh",
+    overflowY: "auto" as const,
+    boxSizing: "border-box" as const,
+    padding: "22px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "14px",
+    background: "#ffffff",
+    boxShadow:
+        "0 25px 65px rgba(15, 23, 42, 0.4)",
+};
+
+const miniModalTitleStyle = {
+    margin: 0,
+    color: "#102957",
+    fontSize: "21px",
+    overflowWrap: "anywhere" as const,
+};
+
+const miniModalSummaryStyle = {
+    display: "grid",
+    gridTemplateColumns:
+        "repeat(2, minmax(0, 1fr))",
+    gap: "10px",
+    marginBottom: "12px",
+};
+
+const miniModalStatusStyle = {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: "14px",
+};
+
+const miniModalSectionStyle = {
+    padding: "15px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "10px",
+    background: "#ffffff",
+};
+
+const miniModalDetailsGridStyle = {
+    display: "grid",
+    gridTemplateColumns:
+        "repeat(auto-fit, minmax(140px, 1fr))",
+    gap: "9px",
+};
+
+// Total de kits pendientes de recepción.
+const kitsPendingStyle = {
+    display: "inline-block",
+    minWidth: "60px",
+    padding: "5px 8px",
+    borderRadius: "999px",
+    background: "#fff7ed",
+    color: "#c2410c",
+    fontSize: "11px",
+    fontWeight: "900",
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
+};
+
+// Cantidad documentada aún no recibida.
+const pendingQuantityTdStyle = {
+    ...quantityTotalTdStyle,
+    color: "#c2410c",
+    fontWeight: "800",
+};
+
+// Estado fijo para material no recibido.
+const unavailableBadgeStyle = {
+    display: "inline-block",
+    minWidth: "100px",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "#fee2e2",
+    color: "#b91c1c",
+    fontSize: "11px",
+    fontWeight: "900",
+    textAlign: "center" as const,
+    whiteSpace: "nowrap" as const,
 };
